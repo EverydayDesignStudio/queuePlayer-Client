@@ -4,7 +4,7 @@ import requests
 
 userID=1
 bpmAdded=170
-base_url="https://spotifyapi-qp.herokuapp.com/"
+base_url="https://queue-player.herokuapp.com/"
 playing=False
 add=0
 flag=0
