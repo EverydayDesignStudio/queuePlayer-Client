@@ -2,9 +2,9 @@ from threading import Timer
 from time import time
 import requests
 
-userID=1
+userID=2
 bpmAdded=170
-base_url="https://spotifyapi-qp.herokuapp.com/"
+base_url="http://localhost:8888/"
 playing=False
 add=0
 flag=0
@@ -16,7 +16,7 @@ msPrev=0
 def makeUserActive():
     global userID
     userActive=requests.post(base_url+"makeActive", json={"user_id":userID})
-    print("Active Users :")
+    print("Active Users : ")
     print(userActive.json())
 
 def pushBPMToPlay():
@@ -49,7 +49,6 @@ def playSongsToContinue():
 
     trackArr=[]
     trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
-    global add
     add-=1
     playSong(trackArr)
 
@@ -109,9 +108,9 @@ def checkBPMAdded():
         
 
 makeUserActive()
-checkBPMAdded()
-print("Press enter for BPM")
-while(1):
-    value = input()
-    if(value==""):
-        TapBPM()
+# checkBPMAdded()
+# print("Press enter for BPM")
+# while(1):
+#     value = input()
+#     if(value==""):
+#         TapBPM()
