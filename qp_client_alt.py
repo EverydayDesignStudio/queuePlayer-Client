@@ -13,6 +13,8 @@ count=0
 msFirst=0
 msPrev=0
 
+songID='spotify:track:5B4YQN1FCuADJ0o4phAtwC'
+
 def makeUserActive():
     global userID
     userActive=requests.post(base_url+"makeActive", json={"user_id":userID})
@@ -108,9 +110,9 @@ def checkBPMAdded():
         
 
 makeUserActive()
-# checkBPMAdded()
-# print("Press enter for BPM")
-# while(1):
-#     value = input()
-#     if(value==""):
-#         TapBPM()
+checkBPMAdded()
+print("Press enter for BPM")
+while(1):
+    value = input()
+    if(value==""):
+        TapBPM()

@@ -5,6 +5,8 @@ import requests
 userID=1
 bpmAdded=170
 base_url="https://queue-player.herokuapp.com/"
+base_url1="http://localhost:8000/"
+base_url2="http://localhost:8888/"
 # base_url="https://spotifyapi-qp.herokuapp.com/"
 playing=False
 add=0
@@ -16,14 +18,14 @@ msPrev=0
 
 def makeUserActive():
     global userID
-    userActive=requests.post(base_url+"makeActive", json={"user_id":userID})
+    userActive=requests.post(base_url1+"makeActive", json={"user_id":userID})
     print("Active Users :")
     print(userActive.json())
 
 def pushBPMToPlay():
     print()
     print("Since Queue was Empty, Pushing song to Play")
-    songToBePlayed=requests.post(base_url+"getTrackToPlay", json={"bpm":bpmAdded, "userID":userID})
+    songToBePlayed=requests.post(base_url1+"getTrackToPlay", json={"bpm":bpmAdded, "userID":userID})
     print("Initial Queue : ", songToBePlayed.json())
     trackArr=[]
     trackArr.append("spotify:track:"+songToBePlayed.json()['song']['track_id'])
@@ -32,13 +34,13 @@ def pushBPMToPlay():
 def pushBPMToQueue(add):
     print()
     print("Since Song is playing, Pushing song to Queue")
-    songToBeQueued=requests.post(base_url+"getTrackToQueue", json={"bpm":bpmAdded, "userID":userID, "offset":add})
+    songToBeQueued=requests.post(base_url1+"getTrackToQueue", json={"bpm":bpmAdded, "userID":userID, "offset":add})
     print("Updated Queue : ",songToBeQueued.json())
 
 def playSong(trkArr):
     print()
     print("Playing Song with ID: ", trkArr)
-    song=requests.post(base_url+"playback", json={"song":trkArr})
+    song=requests.post(base_url2+"playback", json={"song":trkArr})
     global playing
     playing=True
     checkSongCompleted() 
@@ -46,7 +48,7 @@ def playSong(trkArr):
 def playSongsToContinue():
     print()
     print("Continue Playing")
-    continueSong=requests.get(base_url+"continuePlaying")
+    continueSong=requests.get(base_url1+"continuePlaying")
 
     trackArr=[]
     trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
@@ -60,7 +62,7 @@ def playSongsToContinue():
 
 def checkSongCompleted():
     global playing
-    playerState=requests.get(base_url+"getState")
+    playerState=requests.get(base_url2+"getState")
     if playerState.json()['state']=="ended":
         playing=False
         playSongsToContinue()
