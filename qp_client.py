@@ -4,7 +4,7 @@ import requests
 
 userID=1
 bpmAdded=170
-base_url="https://queue-player.herokuapp.com/"
+# base_url="https://queue-player.herokuapp.com/"
 base_url1="https://qp-master-server.herokuapp.com/"
 base_url2="https://qp1-server.herokuapp.com/"
 # base_url="https://spotifyapi-qp.herokuapp.com/"
@@ -15,6 +15,7 @@ bpmCheck=True
 count=0
 msFirst=0
 msPrev=0
+seekedPlayer=0
 
 def makeUserActive():
     global userID
@@ -25,11 +26,13 @@ def makeUserActive():
 
 def seekToPlay():
     playerSeek=requests.get(base_url1+"getSeek")
-    if(playerSeek.json['seek']>0):
+    print(playerSeek.json())
+    if(playerSeek.json()['seek']>0):
         trackArr=[]
         trackArr.append("spotify:track:"+playerSeek.json()['id'])
         playSong(trackArr)
-        playSongFromSeek(playerSeek.json()['seek'])
+        seekedPlayer=playerSeek.json()['seek']
+        playSongFromSeek(seekedPlayer)
 
 def pushBPMToPlay():
     print()
@@ -69,7 +72,7 @@ def playSongsToContinue():
     playing=True
     checkSongCompleted() 
 
-def playSongFromSeek(seekedPlayer):
+def playSongFromSeek():
     seekSong=requests.post(base_url2+"seek", json={"seek":seekedPlayer})
     checkSongCompleted()
 
@@ -82,7 +85,7 @@ def checkSongCompleted():
     else:
         playing=True
 
-    playerSeek=requests.post(base_url1+"updateSeek", json={"seek":playerState.json()['seek']})
+    playerSeek=requests.post(base_url1+"updateSeek", json={"seek":seekedPlayer})
 
     if playing:
         Timer(1,checkSongCompleted).start()
