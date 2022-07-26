@@ -25,6 +25,7 @@ def makeUserActive():
     seekToPlay()
 
 def seekToPlay():
+    global seekedPlayer
     playerSeek=requests.get(base_url1+"getSeek")
     print(playerSeek.json())
     if(playerSeek.json()['seek']>0):
@@ -73,11 +74,13 @@ def playSongsToContinue():
     checkSongCompleted() 
 
 def playSongFromSeek():
+    global seekedPlayer
     seekSong=requests.post(base_url2+"seek", json={"seek":seekedPlayer})
     checkSongCompleted()
 
 def checkSongCompleted():
     global playing
+    global seekedPlayer
     playerState=requests.get(base_url2+"getState")
     if playerState.json()['state']=="ended":
         playing=False
@@ -85,7 +88,7 @@ def checkSongCompleted():
     else:
         playing=True
 
-    playerSeek=requests.post(base_url1+"updateSeek", json={"seek":seekedPlayer})
+    playerSeek=requests.post(base_url1+"updateSeek", json={"song":"spotify:track:"+playerState.json()['song'],"seek":playerState.json()['seek']})
 
     if playing:
         Timer(1,checkSongCompleted).start()
