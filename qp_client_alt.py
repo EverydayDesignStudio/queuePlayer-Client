@@ -4,7 +4,10 @@ import requests
 
 userID=2
 bpmAdded=170
-base_url="http://localhost:8888/"
+# base_url="https://queue-player.herokuapp.com/"
+base_url1="https://qp-master-server.herokuapp.com/"
+base_url2="https://qp2-server.herokuapp.com/"
+# base_url="https://spotifyapi-qp.herokuapp.com/"
 playing=False
 add=0
 flag=0
@@ -12,19 +15,30 @@ bpmCheck=True
 count=0
 msFirst=0
 msPrev=0
-
-songID='spotify:track:5B4YQN1FCuADJ0o4phAtwC'
+seekedPlayer=0
 
 def makeUserActive():
     global userID
-    userActive=requests.post(base_url+"makeActive", json={"user_id":userID})
-    print("Active Users : ")
+    userActive=requests.post(base_url1+"makeActive", json={"user_id":userID})
+    print("Active Users :")
     print(userActive.json())
+    # seekToPlay()
+
+def seekToPlay():
+    global seekedPlayer
+    playerSeek=requests.get(base_url1+"getSeek")
+    print(playerSeek.json())
+    if(playerSeek.json()['seek']>0):
+        trackArr=[]
+        trackArr.append(playerSeek.json()['id'])
+        playSong(trackArr)
+        seekedPlayer=playerSeek.json()['seek']
+        playSongFromSeek()
 
 def pushBPMToPlay():
     print()
     print("Since Queue was Empty, Pushing song to Play")
-    songToBePlayed=requests.post(base_url+"getTrackToPlay", json={"bpm":bpmAdded, "userID":userID})
+    songToBePlayed=requests.post(base_url1+"getTrackToPlay", json={"bpm":bpmAdded, "userID":userID})
     print("Initial Queue : ", songToBePlayed.json())
     trackArr=[]
     trackArr.append("spotify:track:"+songToBePlayed.json()['song']['track_id'])
@@ -33,13 +47,13 @@ def pushBPMToPlay():
 def pushBPMToQueue(add):
     print()
     print("Since Song is playing, Pushing song to Queue")
-    songToBeQueued=requests.post(base_url+"getTrackToQueue", json={"bpm":bpmAdded, "userID":userID, "offset":add})
+    songToBeQueued=requests.post(base_url1+"getTrackToQueue", json={"bpm":bpmAdded, "userID":userID, "offset":add})
     print("Updated Queue : ",songToBeQueued.json())
 
 def playSong(trkArr):
     print()
     print("Playing Song with ID: ", trkArr)
-    song=requests.post(base_url+"playback", json={"song":trkArr})
+    song=requests.post(base_url2+"playback", json={"song":trkArr})
     global playing
     playing=True
     checkSongCompleted() 
@@ -47,10 +61,11 @@ def playSong(trkArr):
 def playSongsToContinue():
     print()
     print("Continue Playing")
-    continueSong=requests.get(base_url+"continuePlaying")
+    continueSong=requests.get(base_url1+"continuePlaying")
 
     trackArr=[]
     trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
+    global add
     add-=1
     playSong(trackArr)
 
@@ -58,14 +73,23 @@ def playSongsToContinue():
     playing=True
     checkSongCompleted() 
 
+def playSongFromSeek():
+    global seekedPlayer
+    seekSong=requests.post(base_url2+"seek", json={"seek":seekedPlayer})
+    checkSongCompleted()
+
 def checkSongCompleted():
     global playing
-    playerState=requests.get(base_url+"getState")
+    global seekedPlayer
+    playerState=requests.get(base_url2+"getState")
     if playerState.json()['state']=="ended":
         playing=False
         playSongsToContinue()
     else:
         playing=True
+
+    if playerState.json()['song'] != None: 
+        playerSeek=requests.post(base_url1+"updateSeek", json={"song":"spotify:track:"+playerState.json()['song'],"seek":playerState.json()['seek']})
 
     if playing:
         Timer(1,checkSongCompleted).start()

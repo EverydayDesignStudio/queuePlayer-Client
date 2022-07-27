@@ -22,7 +22,7 @@ def makeUserActive():
     userActive=requests.post(base_url1+"makeActive", json={"user_id":userID})
     print("Active Users :")
     print(userActive.json())
-    seekToPlay()
+    # seekToPlay()
 
 def seekToPlay():
     global seekedPlayer
@@ -30,10 +30,10 @@ def seekToPlay():
     print(playerSeek.json())
     if(playerSeek.json()['seek']>0):
         trackArr=[]
-        trackArr.append("spotify:track:"+playerSeek.json()['id'])
+        trackArr.append(playerSeek.json()['id'])
         playSong(trackArr)
         seekedPlayer=playerSeek.json()['seek']
-        playSongFromSeek(seekedPlayer)
+        playSongFromSeek()
 
 def pushBPMToPlay():
     print()
@@ -88,7 +88,8 @@ def checkSongCompleted():
     else:
         playing=True
 
-    playerSeek=requests.post(base_url1+"updateSeek", json={"song":"spotify:track:"+playerState.json()['song'],"seek":playerState.json()['seek']})
+    if playerState.json()['song'] != None: 
+        playerSeek=requests.post(base_url1+"updateSeek", json={"song":"spotify:track:"+playerState.json()['song'],"seek":playerState.json()['seek']})
 
     if playing:
         Timer(1,checkSongCompleted).start()
