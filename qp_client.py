@@ -11,6 +11,8 @@ bpmAdded=170
 base_url1="https://qpm-server.herokuapp.com/"
 base_url2="https://qpo-server.herokuapp.com/"
 
+playerID="0"
+
 playing=False
 add=0
 flag=0
@@ -54,9 +56,12 @@ def pushBPMToQueue(add):
     print("Updated Queue : ",songToBeQueued.json())
 
 def playSong(trkArr):
+    global playerID
+    print(playerID)
     print()
     print("Playing Song with ID: ", trkArr)
-    song=requests.post(base_url2+"playback", json={"song":trkArr})
+    song=requests.post(base_url2+"playback", json={"song":trkArr, "player":playerID})
+    print(song)
     global playing
     playing=True
     checkSongCompleted() 
@@ -97,6 +102,13 @@ def checkSongCompleted():
     if playing:
         Timer(1,checkSongCompleted).start()
 
+def avaDevice():
+    ad=requests.get(base_url2+'getAvailable')
+
+    global playerID
+    playerID=ad.json()[0]['id']
+    print(ad.json())
+
 def TapBPM(): 
     global count
     global msFirst  
@@ -135,7 +147,7 @@ def checkBPMAdded():
     if bpmCheck:
         Timer(1,checkBPMAdded).start()
         
-
+avaDevice()
 makeUserActive()
 checkBPMAdded()
 print("Press enter for BPM")
