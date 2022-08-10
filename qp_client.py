@@ -102,12 +102,17 @@ def checkSongCompleted():
     if playing:
         Timer(1,checkSongCompleted).start()
 
-def avaDevice():
+def availableDevice():
     ad=requests.get(base_url2+'getAvailable')
-
+    
+    print(ad.json())
+    # for i in range(0, len(ad.json())):
+    #     if(ad.json()[i]['is_active']==True):
+    #         playerID=ad.json()[i]['id']
+    #         break
     global playerID
     playerID=ad.json()[0]['id']
-    print(ad.json())
+
 
 def TapBPM(): 
     global count
@@ -147,7 +152,7 @@ def checkBPMAdded():
     if bpmCheck:
         Timer(1,checkBPMAdded).start()
         
-avaDevice()
+availableDevice()
 makeUserActive()
 checkBPMAdded()
 print("Press enter for BPM")
