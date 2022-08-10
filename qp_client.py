@@ -5,10 +5,12 @@ import requests
 #varibale to determine the user
 userID=1
 bpmAdded=170
-# base_url="https://queue-player.herokuapp.com/"
-base_url1="https://qp-master-server.herokuapp.com/"
-base_url2="https://qp1-server.herokuapp.com/"
-# base_url="https://spotifyapi-qp.herokuapp.com/"
+# base_url1="https://qpmaster-server.herokuapp.com/"
+# base_url2="https://qpone-server.herokuapp.com/"
+
+base_url1="https://qpm-server.herokuapp.com/"
+base_url2="https://qpo-server.herokuapp.com/"
+
 playing=False
 add=0
 flag=0
@@ -22,7 +24,7 @@ def makeUserActive():
     global userID
     userActive=requests.post(base_url1+"makeActive", json={"user_id":userID})
     print("Active Users :")
-    print(userActive)
+    print(userActive.json())
     # seekToPlay()
 
 def seekToPlay():
