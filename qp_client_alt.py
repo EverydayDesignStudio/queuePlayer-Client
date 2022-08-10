@@ -2,12 +2,15 @@ from threading import Timer
 from time import time
 import requests
 
+#varibale to determine the user
 userID=2
 bpmAdded=170
-# base_url="https://queue-player.herokuapp.com/"
-base_url1="https://qp-master-server.herokuapp.com/"
-base_url2="https://qp2-server.herokuapp.com/"
-# base_url="https://spotifyapi-qp.herokuapp.com/"
+# base_url1="https://qpmaster-server.herokuapp.com/"
+# base_url2="https://qpone-server.herokuapp.com/"
+
+base_url1="https://qpm-server.herokuapp.com/"
+base_url2="https://qpt-server.herokuapp.com/"
+
 playing=False
 add=0
 flag=0
