@@ -2,17 +2,16 @@ from threading import Timer
 from time import time
 import requests
 
-#varibale to determine the user
+#variable to determine the user
 userID=1
+#variable that keeps the record of the current BPM added by the user
 bpmAdded=170
-# base_url1="https://qpmaster-server.herokuapp.com/"
-# base_url2="https://qpone-server.herokuapp.com/"
 
+#both hosted servers for queue player funcitonality
 base_url1="https://qpm-server.herokuapp.com/"
 base_url2="https://qpo-server.herokuapp.com/"
 
-playerID="0"
-
+playerID=""
 playing=False
 add=0
 flag=0
@@ -22,16 +21,23 @@ msFirst=0
 msPrev=0
 seekedPlayer=0
 
+#function to check the active users for each queue player client
 def makeUserActive():
     global userID
     userActive=requests.post(base_url1+"makeActive", json={"user_id":userID})
     print("Active Users :")
     print(userActive.json())
 
+#function to get the available devices linked to the authenticated account and get their player id for playback
+def availableDevice():
+    ad=requests.get(base_url2+'getAvailable')
+    global playerID
+    playerID=ad.json()[0]['id']
+
+#function to get the current timestamp playing in all the rest of the players and seek the player 
 def seekToPlay():
     global seekedPlayer
     playerSeek=requests.get(base_url1+"getSeek")
-    print(playerSeek.json())
     if(playerSeek.json()['seek']>0):
         trackArr=[]
         trackArr.append("spotify:track:"+playerSeek.json()['id'])
@@ -39,6 +45,8 @@ def seekToPlay():
         seekedPlayer=playerSeek.json()['seek']
         playSongFromSeek()
 
+#function to push the BPM added by the client to the master server and use the spotify server to call and play the song if no song is in the queue
+#simultaneously update the queue with the pushed BPM
 def pushBPMToPlay():
     print()
     print("Since Queue was Empty, Pushing song to Play")
@@ -48,12 +56,15 @@ def pushBPMToPlay():
     trackArr.append("spotify:track:"+songToBePlayed.json()['song']['track_id'])
     playSong(trackArr)
 
+#function to push the BPM added by the client to the master server
+#simultaneously update the queue with the pushed BPM as the player is playing
 def pushBPMToQueue(add):
     print()
     print("Since Song is playing, Pushing song to Queue")
     songToBeQueued=requests.post(base_url1+"getTrackToQueue", json={"bpm":bpmAdded, "userID":userID, "offset":add})
     print("Updated Queue : ",songToBeQueued.json())
 
+#function to play the song by sending the request to the spotify server associated with this client
 def playSong(trkArr):
     global playerID
     print(playerID)
@@ -65,6 +76,7 @@ def playSong(trkArr):
     playing=True
     checkSongCompleted() 
 
+#function to continue playing the next song from the queue by sending the request to the spotify server associated with this client
 def playSongsToContinue():
     print()
     print("Continue Playing")
@@ -80,11 +92,13 @@ def playSongsToContinue():
     playing=True
     checkSongCompleted() 
 
+#function to play the song pointed with the seek timestamp by sending the request to the spotify server associated with this client
 def playSongFromSeek():
     global seekedPlayer
     print("PlayFromSeek: ", seekedPlayer)
     seekSong=requests.post(base_url2+"seek", json={"seek":seekedPlayer})
 
+#function to periodically check the player state to indicate when a song is finished
 def checkSongCompleted():
     global playing
     global seekedPlayer
@@ -101,18 +115,8 @@ def checkSongCompleted():
     if playing:
         Timer(1,checkSongCompleted).start()
 
-def availableDevice():
-    ad=requests.get(base_url2+'getAvailable')
-    
-    print(ad.json())
-    # for i in range(0, len(ad.json())):
-    #     if(ad.json()[i]['is_active']==True):
-    #         playerID=ad.json()[i]['id']
-    #         break
-    global playerID
-    playerID=ad.json()[0]['id']
 
-
+#function to calculate BPM input
 def TapBPM(): 
     global count
     global msFirst  
@@ -135,6 +139,7 @@ def TapBPM():
     msPrev=msCurr
     flag=1
 
+#function to periodically check the client state to indicate when a bpm is added
 def checkBPMAdded():    
     global playing, add, flag, bpmAdded
     msCurr=int(time()*1000)
@@ -149,14 +154,15 @@ def checkBPMAdded():
     
     global bpmCheck
     if bpmCheck:
-        Timer(1,checkBPMAdded).start()
-        
-availableDevice()
+        Timer(2,checkBPMAdded).start()
+
 makeUserActive()
+availableDevice()
 seekToPlay()
-# checkBPMAdded()
-# print("Press enter for BPM")
-# while(1):
-#     value = input()
-#     if(value==""):
-#         TapBPM()
+checkBPMAdded()
+
+print("Press enter for BPM")
+while(1):
+    value = input()
+    if(value==""):
+        TapBPM()
