@@ -27,7 +27,6 @@ def makeUserActive():
     userActive=requests.post(base_url1+"makeActive", json={"user_id":userID})
     print("Active Users :")
     print(userActive.json())
-    # seekToPlay()
 
 def seekToPlay():
     global seekedPlayer
@@ -35,7 +34,7 @@ def seekToPlay():
     print(playerSeek.json())
     if(playerSeek.json()['seek']>0):
         trackArr=[]
-        trackArr.append(playerSeek.json()['id'])
+        trackArr.append("spotify:track:"+playerSeek.json()['id'])
         playSong(trackArr)
         seekedPlayer=playerSeek.json()['seek']
         playSongFromSeek()
@@ -83,8 +82,8 @@ def playSongsToContinue():
 
 def playSongFromSeek():
     global seekedPlayer
+    print("PlayFromSeek: ", seekedPlayer)
     seekSong=requests.post(base_url2+"seek", json={"seek":seekedPlayer})
-    checkSongCompleted()
 
 def checkSongCompleted():
     global playing
@@ -154,9 +153,10 @@ def checkBPMAdded():
         
 availableDevice()
 makeUserActive()
-checkBPMAdded()
-print("Press enter for BPM")
-while(1):
-    value = input()
-    if(value==""):
-        TapBPM()
+seekToPlay()
+# checkBPMAdded()
+# print("Press enter for BPM")
+# while(1):
+#     value = input()
+#     if(value==""):
+#         TapBPM()
