@@ -110,7 +110,7 @@ def checkSongCompleted():
         playing=True
 
     if playerState.json()['song'] != None: 
-        playerSeek=requests.post(base_url1+"updateSeek", json={"song":"spotify:track:"+playerState.json()['song'],"seek":playerState.json()['seek']})
+        playerSeek=requests.post(base_url1+"updateSeek", json={"song":playerState.json()['song'],"seek":playerState.json()['seek']})
 
     if playing:
         Timer(1,checkSongCompleted).start()
