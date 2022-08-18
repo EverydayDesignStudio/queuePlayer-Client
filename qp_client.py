@@ -4,6 +4,7 @@ import requests
 
 #variable to determine the user
 userID=1
+
 #variable that keeps the record of the current BPM added by the user
 bpmAdded=170
 
@@ -97,6 +98,8 @@ def playSongFromSeek():
     global seekedPlayer
     print("PlayFromSeek: ", seekedPlayer)
     seekSong=requests.post(base_url2+"seek", json={"seek":seekedPlayer})
+    checkSongCompleted() 
+
 
 #function to periodically check the player state to indicate when a song is finished
 def checkSongCompleted():
