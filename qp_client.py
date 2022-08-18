@@ -32,6 +32,7 @@ def makeUserActive():
 #function to get the available devices linked to the authenticated account and get their player id for playback
 def availableDevice():
     ad=requests.get(base_url2+'getAvailable')
+    print(ad.json())
     global playerID
     playerID=ad.json()[0]['id']
 

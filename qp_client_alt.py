@@ -4,6 +4,7 @@ import requests
 
 #variable to determine the user
 userID=2
+
 #variable that keeps the record of the current BPM added by the user
 bpmAdded=170
 
@@ -31,6 +32,7 @@ def makeUserActive():
 #function to get the available devices linked to the authenticated account and get their player id for playback
 def availableDevice():
     ad=requests.get(base_url2+'getAvailable')
+    print(ad.json())
     global playerID
     playerID=ad.json()[0]['id']
 
@@ -97,6 +99,8 @@ def playSongFromSeek():
     global seekedPlayer
     print("PlayFromSeek: ", seekedPlayer)
     seekSong=requests.post(base_url2+"seek", json={"seek":seekedPlayer})
+    checkSongCompleted() 
+
 
 #function to periodically check the player state to indicate when a song is finished
 def checkSongCompleted():
@@ -113,7 +117,7 @@ def checkSongCompleted():
         playerSeek=requests.post(base_url1+"updateSeek", json={"song":playerState.json()['song'],"seek":playerState.json()['seek']})
 
     if playing:
-        Timer(1,checkSongCompleted).start()
+        Timer(0.5,checkSongCompleted).start()
 
 
 #function to calculate BPM input
