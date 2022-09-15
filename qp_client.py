@@ -92,14 +92,14 @@ def playSongsToContinue():
 
     global playing
     playing=True
-    checkSongCompleted() 
+    # checkSongCompleted() 
 
 #function to play the song pointed with the seek timestamp by sending the request to the spotify server associated with this client
 def playSongFromSeek():
     global seekedPlayer
     print("PlayFromSeek: ", seekedPlayer)
     seekSong=requests.post(base_url2+"seek", json={"seek":seekedPlayer})
-    checkSongCompleted() 
+    # checkSongCompleted() 
 
 
 #function to periodically check the player state to indicate when a song is finished
