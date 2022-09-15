@@ -110,6 +110,7 @@ def checkSongCompleted():
     if playerState.json()['state']=="ended":
         playing=False
         playSongsToContinue()
+        print("Song has ended")
     else:
         playing=True
 
