@@ -106,6 +106,7 @@ def playSongFromSeek():
 def checkSongCompleted():
     global playing
     global seekedPlayer
+    tt=Timer(1,checkSongCompleted)
     playerState=requests.get(base_url2+"getState")
     if playerState.json()['state']=="ended":
         playing=False
@@ -118,7 +119,9 @@ def checkSongCompleted():
         playerSeek=requests.post(base_url1+"updateSeek", json={"song":playerState.json()['song'],"seek":playerState.json()['seek']})
 
     if playing:
-        Timer(1,checkSongCompleted).start()
+        tt.start()
+    else:
+        tt.cancel()
 
 
 #function to calculate BPM input
