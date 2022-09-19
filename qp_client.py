@@ -6,7 +6,7 @@ import requests
 userID=1
 
 #variable that keeps the record of the current BPM added by the user
-bpmAdded=170
+bpmAdded=36
 
 #both hosted servers for queue player funcitonality
 base_url1="https://qpm-server.herokuapp.com/"
@@ -15,7 +15,7 @@ base_url2="https://qpo-server.herokuapp.com/"
 playerID=""
 playing=False
 add=0
-flag=0
+flag=1
 bpmCheck=True
 count=0
 msFirst=0
@@ -32,6 +32,7 @@ def makeUserActive():
 #function to get the available devices linked to the authenticated account and get their player id for playback
 def availableDevice():
     ad=requests.get(base_url2+'getAvailable')
+    print("Available devices :")
     print(ad.json())
     global playerID
     playerID=ad.json()[0]['id']
@@ -41,6 +42,8 @@ def seekToPlay():
     global seekedPlayer
     playerSeek=requests.get(base_url1+"getSeek")
     if(playerSeek.json()['seek']>0):
+        print("Seeked Song")
+        print(playerSeek)
         trackArr=[]
         trackArr.append("spotify:track:"+playerSeek.json()['id'])
         playSong(trackArr)
@@ -107,11 +110,12 @@ def checkSongCompleted():
     global playing
     global seekedPlayer
     tt=Timer(1,checkSongCompleted)
+
     playerState=requests.get(base_url2+"getState")
-    if playerState.json()['state']=="ended":
+    if playing and playerState.json()['state']=="ended":
+        print("Song has ended")
         playing=False
         playSongsToContinue()
-        print("Song has ended")
     else:
         playing=True
 
@@ -151,7 +155,8 @@ def TapBPM():
 def checkBPMAdded():    
     global playing, add, flag, bpmAdded
     msCurr=int(time()*1000)
-    if flag==1 and msCurr-msPrev>1000*2:
+    # if flag==1 and msCurr-msPrev>1000*2:
+    if flag==1:
         if playing:
             add+=1
             pushBPMToQueue(add)
@@ -169,8 +174,8 @@ availableDevice()
 seekToPlay()
 checkBPMAdded()
 
-print("Press enter for BPM")
-while(1):
-    value = input()
-    if(value==""):
-        TapBPM()
+# print("Press enter for BPM")
+# while(1):
+#     value = input()
+#     if(value==""):
+#         TapBPM()
