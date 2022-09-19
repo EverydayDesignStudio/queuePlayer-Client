@@ -79,7 +79,7 @@ def playSong(trkArr):
     print(song)
     global playing
     playing=True
-    checkSongCompleted() 
+    # checkSongCompleted() 
 
 #function to continue playing the next song from the queue by sending the request to the spotify server associated with this client
 def playSongsToContinue():
@@ -95,15 +95,12 @@ def playSongsToContinue():
 
     global playing
     playing=True
-    # checkSongCompleted() 
 
 #function to play the song pointed with the seek timestamp by sending the request to the spotify server associated with this client
 def playSongFromSeek():
     global seekedPlayer
     print("PlayFromSeek: ", seekedPlayer)
     seekSong=requests.post(base_url2+"seek", json={"seek":seekedPlayer})
-    # checkSongCompleted() 
-
 
 #function to periodically check the player state to indicate when a song is finished
 def checkSongCompleted():
@@ -127,6 +124,11 @@ def checkSongCompleted():
     else:
         tt.cancel()
 
+while True:
+    playerState=requests.get(base_url2+"getState")
+    if playerState.json()['state']=="ended":
+        print("Song has ended")
+        playSongsToContinue()
 
 #function to calculate BPM input
 def TapBPM(): 
