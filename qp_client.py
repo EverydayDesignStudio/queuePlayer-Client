@@ -1,3 +1,4 @@
+import threading
 from threading import Timer
 from time import time
 import requests
@@ -171,14 +172,28 @@ seekToPlay()
 checkBPMAdded()
 
 print("Press enter for BPM")
-while(1):
-    
-    playerState=requests.get(base_url2+"getState")
-    if playerState.json()['state']=="ended":
-        print("Song has ended")
-        playSongsToContinue()
+# while(1):
+#     value = input()
+#     if(value==""):
+#         TapBPM()
 
-    value = input()
-    if(value==""):
-        TapBPM()
+def infiniteloop1():
+    while True:
+        playerState=requests.get(base_url2+"getState")
+        if playerState.json()['state']=="ended":
+            print("Song has ended")
+            playSongsToContinue()
+        # time.sleep(1)
 
+def infiniteloop2():
+    while True:
+        value = input()
+        if(value==""):
+            TapBPM()
+        # time.sleep(1)
+
+thread1 = threading.Thread(target=infiniteloop1)
+thread1.start()
+
+thread2 = threading.Thread(target=infiniteloop2)
+thread2.start()
