@@ -15,7 +15,7 @@ base_url2="https://qpo-server.herokuapp.com/"
 playerID=""
 playing=False
 add=0
-flag=1
+flag=0
 bpmCheck=True
 count=0
 msFirst=0
@@ -151,8 +151,8 @@ def TapBPM():
 def checkBPMAdded():    
     global playing, add, flag, bpmAdded
     msCurr=int(time()*1000)
-    # if flag==1 and msCurr-msPrev>1000*2:
-    if flag==1:
+    if flag==1 and msCurr-msPrev>1000*2:
+    # if flag==1:
         if playing:
             add+=1
             pushBPMToQueue(add)
@@ -170,14 +170,15 @@ availableDevice()
 seekToPlay()
 checkBPMAdded()
 
-# print("Press enter for BPM")
-# while(1):
-#     value = input()
-#     if(value==""):
-#         TapBPM()
-
-while True:
+print("Press enter for BPM")
+while(1):
+    
     playerState=requests.get(base_url2+"getState")
     if playerState.json()['state']=="ended":
         print("Song has ended")
         playSongsToContinue()
+
+    value = input()
+    if(value==""):
+        TapBPM()
+
