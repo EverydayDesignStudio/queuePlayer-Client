@@ -124,12 +124,6 @@ def checkSongCompleted():
     else:
         tt.cancel()
 
-while True:
-    playerState=requests.get(base_url2+"getState")
-    if playerState.json()['state']=="ended":
-        print("Song has ended")
-        playSongsToContinue()
-
 #function to calculate BPM input
 def TapBPM(): 
     global count
@@ -181,3 +175,9 @@ checkBPMAdded()
 #     value = input()
 #     if(value==""):
 #         TapBPM()
+
+while True:
+    playerState=requests.get(base_url2+"getState")
+    if playerState.json()['state']=="ended":
+        print("Song has ended")
+        playSongsToContinue()
