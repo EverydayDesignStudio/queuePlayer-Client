@@ -86,7 +86,7 @@ def playSong(trkArr):
 def playSongsToContinue():
     print()
     print("Continue Playing")
-    continueSong=requests.get(base_url1+"continuePlaying")
+    continueSong=requests.post(base_url1+"continuePlaying", json={"user_id":userID})
 
     trackArr=[]
     trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
