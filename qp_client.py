@@ -90,12 +90,21 @@ def playSongsToContinue():
     tc=Timer(1,playSongsToContinue)
     timeouter+=1
     print("Continue Playing")
+    print("Timeout Timer: ", timeouter)
     if(timeouter>=10):
         continueSongImmediate=requests.get(base_url1+"continuePlayingImmediate")
-        
+        trackArr=[]
+        trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
+        global add
+        add-=1
+        playSong(trackArr)
+
+        global playing
+        playing=True
+
 
     continueSong=requests.post(base_url1+"continuePlaying", json={"user_id":userID})
-    if(continueSong.json()['queue'].length != 0):
+    if(timeouter<10 and continueSong.json()['queue'].length != 0):
         trackArr=[]
         trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
         global add
