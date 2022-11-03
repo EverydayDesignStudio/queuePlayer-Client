@@ -103,7 +103,7 @@ def playSongsToContinue():
 
 
     continueSong=requests.post(base_url1+"continuePlaying", json={"user_id":userID})
-    if(timeouter<10 and continueSong.json()['queue'].length != 0):
+    if(timeouter<10 and len(continueSong.json()['queue']) != 0):
         trackArr=[]
         trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
         add-=1
