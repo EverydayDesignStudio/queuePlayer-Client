@@ -87,6 +87,7 @@ def playSong(trkArr):
 #function to continue playing the next song from the queue by sending the request to the spotify server associated with this client
 def playSongsToContinue():
     print()
+    global add,playing
     tc=Timer(1,playSongsToContinue)
     timeouter+=1
     print("Continue Playing")
@@ -95,11 +96,9 @@ def playSongsToContinue():
         continueSongImmediate=requests.get(base_url1+"continuePlayingImmediate")
         trackArr=[]
         trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
-        global add
         add-=1
         playSong(trackArr)
 
-        global playing
         playing=True
 
 
@@ -107,11 +106,9 @@ def playSongsToContinue():
     if(timeouter<10 and continueSong.json()['queue'].length != 0):
         trackArr=[]
         trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
-        global add
         add-=1
         playSong(trackArr)
 
-        global playing
         playing=True
 
     if playing:
