@@ -23,6 +23,8 @@ msFirst=0
 msPrev=0
 seekedPlayer=0
 
+timeouter=0
+
 #function to check the active users for each queue player client
 def makeUserActive():
     global userID
@@ -85,17 +87,27 @@ def playSong(trkArr):
 #function to continue playing the next song from the queue by sending the request to the spotify server associated with this client
 def playSongsToContinue():
     print()
+    tc=Timer(1,playSongsToContinue)
+    timeouter+=1
     print("Continue Playing")
+    if(timeouter>=10):
+        continueSongImmediate=requests.get(base_url1+"continuePlayingImmediate")
+        
+
     continueSong=requests.post(base_url1+"continuePlaying", json={"user_id":userID})
+    if(continueSong.json()['queue'].length != 0):
+        trackArr=[]
+        trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
+        global add
+        add-=1
+        playSong(trackArr)
 
-    trackArr=[]
-    trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
-    global add
-    add-=1
-    playSong(trackArr)
+        global playing
+        playing=True
 
-    global playing
-    playing=True
+    if playing:
+        tc.cancel()
+
 
 #function to play the song pointed with the seek timestamp by sending the request to the spotify server associated with this client
 def playSongFromSeek():
