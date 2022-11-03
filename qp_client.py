@@ -87,7 +87,7 @@ def playSong(trkArr):
 #function to continue playing the next song from the queue by sending the request to the spotify server associated with this client
 def playSongsToContinue():
     print()
-    global add,playing
+    global add,playing, timeouter
     tc=Timer(1,playSongsToContinue)
     timeouter+=1
     print("Continue Playing")
