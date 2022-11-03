@@ -113,6 +113,7 @@ def playSongsToContinue():
 
     if playing:
         tc.cancel()
+        timeouter=0
 
 
 #function to play the song pointed with the seek timestamp by sending the request to the spotify server associated with this client
