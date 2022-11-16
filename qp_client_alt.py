@@ -199,6 +199,7 @@ print("Press enter for BPM")
 def infiniteloop1():
     while True:
         playerState=requests.get(base_url2+"getState")
+        seekData=requests.post(base_url1+"updateSeek", json={"seek":playerState.json()['seek'], "song":playerState.json()['song']})
         if playerState.json()['state']=="ended":
             print("Song has ended")
             playSongsToContinue()
