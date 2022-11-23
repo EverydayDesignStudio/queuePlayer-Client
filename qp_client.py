@@ -11,7 +11,7 @@ bpmAdded=36
 
 #both hosted servers for queue player funcitonality
 base_url1="https://qpm-server.herokuapp.com/"
-base_url2="https://qpo-server.herokuapp.com/"
+base_url2="https://qp1-spotify-server.herokuapp.com/"
 
 playerID=""
 playing=False
