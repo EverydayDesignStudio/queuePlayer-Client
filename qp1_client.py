@@ -6,6 +6,10 @@ import websocket #import websockt library -> pip install websocket-client
 import ssl # import ssl library (native)
 import json # import json library (native)
 
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
+import spotipy.util as util
+
 #variable to determine the user
 userID=1
 
@@ -13,7 +17,7 @@ userID=1
 bpmAdded=36
 
 #both hosted servers for queue player funcitonality
-base_url1="https://qpm-server.herokuapp.com/"
+base_url1="https://qp-master-server.herokuapp.com/"
 base_url2="https://qp1-spotify-server.herokuapp.com/"
 
 playerID=""
@@ -25,10 +29,22 @@ count=0
 msFirst=0
 msPrev=0
 seekedPlayer=0
-
 timeouter=0
 
+#Spotify Library Required Variables
+client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
+client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
+spotify_username='n39su59fav4b7fmcm0cuwyv2w'
+device_id='1632b74b504b297585776e716b8336510639401a'
+spotify_scope='user-library-read,user-modify-playback-state'
+spotify_redirect_uri = 'https://example.com/callback/'
 
+token = util.prompt_for_user_token(spotify_username, spotify_scope, client_id = client_id, client_secret = client_secret, redirect_uri = spotify_redirect_uri)
+
+if token:
+    sp = spotipy.Spotify(auth=token)
+
+# sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username))
 
 #function to check the active users for each queue player client
 def makeUserActive():
@@ -37,26 +53,26 @@ def makeUserActive():
     print("Active Users :")
     print(userActive.json())
 
-#function to get the available devices linked to the authenticated account and get their player id for playback
-def availableDevice():
-    ad=requests.get(base_url2+'getAvailable')
-    print("Available devices :")
-    print(ad.json())
-    global playerID
-    playerID=ad.json()[0]['id']
+# #function to get the available devices linked to the authenticated account and get their player id for playback
+# def availableDevice():
+#     ad=requests.get(base_url2+'getAvailable')
+#     print("Available devices :")
+#     print(ad.json())
+#     global playerID
+#     playerID=ad.json()[0]['id']
 
 #function to get the current timestamp playing in all the rest of the players and seek the player 
-def seekToPlay():
-    global seekedPlayer
-    playerSeek=requests.get(base_url1+"getSeek")
-    if(playerSeek.json()['seek']>0):
-        print("Seeked Song")
-        print(playerSeek)
-        trackArr=[]
-        trackArr.append("spotify:track:"+playerSeek.json()['id'])
-        playSong(trackArr)
-        seekedPlayer=playerSeek.json()['seek']
-        playSongFromSeek()
+# def seekToPlay():
+#     global seekedPlayer
+#     playerSeek=requests.get(base_url1+"getSeek")
+#     if(playerSeek.json()['seek']>0):
+#         print("Seeked Song")
+#         print(playerSeek)
+#         trackArr=[]
+#         trackArr.append("spotify:track:"+playerSeek.json()['id'])
+#         playSong(trackArr)
+#         seekedPlayer=playerSeek.json()['seek']
+#         playSongFromSeek()
 
 #function to push the BPM added by the client to the master server and use the spotify server to call and play the song if no song is in the queue
 #simultaneously update the queue with the pushed BPM
@@ -67,7 +83,11 @@ def pushBPMToPlay():
     print("Initial Queue : ", songToBePlayed.json())
     trackArr=[]
     trackArr.append("spotify:track:"+songToBePlayed.json()['song']['track_id'])
-    playSong(trackArr)
+
+
+
+    sp.start_playback(device_id=device_id, uris=trackArr)
+    # playSong(trackArr)
 
 #function to push the BPM added by the client to the master server
 #simultaneously update the queue with the pushed BPM as the player is playing
@@ -191,8 +211,8 @@ def checkBPMAdded():
         Timer(2,checkBPMAdded).start()
 
 makeUserActive()
-availableDevice()
-seekToPlay()
+# availableDevice()
+# seekToPlay()
 checkBPMAdded()
 
 print("Press enter for BPM")
@@ -220,7 +240,7 @@ def infiniteloop2():
 def infiniteloop3():
     while True:
         websocket.enableTrace(True) # print the connection details (for debugging purposes)
-        ws = websocket.WebSocketApp("wss://qpm-server.herokuapp.com/", # websocket URL to connect to
+        ws = websocket.WebSocketApp("wss://qp-master-server.herokuapp.com/", # websocket URL to connect to
                                 on_message = on_message, # what should happen when we receive a new message
                                 on_error = on_error, # what should happen when we get an error
                                 on_close = on_close) # what should happen when the connection is closed
