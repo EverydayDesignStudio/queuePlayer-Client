@@ -84,10 +84,7 @@ def pushBPMToPlay():
     trackArr=[]
     trackArr.append("spotify:track:"+songToBePlayed.json()['song']['track_id'])
 
-
-
-    sp.start_playback(device_id=device_id, uris=trackArr)
-    # playSong(trackArr)
+    playSong(trackArr)
 
 #function to push the BPM added by the client to the master server
 #simultaneously update the queue with the pushed BPM as the player is playing
@@ -103,8 +100,8 @@ def playSong(trkArr):
     print(playerID)
     print()
     print("Playing Song with ID: ", trkArr)
-    song=requests.post(base_url2+"playback", json={"song":trkArr, "player":playerID})
-    print(song)
+    # song=requests.post(base_url2+"playback", json={"song":trkArr, "player":playerID})
+    sp.start_playback(device_id=device_id, uris=trkArr)
     global playing
     playing=True
     # checkSongCompleted() 
@@ -152,8 +149,8 @@ def checkSongCompleted():
     global playing
     global seekedPlayer
     tt=Timer(1,checkSongCompleted)
-
     playerState=requests.get(base_url2+"getState")
+
     if playing and playerState.json()['state']=="ended":
         print("Song has ended")
         playing=False
@@ -223,11 +220,15 @@ print("Press enter for BPM")
 
 def infiniteloop1():
     while True:
-        playerState=requests.get(base_url2+"getState")
-        seekData=requests.post(base_url1+"updateSeek", json={"seek":playerState.json()['seek'], "song":playerState.json()['song']})
-        if playerState.json()['state']=="ended":
+        # print(sp.currently_playing())
+        seekData=requests.post(base_url1+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['id']})
+        if(sp.currently_playing()['progress_ms']+1000>=sp.currently_playing()['duration_ms']):
             print("Song has ended")
             playSongsToContinue()
+        # playerState=requests.get(base_url2+"getState")
+        # if playerState.json()['state']=="ended":
+            # print("Song has ended")
+            # playSongsToContinue()
         # time.sleep(1)
 
 def infiniteloop2():
