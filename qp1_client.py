@@ -17,8 +17,7 @@ userID=1
 bpmAdded=36
 
 #both hosted servers for queue player funcitonality
-base_url1="https://qp-master-server.herokuapp.com/"
-base_url2="https://qp1-spotify-server.herokuapp.com/"
+base_url="https://qp-master-server.herokuapp.com/"
 
 playerID=""
 playing=False
@@ -47,7 +46,7 @@ if token:
 #function to check the active users for each queue player client
 def makeUserActive():
     global userID
-    userActive=requests.post(base_url1+"makeActive", json={"user_id":userID})
+    userActive=requests.post(base_url+"makeActive", json={"user_id":userID})
     print("Active Users :")
     print(userActive.json())
 
@@ -69,7 +68,7 @@ def makeUserActive():
 def pushBPMToPlay():
     print()
     print("Since Queue was Empty, Pushing song to Play")
-    songToBePlayed=requests.post(base_url1+"getTrackToPlay", json={"bpm":bpmAdded, "userID":userID})
+    songToBePlayed=requests.post(base_url+"getTrackToPlay", json={"bpm":bpmAdded, "userID":userID})
     print("Initial Queue : ", songToBePlayed.json())
     trackArr=[]
     trackArr.append("spotify:track:"+songToBePlayed.json()['song']['track_id'])
@@ -81,7 +80,7 @@ def pushBPMToPlay():
 def pushBPMToQueue(add):
     print()
     print("Since Song is playing, Pushing song to Queue")
-    songToBeQueued=requests.post(base_url1+"getTrackToQueue", json={"bpm":bpmAdded, "userID":userID, "offset":add})
+    songToBeQueued=requests.post(base_url+"getTrackToQueue", json={"bpm":bpmAdded, "userID":userID, "offset":add})
     print("Updated Queue : ",songToBeQueued.json())
 
 #function to play the song by sending the request to the spotify server associated with this client
@@ -104,7 +103,7 @@ def playSongsToContinue():
     print("Continue Playing")
     print("Timeout Timer: ", timeouter)
     if(timeouter>=10):
-        continueSongImmediate=requests.get(base_url1+"continuePlayingImmediate")
+        continueSongImmediate=requests.get(base_url+"continuePlayingImmediate")
         trackArr=[]
         trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
         add-=1
@@ -113,7 +112,7 @@ def playSongsToContinue():
         playing=True
 
 
-    continueSong=requests.post(base_url1+"continuePlaying", json={"user_id":userID})
+    continueSong=requests.post(base_url+"continuePlaying", json={"user_id":userID})
     if(timeouter<10 and len(continueSong.json()['queue']) != 0):
         trackArr=[]
         trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
@@ -131,7 +130,7 @@ def playSongsToContinue():
 def playSongFromSeek():
     global seekedPlayer
     print("PlayFromSeek: ", seekedPlayer)
-    seekSong=requests.post(base_url2+"seek", json={"seek":seekedPlayer})
+    # seekSong=requests.post(base_url2+"seek", json={"seek":seekedPlayer})
 
 #function to calculate BPM input
 def TapBPM(): 
@@ -218,7 +217,7 @@ def infiniteloop3():
     while True:
         if playing:
             if sp.currently_playing()['progress_ms']>0 and sp.currently_playing()['item']['id'] != None:
-                seekData=requests.post(base_url1+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['item']['id']})
+                seekData=requests.post(base_url+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['item']['id']})
             if(sp.currently_playing()['progress_ms']+10000>=sp.currently_playing()['item']['duration_ms']):
                 print("Song has ended")
                 playSongsToContinue()
