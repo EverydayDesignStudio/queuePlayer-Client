@@ -44,22 +44,12 @@ token = util.prompt_for_user_token(spotify_username, spotify_scope, client_id = 
 if token:
     sp = spotipy.Spotify(auth=token)
 
-# sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username))
-
 #function to check the active users for each queue player client
 def makeUserActive():
     global userID
     userActive=requests.post(base_url1+"makeActive", json={"user_id":userID})
     print("Active Users :")
     print(userActive.json())
-
-# #function to get the available devices linked to the authenticated account and get their player id for playback
-# def availableDevice():
-#     ad=requests.get(base_url2+'getAvailable')
-#     print("Available devices :")
-#     print(ad.json())
-#     global playerID
-#     playerID=ad.json()[0]['id']
 
 #function to get the current timestamp playing in all the rest of the players and seek the player 
 # def seekToPlay():
@@ -104,7 +94,6 @@ def playSong(trkArr):
     sp.start_playback(device_id=device_id, uris=trkArr)
     global playing
     playing=True
-    # checkSongCompleted() 
 
 #function to continue playing the next song from the queue by sending the request to the spotify server associated with this client
 def playSongsToContinue():
@@ -143,28 +132,6 @@ def playSongFromSeek():
     global seekedPlayer
     print("PlayFromSeek: ", seekedPlayer)
     seekSong=requests.post(base_url2+"seek", json={"seek":seekedPlayer})
-
-#function to periodically check the player state to indicate when a song is finished
-def checkSongCompleted():
-    global playing
-    global seekedPlayer
-    tt=Timer(1,checkSongCompleted)
-    playerState=requests.get(base_url2+"getState")
-
-    if playing and playerState.json()['state']=="ended":
-        print("Song has ended")
-        playing=False
-        playSongsToContinue()
-    else:
-        playing=True
-
-    if playerState.json()['song'] != None: 
-        playerSeek=requests.post(base_url1+"updateSeek", json={"song":playerState.json()['song'],"seek":playerState.json()['seek']})
-
-    if playing:
-        tt.start()
-    else:
-        tt.cancel()
 
 #function to calculate BPM input
 def TapBPM(): 
@@ -208,28 +175,18 @@ def checkBPMAdded():
         Timer(2,checkBPMAdded).start()
 
 makeUserActive()
-# availableDevice()
 # seekToPlay()
 checkBPMAdded()
 
 print("Press enter for BPM")
-# while(1):
-#     value = input()
-#     if(value==""):
-#         TapBPM()
 
 def infiniteloop1():
     while True:
-        # print(sp.currently_playing())
-        seekData=requests.post(base_url1+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['id']})
-        if(sp.currently_playing()['progress_ms']+1000>=sp.currently_playing()['duration_ms']):
-            print("Song has ended")
-            playSongsToContinue()
-        # playerState=requests.get(base_url2+"getState")
-        # if playerState.json()['state']=="ended":
-            # print("Song has ended")
-            # playSongsToContinue()
-        # time.sleep(1)
+        if playing:
+            seekData=requests.post(base_url1+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['item']['id']})
+            if(sp.currently_playing()['progress_ms']+10000>=sp.currently_playing()['item']['duration_ms']):
+                print("Song has ended")
+                playSongsToContinue()
 
 def infiniteloop2():
     while True:
