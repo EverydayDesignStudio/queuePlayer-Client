@@ -182,22 +182,14 @@ print("Press enter for BPM")
 
 def infiniteloop1():
     while True:
-        if playing:
-            seekData=requests.post(base_url1+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['item']['id']})
-            if(sp.currently_playing()['progress_ms']+10000>=sp.currently_playing()['item']['duration_ms']):
-                print("Song has ended")
-                playSongsToContinue()
-
-def infiniteloop2():
-    while True:
         value = input()
         if(value==""):
             TapBPM()
         # time.sleep(1)
 
-def infiniteloop3():
+def infiniteloop2():
     while True:
-        websocket.enableTrace(True) # print the connection details (for debugging purposes)
+        # websocket.enableTrace(True) # print the connection details (for debugging purposes)
         ws = websocket.WebSocketApp("wss://qp-master-server.herokuapp.com/", # websocket URL to connect to
                                 on_message = on_message, # what should happen when we receive a new message
                                 on_error = on_error, # what should happen when we get an error
@@ -221,6 +213,15 @@ def on_close(ws): # function call when the connection is closed (this should not
 
 def on_open(ws): # function call when a new connection is established
     print("### open ###")
+
+def infiniteloop3():
+    while True:
+        if playing:
+            if sp.currently_playing()['progress_ms']>0 and sp.currently_playing()['item']['id'] != None:
+                seekData=requests.post(base_url1+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['item']['id']})
+            if(sp.currently_playing()['progress_ms']+10000>=sp.currently_playing()['item']['duration_ms']):
+                print("Song has ended")
+                playSongsToContinue()
 
     
 thread1 = threading.Thread(target=infiniteloop1)
