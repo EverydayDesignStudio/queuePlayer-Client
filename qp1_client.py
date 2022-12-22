@@ -78,37 +78,43 @@ def playSong(trkArr):
     playing=True
 
 #function to continue playing the next song from the queue by sending the request to the spotify server associated with this client
-def playSongsToContinue():
-    print()
-    global add,playing, timeouter
-    tc=Timer(1,playSongsToContinue)
-    timeouter+=1
-    print("Continue Playing")
-    print("Timeout Timer: ", timeouter)
-    if(timeouter>=10):
-        continueSongImmediate=requests.get(base_url+"continuePlayingImmediate")
-        trackArr=[]
-        trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
-        add-=1
-        playSong(trackArr)
-        playing=True
+# def playSongsToContinue():
+#     print()
+#     global add,playing, timeouter
+#     tc=Timer(1,playSongsToContinue)
+#     timeouter+=1
+#     print("Continue Playing")
+#     print("Timeout Timer: ", timeouter)
+#     if(timeouter>=10):
+#         continueSongImmediate=requests.get(base_url+"continuePlayingImmediate")
+#         trackArr=[]
+#         trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
+#         add-=1
+#         playSong(trackArr)
+#         playing=True
 
-    continueSong=requests.post(base_url+"continuePlaying", json={"user_id":userID})
-    if(timeouter<10 and len(continueSong.json()['queue']) != 0):
-        trackArr=[]
-        trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
-        add-=1
-        playSong(trackArr)
+#     continueSong=requests.post(base_url+"continuePlaying", json={"user_id":userID})
+#     if(timeouter<10 and len(continueSong.json()['queue']) != 0):
+#         trackArr=[]
+#         trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
+#         add-=1
+#         playSong(trackArr)
 
-        playing=True
+#         playing=True
 
-    if playing:
-        tc.cancel()
-        timeouter=0
+#     if playing:
+#         tc.cancel()
+#         timeouter=0
 
 #function to continue playing immediately
-
-
+def playSongsToContinue():
+    global add, playing
+    continueSongImmediate=requests.get(base_url+"continuePlayingImmediate")
+    trackArr=[]
+    trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
+    add-=1
+    playSong(trackArr)
+    playing=True
 
 #function to get the current timestamp playing in all the rest of the players and seek the player 
 def seekToPlay():
@@ -215,6 +221,8 @@ def infiniteloop3():
         if playing:
             if sp.currently_playing()['progress_ms']>0 and sp.currently_playing()['item']['id'] != None:
                 seekData=requests.post(base_url+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['item']['id']})
+            print(sp.currently_playing()['progress_ms'])
+            print(sp.currently_playing()['item']['duration_ms'])
             if(sp.currently_playing()['progress_ms']+10000>=sp.currently_playing()['item']['duration_ms']):
                 print("Song has ended")
                 playSongsToContinue()
