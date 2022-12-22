@@ -221,9 +221,7 @@ def infiniteloop3():
         if playing:
             if sp.currently_playing()['progress_ms']>0 and sp.currently_playing()['item']['id'] != None:
                 seekData=requests.post(base_url+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['item']['id']})
-            print(sp.current_playback()['item']['duration_ms'])
-            print(sp.currently_playing()['item']['duration_ms'])
-            if sp.currently_playing()['item']['duration_ms']!= None:
+            if sp.currently_playing()['progress_ms']>10000:
                 if(sp.currently_playing()['progress_ms']+10000>=sp.currently_playing()['item']['duration_ms']):
                     print("Song has ended")
                     playSongsToContinue()
