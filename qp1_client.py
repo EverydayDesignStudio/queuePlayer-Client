@@ -5,7 +5,6 @@ import requests
 import websocket #import websockt library -> pip install websocket-client
 import ssl # import ssl library (native)
 import json # import json library (native)
-
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import spotipy.util as util
@@ -39,7 +38,6 @@ spotify_scope='user-library-read,user-modify-playback-state'
 spotify_redirect_uri = 'https://example.com/callback/'
 
 token = util.prompt_for_user_token(spotify_username, spotify_scope, client_id = client_id, client_secret = client_secret, redirect_uri = spotify_redirect_uri)
-
 if token:
     sp = spotipy.Spotify(auth=token)
 
@@ -50,19 +48,6 @@ def makeUserActive():
     print("Active Users :")
     print(userActive.json())
 
-#function to get the current timestamp playing in all the rest of the players and seek the player 
-# def seekToPlay():
-#     global seekedPlayer
-#     playerSeek=requests.get(base_url1+"getSeek")
-#     if(playerSeek.json()['seek']>0):
-#         print("Seeked Song")
-#         print(playerSeek)
-#         trackArr=[]
-#         trackArr.append("spotify:track:"+playerSeek.json()['id'])
-#         playSong(trackArr)
-#         seekedPlayer=playerSeek.json()['seek']
-#         playSongFromSeek()
-
 #function to push the BPM added by the client to the master server and use the spotify server to call and play the song if no song is in the queue
 #simultaneously update the queue with the pushed BPM
 def pushBPMToPlay():
@@ -72,7 +57,6 @@ def pushBPMToPlay():
     print("Initial Queue : ", songToBePlayed.json())
     trackArr=[]
     trackArr.append("spotify:track:"+songToBePlayed.json()['song']['track_id'])
-
     playSong(trackArr)
 
 #function to push the BPM added by the client to the master server
@@ -89,7 +73,6 @@ def playSong(trkArr):
     print(playerID)
     print()
     print("Playing Song with ID: ", trkArr)
-    # song=requests.post(base_url2+"playback", json={"song":trkArr, "player":playerID})
     sp.start_playback(device_id=device_id, uris=trkArr)
     global playing
     playing=True
@@ -108,9 +91,7 @@ def playSongsToContinue():
         trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
         add-=1
         playSong(trackArr)
-
         playing=True
-
 
     continueSong=requests.post(base_url+"continuePlaying", json={"user_id":userID})
     if(timeouter<10 and len(continueSong.json()['queue']) != 0):
@@ -126,11 +107,24 @@ def playSongsToContinue():
         timeouter=0
 
 
+#function to get the current timestamp playing in all the rest of the players and seek the player 
+def seekToPlay():
+    global seekedPlayer
+    playerSeek=requests.get(base_url+"getSeek")
+    if(playerSeek.json()['seek']>0):
+        print("Seeked Song")
+        print(playerSeek)
+        trackArr=[]
+        trackArr.append("spotify:track:"+playerSeek.json()['id'])
+        playSong(trackArr)
+        seekedPlayer=playerSeek.json()['seek']
+        playSongFromSeek()
+
 #function to play the song pointed with the seek timestamp by sending the request to the spotify server associated with this client
 def playSongFromSeek():
-    global seekedPlayer
+    global seekedPlayer, device_id
     print("PlayFromSeek: ", seekedPlayer)
-    # seekSong=requests.post(base_url2+"seek", json={"seek":seekedPlayer})
+    sp.seek_track(seekedPlayer, device_id)
 
 #function to calculate BPM input
 def TapBPM(): 
@@ -174,7 +168,7 @@ def checkBPMAdded():
         Timer(2,checkBPMAdded).start()
 
 makeUserActive()
-# seekToPlay()
+seekToPlay()
 checkBPMAdded()
 
 print("Press enter for BPM")
