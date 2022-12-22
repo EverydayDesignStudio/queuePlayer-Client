@@ -30,10 +30,11 @@ seekedPlayer=0
 timeouter=0
 
 #Spotify Library Required Variables
-client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
-client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
-spotify_username='n39su59fav4b7fmcm0cuwyv2w'
-device_id='1632b74b504b297585776e716b8336510639401a'
+#[OLO4] Credentials
+client_id='aeeefb7f628b41d0b7f5581b668c27f4'
+client_secret='7a75e01c59f046888fa4b99fbafc4784'
+spotify_username='x8eug7lj2opi0in1gnvr8lfsz'
+device_id=''
 spotify_scope='user-library-read,user-modify-playback-state'
 spotify_redirect_uri = 'https://example.com/callback/'
 

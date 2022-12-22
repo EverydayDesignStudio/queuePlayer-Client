@@ -30,6 +30,7 @@ seekedPlayer=0
 timeouter=0
 
 #Spotify Library Required Variables
+#[OLO5 Credentials]
 client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
 client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
 spotify_username='n39su59fav4b7fmcm0cuwyv2w'
