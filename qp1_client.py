@@ -55,7 +55,7 @@ def pushBPMToPlay():
     print()
     print("Since Queue was Empty, Pushing song to Play")
     songToBePlayed=requests.post(base_url+"getTrackToPlay", json={"bpm":bpmAdded, "userID":userID})
-    print("Initial Queue : ", songToBePlayed.json())
+    # print("Initial Queue : ", songToBePlayed.json())
     trackArr=[]
     trackArr.append("spotify:track:"+songToBePlayed.json()['song']['track_id'])
     playSong(trackArr)
@@ -66,7 +66,7 @@ def pushBPMToQueue(add):
     print()
     print("Since Song is playing, Pushing song to Queue")
     songToBeQueued=requests.post(base_url+"getTrackToQueue", json={"bpm":bpmAdded, "userID":userID, "offset":add})
-    print("Updated Queue : ",songToBeQueued.json())
+    # print("Updated Queue : ",songToBeQueued.json())
 
 #function to play the song by sending the request to the spotify server associated with this client
 def playSong(trkArr):
