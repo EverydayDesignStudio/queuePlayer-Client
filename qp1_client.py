@@ -106,6 +106,9 @@ def playSongsToContinue():
         tc.cancel()
         timeouter=0
 
+#function to continue playing immediately
+
+
 
 #function to get the current timestamp playing in all the rest of the players and seek the player 
 def seekToPlay():
