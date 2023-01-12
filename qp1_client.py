@@ -7,6 +7,7 @@ import ssl # import ssl library (native)
 import json # import json library (native)
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+from spotipy.oauth2 import SpotifyClientCredentials
 import spotipy.util as util
 
 #variable to determine the user
