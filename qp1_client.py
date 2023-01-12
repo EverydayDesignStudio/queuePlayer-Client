@@ -38,9 +38,11 @@ device_id='1632b74b504b297585776e716b8336510639401a'
 spotify_scope='user-library-read,user-modify-playback-state'
 spotify_redirect_uri = 'https://example.com/callback/'
 
-token = util.prompt_for_user_token(spotify_username, spotify_scope, client_id = client_id, client_secret = client_secret, redirect_uri = spotify_redirect_uri)
-if token:
-    sp = spotipy.Spotify(auth=token)
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=spotify_scope, client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, username=spotify_username))
+
+# token = util.prompt_for_user_token(spotify_username, spotify_scope, client_id = client_id, client_secret = client_secret, redirect_uri = spotify_redirect_uri)
+# if token:
+#     sp = spotipy.Spotify(auth=token)
 
 #function to check the active users for each queue player client
 def makeUserActive():
