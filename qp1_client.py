@@ -7,7 +7,7 @@ import ssl # import ssl library (native)
 import json # import json library (native)
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-from spotipy.oauth2 import SpotifyClientCredentials
+from spotipy.oauth2 import SpotifyClientCredentials, SpotifyPKCE
 import spotipy.util as util
 
 #variable to determine the user
@@ -36,10 +36,12 @@ client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
 client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
 spotify_username='n39su59fav4b7fmcm0cuwyv2w'
 device_id='1632b74b504b297585776e716b8336510639401a'
-spotify_scope='user-library-read,user-modify-playback-state'
+spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing'
 spotify_redirect_uri = 'https://example.com/callback/'
 
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=spotify_scope, client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, username=spotify_username))
+token = util.prompt_for_user_token(spotify_username, spotify_scope, client_id = client_id, client_secret = client_secret, redirect_uri = spotify_redirect_uri)
+if token:
+    sp = spotipy.Spotify(auth=token)
 
 #function to check the active users for each queue player client
 def makeUserActive():
