@@ -195,11 +195,14 @@ def infiniteloop2():
     while True:
         # websocket.enableTrace(True) # print the connection details (for debugging purposes)
         ws = websocket.WebSocketApp("wss://qp-master-server.herokuapp.com/", # websocket URL to connect to
-                                on_message = on_message, # what should happen when we receive a new message
-                                on_error = on_error, # what should happen when we get an error
-                                on_close = on_close) # what should happen when the connection is closed
+            on_message = on_message, # what should happen when we receive a new message
+            on_error = on_error, # what should happen when we get an error
+            on_close = on_close, # what should happen when the connection is closed
+            on_ping = on_ping, # on ping
+            on_pong = on_pong) # on pong
         ws.on_open = on_open # call on_open function when the ws connection is opened
-        ws.run_forever(sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+        #ws.run_forever(sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+        ws.run_forever(reconnect=5, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
 
 def on_message(ws, message): # function which is called whenever a new message comes in
     json_data = json.loads(message) # incoming message is transformed into a JSON object
@@ -215,6 +218,12 @@ def on_error(ws, error): # function call when there is an error
 def on_close(ws): # function call when the connection is closed (this should not happend currently as we are staying connected)
     print("### closed ###")
 
+def on_ping(wsapp, message):
+    print("Got a ping! A pong reply has already been automatically sent. ", message)
+
+def on_pong(wsapp, message):
+    print("Got a pong! No need to respond. ", message)
+    
 def on_open(ws): # function call when a new connection is established
     print("### open ###")
 
