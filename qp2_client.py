@@ -11,9 +11,9 @@ import spotipy.util as util
 import board
 import neopixel
 
-pixel_pin = board.D21 # the pin to which the LED strip is connected to
+pixel_pin = board.D12 # the pin to which the LED strip is connected to
 num_pixels = 24 # this specifies the TOTAL number of pixels (should be a multiple of 12. ie. 12, 24, 36, 48 etc)
-ORDER = neopixel.GRB # set the color type of the neopixel
+ORDER = neopixel.GRBW # set the color type of the neopixel
 ledSegment = 6 # number of LEDs in a single segment
 ledArray = [[[0 for i in range(3)] for j in range(ledSegment)] for z in range(4)] #the array which stores the pixel information
 
