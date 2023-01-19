@@ -8,10 +8,8 @@ import json # import json library (native)
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import spotipy.util as util
-from multipledispatch import dispatch # import the dispatch library to enable method overloading in python
 import board
 import neopixel
-import rel
 
 pixel_pin = board.D21 # the pin to which the LED strip is connected to
 num_pixels = 24 # this specifies the TOTAL number of pixels (should be a multiple of 12. ie. 12, 24, 36, 48 etc)
@@ -215,9 +213,7 @@ def infiniteloop2():
             on_ping = on_ping, # on ping
             on_pong = on_pong) # on pong
         ws.on_open = on_open # call on_open function when the ws connection is opened
-        ws.run_forever(dipatcher=rel, reconnect=5, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
-        rel.signal(2, rel.abort) # keyboard interrupt
-        rel.dispatch()
+        ws.run_forever(reconnect=5, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
 
 def on_message(ws, message): # function which is called whenever a new message comes in
     json_data = json.loads(message) # incoming message is transformed into a JSON object
@@ -254,7 +250,7 @@ def updatePixels(json):
             c1g = json["lights"][ring]["colors"]["1"]["g"] # get the green color value
             c1b = json["lights"][ring]["colors"]["1"]["b"] # get the blue color value
             
-            setColorArray(iteration,c1r,c1g,c1b) # call the setColorArray function
+            setColorArray1(iteration,c1r,c1g,c1b) # call the setColorArray function
 
         elif l == 2: # if two lights need to be displayed (gradient)
             c1r = json["lights"][ring]["colors"]["1"]["r"] # get the first red color value
@@ -265,7 +261,7 @@ def updatePixels(json):
             c2g = json["lights"][ring]["colors"]["2"]["g"] # get the second green color value
             c2b = json["lights"][ring]["colors"]["2"]["b"] # get the second blue color value
             
-            setColorArray(iteration,c1r,c1g,c1b,c2r,c2g,c2b) # call the setColorArray function
+            setColorArray2(iteration,c1r,c1g,c1b,c2r,c2g,c2b) # call the setColorArray function
 
         elif l == 3: # if three lights need to be displayed (gradient)
             c1r = json["lights"][ring]["colors"]["1"]["r"] # get the first red color value
@@ -280,7 +276,7 @@ def updatePixels(json):
             c3g = json["lights"][ring]["colors"]["3"]["g"] # get the third green color value
             c3b = json["lights"][ring]["colors"]["3"]["b"] # get the third blue color value
             
-            setColorArray(iteration,c1r,c1g,c1b,c2r,c2g,c2b,c3r,c3g,c3b) # call the setColorArray function
+            setColorArray3(iteration,c1r,c1g,c1b,c2r,c2g,c2b,c3r,c3g,c3b) # call the setColorArray function
 
         elif l == 4: # if four lights need to be displayed (gradient)
             c1r = json["lights"][ring]["colors"]["1"]["r"] # get the first red color value
@@ -299,7 +295,7 @@ def updatePixels(json):
             c4g = json["lights"][ring]["colors"]["3"]["g"] # get the fourth green color value
             c4b = json["lights"][ring]["colors"]["3"]["b"] # get the fourth blue color value
             
-            setColorArray(iteration,c1r,c1g,c1b,c2r,c2g,c2b,c3r,c3g,c3b,c4r,c4g,c4b) # call the setColorArray function
+            setColorArray4(iteration,c1r,c1g,c1b,c2r,c2g,c2b,c3r,c3g,c3b,c4r,c4g,c4b) # call the setColorArray function
         
         offset = iteration * ledSegment # calculate the offset to address the single neopixel strip as it were N number of strips
 
@@ -311,16 +307,14 @@ def updatePixels(json):
     pixels.show() # once done, update the led strip
 
 # function to assign single color to array
-@dispatch(int, int, int, int)
-def setColorArray(iteration, c1r, c1g, c1b):
+def setColorArray1(iteration, c1r, c1g, c1b):
     for x in range(ledSegment): # cycle through the whole segment
         ledArray[iteration][x][0] = c1r # set the value of the red channel to the whole color array
         ledArray[iteration][x][1] = c1g # set the value of the green channel to the whole color array
         ledArray[iteration][x][2] = c1b # set the value of the blue channel to the whole color array
 
 # function to assign two colors to array to create a gradient
-@dispatch(int, int, int, int, int, int, int)
-def setColorArray(iteration, c1r, c1g, c1b, c2r, c2g, c2b):
+def setColorArray2(iteration, c1r, c1g, c1b, c2r, c2g, c2b):
     for x in range(int(ledSegment/2)): # cycle through half of the segment (as we need to create a gradient, the other half of the segment is automatically calculated)
         ledArray[iteration][x + ((int(ledSegment/2))*0)][0] = int((x - 0) / ((int(ledSegment/2)) - 0) * (c2r - c1r) + c1r) # based on the position inside the color array, calculate the value of the red channel so it morphs from the first color to the second
         ledArray[iteration][x + ((int(ledSegment/2))*1)][0] = int((x - 0) / ((int(ledSegment/2)) - 0) * (c1r - c2r) + c2r)
@@ -332,8 +326,7 @@ def setColorArray(iteration, c1r, c1g, c1b, c2r, c2g, c2b):
         ledArray[iteration][x + ((int(ledSegment/2))*1)][2] = int((x - 0) / ((int(ledSegment/2)) - 0) * (c1b - c2b) + c2b)
 
 # function to assign three colors to array to create a gradient
-@dispatch(int, int, int, int, int, int, int, int, int, int)
-def setColorArray(iteration, c1r, c1g, c1b, c2r, c2g, c2b, c3r, c3g, c3b):
+def setColorArray3(iteration, c1r, c1g, c1b, c2r, c2g, c2b, c3r, c3g, c3b):
     for x in range(int(ledSegment/3)): # cycle through a third of the segment (as we need to create a gradient, the other two thirds of the segment are automatically calculated)
         ledArray[iteration][x + ((int(ledSegment/3))*0)][0] = int((x - 0) / ((int(ledSegment/3)) - 0) * (c2r - c1r) + c1r) # based on the position inside the color array, calculate the value of the red channel so it morphs from the first color to the second and to the third
         ledArray[iteration][x + ((int(ledSegment/3))*1)][0] = int((x - 0) / ((int(ledSegment/3)) - 0) * (c3r - c2r) + c2r)
@@ -348,8 +341,7 @@ def setColorArray(iteration, c1r, c1g, c1b, c2r, c2g, c2b, c3r, c3g, c3b):
         ledArray[iteration][x + ((int(ledSegment/3))*2)][2] = int((x - 0) / ((int(ledSegment/3)) - 0) * (c1b - c3b) + c3b)
 
 # function to assign four colors to array to create a gradient
-@dispatch(int, int, int, int, int, int, int, int, int, int, int, int, int)
-def setColorArray(iteration, c1r, c1g, c1b, c2r, c2g, c2b, c3r, c3g, c3b, c4r, c4g, c4b):
+def setColorArray4(iteration, c1r, c1g, c1b, c2r, c2g, c2b, c3r, c3g, c3b, c4r, c4g, c4b):
     for x in range(int(ledSegment/4)):  # cycle through a fourth of the segment (as we need to create a gradient, the other three quarters of the segment are automatically calculated)
         ledArray[iteration][x + ((int(ledSegment/4))*0)][0] = int((x - 0) / ((int(ledSegment/4)) - 0) * (c2r - c1r) + c1r) # based on the position inside the color array, calculate the value of the red channel so it morphs from the first color to the second, to the third, and to the fourth
         ledArray[iteration][x + ((int(ledSegment/4))*1)][0] = int((x - 0) / ((int(ledSegment/4)) - 0) * (c3r - c2r) + c2r)
@@ -375,7 +367,6 @@ def infiniteloop3():
                 if(sp.currently_playing()['progress_ms']+10000>=sp.currently_playing()['item']['duration_ms']):
                     print("Song has ended")
                     playSongsToContinue()
-
     
 thread1 = threading.Thread(target=infiniteloop1)
 thread1.start()
