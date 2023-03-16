@@ -53,10 +53,13 @@ def toggleClientActive():
 #function to push the BPM added by the client to the master server and use the spotify server to call and play the song if no song is in the queue
 #simultaneously update the queue with the pushed BPM
 def pushBPMToPlay():
-    print()
-    print("Since Queue was Empty, Pushing song to Play")
+    print("\nSince Queue was Empty, Pushing song to Play")
     songToBePlayed=requests.post(baseUrl+"getTrackToPlay", json={"bpm":bpmAdded, "clientID":clientID})
-    # print("Initial Queue : ", songToBePlayed.json())
+
+    print("Initial Queue : \n")
+    for ele in songToBePlayed.json()['queue']:
+        print(ele)
+
     trackArr=[]
     trackArr.append("spotify:track:"+songToBePlayed.json()['song']['track_id'])
     playSong(trackArr)
