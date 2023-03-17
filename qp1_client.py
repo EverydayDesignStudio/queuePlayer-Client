@@ -208,8 +208,7 @@ def on_message(ws, message): # function which is called whenever a new message c
     json_data = json.loads(message) # incoming message is transformed into a JSON object
     print("")
     print("Server Sent the JSON:")
-    for ele in message.json():
-        print(ele)
+    print(json.dumps(json_data, indent = 2))
     # print(message) # printing the data (for testing purposes)
     # print(json_data["blockHash"]) # printing a specific part of the JSON object (for testing purposes)
     print("") # printing new line for better legibility
