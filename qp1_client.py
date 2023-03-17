@@ -71,6 +71,10 @@ def pushBPMToQueue(add):
     print("Since Song is playing, Pushing song to Queue")
     songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "userID":clientID, "offset":add})
     # print("Updated Queue : ",songToBeQueued.json())
+    
+    print("Updated Queue : \n")
+    for ele in songToBeQueued.json()['queue']:
+        print(ele)
 
 #function to play the song by sending the request to the spotify server associated with this client
 def playSong(trkArr):
