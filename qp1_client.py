@@ -225,7 +225,11 @@ def on_message(ws, message): # function which is called whenever a new message c
     print("")
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
-    global add
+    global add,playing
+    if playing:
+        print("playing")
+    else:
+        seekToPlay()
     add=int(json_data["songdata"]["offset"])
     # print(message) # printing the data (for testing purposes)
     # print(json_data["blockHash"]) # printing a specific part of the JSON object (for testing purposes)
