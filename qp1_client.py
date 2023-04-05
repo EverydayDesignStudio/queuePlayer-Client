@@ -46,7 +46,7 @@ if token:
 #function to show the states for each queue player client
 def setClientActive():
     global clientID
-    toggleClientActive=requests.post(baseUrl+"toggleClientActive", json={"clientID":clientID})
+    toggleClientActive=requests.post(baseUrl+"setClientActive", json={"clientID":clientID})
     print("Client States : \n")
     print(toggleClientActive.json())
 
