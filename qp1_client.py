@@ -226,7 +226,7 @@ def on_message(ws, message): # function which is called whenever a new message c
     print("")
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
-    add=json_data["offset"]
+    # add=
     # print(message) # printing the data (for testing purposes)
     # print(json_data["blockHash"]) # printing a specific part of the JSON object (for testing purposes)
     print("") # printing new line for better legibility
