@@ -44,7 +44,7 @@ if token:
     sp = spotipy.Spotify(auth=token)
 
 #function to show the states for each queue player client
-def toggleClientActive():
+def setClientActive():
     global clientID
     toggleClientActive=requests.post(baseUrl+"toggleClientActive", json={"clientID":clientID})
     print("Client States : \n")
@@ -185,7 +185,7 @@ def checkBPMAdded():
     if bpmCheck:
         Timer(2,checkBPMAdded).start()
 
-toggleClientActive()
+setClientActive()
 seekToPlay()
 checkBPMAdded()
 
