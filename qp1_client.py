@@ -221,10 +221,12 @@ def infiniteloop2():
         ws.run_forever(reconnect=5, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
 
 def on_message(ws, message): # function which is called whenever a new message comes in
+    global add
     json_data = json.loads(message) # incoming message is transformed into a JSON object
     print("")
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
+    add=json_data["offset"]
     # print(message) # printing the data (for testing purposes)
     # print(json_data["blockHash"]) # printing a specific part of the JSON object (for testing purposes)
     print("") # printing new line for better legibility
