@@ -67,6 +67,7 @@ def pushBPMToPlay():
 #function to push the BPM added by the client to the master server
 #simultaneously update the queue with the pushed BPM as the player is playing
 def pushBPMToQueue():
+    global add
     print()
     print("Since Song is playing, Pushing song to Queue")
     add+=1
