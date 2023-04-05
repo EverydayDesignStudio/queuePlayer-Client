@@ -66,9 +66,11 @@ def pushBPMToPlay():
 
 #function to push the BPM added by the client to the master server
 #simultaneously update the queue with the pushed BPM as the player is playing
-def pushBPMToQueue(add):
+def pushBPMToQueue():
     print()
     print("Since Song is playing, Pushing song to Queue")
+    add+=1
+    print("offset: ", add)
     songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "userID":clientID, "offset":add})
     # print("Updated Queue : ",songToBeQueued.json())
     
@@ -174,8 +176,7 @@ def checkBPMAdded():
     if flag==1 and msCurr-msPrev>1000*2:
     # if flag==1:
         if playing:
-            add+=1
-            pushBPMToQueue(add)
+            pushBPMToQueue()
         else:
             pushBPMToPlay()
         
