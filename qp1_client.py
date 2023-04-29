@@ -158,6 +158,7 @@ def checkBPMAdded():
     if bpmCheck:
         Timer(2,checkBPMAdded).start()
 
+
 setClientActive()
 seekToPlay()
 checkBPMAdded()
