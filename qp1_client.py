@@ -89,35 +89,6 @@ def playSong(trkArr):
     global playing
     playing=True
 
-#function to continue playing the next song from the queue by sending the request to the spotify server associated with this client
-# def playSongsToContinue():
-#     print()
-#     global add,playing, timeouter
-#     tc=Timer(1,playSongsToContinue)
-#     timeouter+=1
-#     print("Continue Playing")
-#     print("Timeout Timer: ", timeouter)
-#     if(timeouter>=10):
-#         continueSongImmediate=requests.get(baseUrl+"continuePlayingImmediate")
-#         trackArr=[]
-#         trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
-#         add-=1
-#         playSong(trackArr)
-#         playing=True
-
-#     continueSong=requests.post(baseUrl+"continuePlaying", json={"user_id":userID})
-#     if(timeouter<10 and len(continueSong.json()['queue']) != 0):
-#         trackArr=[]
-#         trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
-#         add-=1
-#         playSong(trackArr)
-
-#         playing=True
-
-#     if playing:
-#         tc.cancel()
-#         timeouter=0
-
 #function to continue playing immediately
 def playSongsToContinue():
     global add, playing
@@ -202,14 +173,6 @@ def infiniteloop1():
 
 def infiniteloop2():
     while True:
-        # # websocket.enableTrace(True) # print the connection details (for debugging purposes)
-        # ws = websocket.WebSocketApp("wss://qp-master-server.herokuapp.com/", # websocket URL to connect to
-        #                         on_message = on_message, # what should happen when we receive a new message
-        #                         on_error = on_error, # what should happen when we get an error
-        #                         on_close = on_close) # what should happen when the connection is closed
-        # ws.on_open = on_open # call on_open function when the ws connection is opened
-        # ws.run_forever(sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
-
         websocket.enableTrace(True) # print the connection details (for debuggi>
         ws = websocket.WebSocketApp("wss://qp-master-server.herokuapp.com/", # websocket URL to connect
             on_message = on_message, # what should happen when we receive a new message
@@ -218,7 +181,9 @@ def infiniteloop2():
             on_ping = on_ping, # on ping
             on_pong = on_pong) # on pong
         ws.on_open = on_open # call on_open function when the ws connection is opened
-        ws.run_forever(reconnect=5, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+        # ws.run_forever(reconnect=5, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+        ws.run_forever(reconnect=1, sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+
 
 def on_message(ws, message): # function which is called whenever a new message comes in
     json_data = json.loads(message) # incoming message is transformed into a JSON object
@@ -231,8 +196,6 @@ def on_message(ws, message): # function which is called whenever a new message c
     else:
         seekToPlay()
     add=int(json_data["songdata"]["offset"])
-    # print(message) # printing the data (for testing purposes)
-    # print(json_data["blockHash"]) # printing a specific part of the JSON object (for testing purposes)
     print("") # printing new line for better legibility
 
 def on_error(ws, error): # function call when there is an error
