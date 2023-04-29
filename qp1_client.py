@@ -76,8 +76,8 @@ def pushBPMToQueue():
     # print("Updated Queue : ",songToBeQueued.json())
     
     print("Updated Queue : \n")
-    if(songToBeQueued.json()["queue"]=="Already added song"):
-        add-=1
+    # if(songToBeQueued.json()["queue"]=="Already added song"):
+    #     add-=1
     
     for ele in songToBeQueued.json()['queue']:
         print(ele)
