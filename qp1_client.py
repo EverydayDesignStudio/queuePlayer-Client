@@ -95,7 +95,7 @@ def playSongsToContinue():
     continueSongImmediate=requests.get(baseUrl+"continuePlayingImmediate")
     trackArr=[]
     trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
-    # add-=1
+    add-=1
     playSong(trackArr)
     playing=True
 
