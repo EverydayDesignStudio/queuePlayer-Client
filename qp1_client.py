@@ -174,7 +174,7 @@ def infiniteloop1():
 
 def infiniteloop2():
     while True:
-        websocket.enableTrace(True) # print the connection details (for debuggi>
+        # websocket.enableTrace(True) # print the connection details (for debuggi>
         ws = websocket.WebSocketApp("wss://qp-master-server.herokuapp.com/", # websocket URL to connect
             on_message = on_message, # what should happen when we receive a new message
             on_error = on_error, # what should happen when we get an error
