@@ -34,7 +34,7 @@ pixel_pin = board.D12 # the pin to which the LED strip is connected to
 num_pixels = 144 # this specifies the TOTAL number of pixels (should be a multiple of 12. ie. 12, 24, 36, 48 etc)
 ORDER = neopixel.GRBW # set the color type of the neopixel
 ledSegment = 36 # number of LEDs in a single segment
-ledArray = [[[0 for i in range(3)] for j in range(ledSegment)] for z in range(4)] #the array which stores the pixel information
+ledArray = [[[0 for i in range(4)] for j in range(ledSegment)] for z in range(4)] #the array which stores the pixel information
 
 pixels = neopixel.NeoPixel( # create and initiate neopixel object
     pixel_pin, num_pixels, brightness=0.2, auto_write=False, pixel_order=ORDER)
@@ -74,7 +74,7 @@ timeouter=0
 client_id='aeeefb7f628b41d0b7f5581b668c27f4'
 client_secret='7a75e01c59f046888fa4b99fbafc4784'
 spotify_username='x8eug7lj2opi0in1gnvr8lfsz'
-device_id=''
+device_id='13a8df6c2e97a189e4a9439317f06d4df730d0bd'
 spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing'
 spotify_redirect_uri = 'https://example.com/callback/'
 
@@ -165,6 +165,8 @@ def playSongsToContinue():
     add-=1
     playSong(trackArr)
     playing=True
+
+    #add fade function here
 
 #function to get the current timestamp playing in all the rest of the players and seek the player 
 def seekToPlay():
@@ -268,6 +270,9 @@ def on_message(ws, message): # function which is called whenever a new message c
         print("playing")
     else:
         seekToPlay()
+    
+#    global startColor 
+#    global endColor
 
     # print(message) # printing the data (for testing purposes)
     # print(json_data["blockHash"]) # printing a specific part of the JSON object (for testing purposes)
@@ -290,6 +295,8 @@ def on_open(ws): # function call when a new connection is established
 
 def updatePixels(json):
     iteration = 0 # reset number of iterations to 0. this is a helper variable to address different segments of the LED strip
+    
+#    fadeToNextColor(1)
     for ring in json["lights"]: # iterate through every ring object inside the JSON file
 
         l = len(json["lights"][ring]["colors"]) # figure out how many colors should be displayed
@@ -364,22 +371,25 @@ def updatePixels(json):
         
         iteration += 1 # increase the iteration (ie. work on the next segment of the LED strip)
     
-    pixels.show() # once done, update the led strip
+    pixels.show()
+    fadeToNextColor(1)
+    #pixels.show() # once done, update the led strip
 
 # function to assign single color to array
-def setColorArray1(iteration, c1r, c1g, c1b, c1w):
+def setColorArray1(iteration, c1r, c1g, c1b,c1w):
     for x in range(ledSegment): # cycle through the whole segment
         ledArray[iteration][x][0] = c1r # set the value of the red channel to the whole color array
         ledArray[iteration][x][1] = c1g # set the value of the green channel to the whole color array
         ledArray[iteration][x][2] = c1b # set the value of the blue channel to the whole color array
         ledArray[iteration][x][3] = c1w # set the value of the white channel to the whole color array
+        #fadeToNextColor(ledArray[iteration][x], (c1r, c1g, c1b, c1w))
 
 # function to assign two colors to array to create a gradient
-def setColorArray2(iteration, c1r, c1g, c1b, c1w, c2r, c2g, c2b, c2w):
+def setColorArray2(iteration, c1r, c1g, c1b,c1w, c2r, c2g, c2b,c2w):
     for x in range(int(ledSegment/2)): # cycle through half of the segment (as we need to create a gradient, the other half of the segment is automatically calculated)
         ledArray[iteration][x + ((int(ledSegment/2))*0)][0] = int((x - 0) / ((int(ledSegment/2)) - 0) * (c2r - c1r) + c1r) # based on the position inside the color array, calculate the value of the red channel so it morphs from the first color to the second
         ledArray[iteration][x + ((int(ledSegment/2))*1)][0] = int((x - 0) / ((int(ledSegment/2)) - 0) * (c1r - c2r) + c2r)
-
+        
         ledArray[iteration][x + ((int(ledSegment/2))*0)][1] = int((x - 0) / ((int(ledSegment/2)) - 0) * (c2g - c1g) + c1g) # based on the position inside the color array, calculate the value of the green channel so it morphs from the first color to the second
         ledArray[iteration][x + ((int(ledSegment/2))*1)][1] = int((x - 0) / ((int(ledSegment/2)) - 0) * (c1g - c2g) + c2g)
 
@@ -409,7 +419,7 @@ def setColorArray3(iteration, c1r, c1g, c1b, c1w, c2r, c2g, c2b, c2w, c3r, c3g, 
         ledArray[iteration][x + ((int(ledSegment/3))*2)][3] = int((x - 0) / ((int(ledSegment/3)) - 0) * (c1w - c3w) + c3w)  
 
 # function to assign four colors to array to create a gradient
-def setColorArray4(iteration, c1r, c1g, c1b, c1w, c2r, c2g, c2b, c2w, c3r, c3g, c3b,c3w, c4r, c4g, c4b, c4w):
+def setColorArray4(iteration, c1r, c1g, c1b, c1w, c2r, c2g, c2b, c2w, c3r, c3g, c3b, c3w, c4r, c4g, c4b, c4w):
     for x in range(int(ledSegment/4)):  # cycle through a fourth of the segment (as we need to create a gradient, the other three quarters of the segment are automatically calculated)
         ledArray[iteration][x + ((int(ledSegment/4))*0)][0] = int((x - 0) / ((int(ledSegment/4)) - 0) * (c2r - c1r) + c1r) # based on the position inside the color array, calculate the value of the red channel so it morphs from the first color to the second, to the third, and to the fourth
         ledArray[iteration][x + ((int(ledSegment/4))*1)][0] = int((x - 0) / ((int(ledSegment/4)) - 0) * (c3r - c2r) + c2r)
@@ -431,37 +441,59 @@ def setColorArray4(iteration, c1r, c1g, c1b, c1w, c2r, c2g, c2b, c2w, c3r, c3g, 
         ledArray[iteration][x + ((int(ledSegment/4))*2)][3] = int((x - 0) / ((int(ledSegment/4)) - 0) * (c4w - c3w) + c3w)
         ledArray[iteration][x + ((int(ledSegment/4))*3)][3] = int((x - 0) / ((int(ledSegment/4)) - 0) * (c1w - c4w) + c4w)          
 
-# Function to fade transition from one color to the next
-#def fadeToNextColor():
-    # Define the number of steps to take between the two colors and the total duration of the fade
-#    num_steps = 50
-#    fade_time = 3.0  # seconds
+# Function to fade transition from one color to the next (fade to black + fade in from black)
+def fadeToNextColor():
+    START_COLOR = (100, 0, 255, 0)  # Starting color (solid red)
+    END_COLOR = (0, 150, 5, 5)   # Ending color (solid blue)
+    NUM_STEPS = 120  # Number of steps in the fade
+    FADE_TIME = 3.0  # Time in seconds for each fade to complete
 
-    # Calculate the time interval between each color update
-#    interval = fade_time / num_steps
+    pixels = neopixel.NeoPixel(board.D12, 144, pixel_order=neopixel.GRBW, brightness=255, auto_write=False)
 
-    # Loop through the steps and gradually fade between the two colors
-#    start_time = time.monotonic()
-#    for i in range(num_steps):
-        # Calculate the current color based on the elapsed time
-#        elapsed_time = time.monotonic() - start_time
-#        ratio = elapsed_time / fade_time
-#        color = (
-#            int((1 - ratio) * color1[0] + ratio * color2[0]),
-#            int((1 - ratio) * color1[1] + ratio * color2[1]),
-#            int((1 - ratio) * color1[2] + ratio * color2[2]),
-#            int((1 - ratio) * color1[3] + ratio * color2[3])
-#        )
+    delay = FADE_TIME/NUM_STEPS
 
-    # Set all the pixels to the current color
-#    pixels.fill(color)
-#    pixels.show()
+    # Fade out from starting color to black
+    for step in range(NUM_STEPS):
+        # Calculate the ratio of the current step to the total number of steps
+        ratio = step / float(NUM_STEPS - 1)
 
-    # Wait until the next color update is due
-#    next_update_time = start_time + (i + 1) * interval
-#    while time.monotonic() < next_update_time:
-#        pass 
+        # Calculate the intermediate color between the starting color and black
+        r = int((1 - ratio) * START_COLOR[0])
+        g = int((1 - ratio) * START_COLOR[1])
+        b = int((1 - ratio) * START_COLOR[2])
+        w = int((1 - ratio) * START_COLOR[3])
 
+        # Set the Neopixel to the intermediate color
+        pixels.fill((r, g, b, w))
+        pixels.show()
+
+    # Delay for the fade time divided by the number of steps
+    #time.sleep(FADE_TIME / NUM_STEPS)
+    start_time = time.monotonic()
+    while time.monotonic() - start_time < delay:
+        pass
+
+
+    # Fade in from black to ending color
+    for step in range(NUM_STEPS):
+        # Calculate the ratio of the current step to the total number of steps
+        ratio = step / float(NUM_STEPS - 1)
+
+        # Calculate the intermediate color between black and the ending color
+        r = int(ratio * END_COLOR[0])
+        g = int(ratio * END_COLOR[1])
+        b = int(ratio * END_COLOR[2])
+        w = int(ratio * END_COLOR[3])
+
+        # Set the Neopixel to the intermediate color
+        pixels.fill((r, g, b, w))
+        pixels.show()
+
+        # Delay for the fade time divided by the number of steps
+        #time.sleep(FADE_TIME / NUM_STEPS)
+        start_time = time.monotonic()
+        while time.monotonic() - start_time < delay:
+            pass
 
 
 def infiniteloop3():
