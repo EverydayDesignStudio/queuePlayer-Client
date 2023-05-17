@@ -21,7 +21,6 @@ baseUrl="https://qp-master-server.herokuapp.com/"
 
 playerID=""
 playing=False
-add=0
 flag=0
 bpmCheck=True
 count=0
@@ -54,9 +53,9 @@ def pushBPMToPlay():
     print("\nSince Queue was Empty, Pushing song to Play")
     songToBePlayed=requests.post(baseUrl+"getTrackToPlay", json={"bpm":bpmAdded, "clientID":clientID})
 
-    print("Initial Queue : \n")
-    for ele in songToBePlayed.json()['queue']:
-        print(ele)
+    # print("Initial Queue : \n")
+    # for ele in songToBePlayed.json()['queue']:
+    #     print(ele)
 
     trackArr=[]
     trackArr.append("spotify:track:"+songToBePlayed.json()['song']['track_id'])
@@ -65,17 +64,13 @@ def pushBPMToPlay():
 #function to push the BPM added by the client to the master server
 #simultaneously update the queue with the pushed BPM as the player is playing
 def pushBPMToQueue():
-    global add
     print()
     print("Since Song is playing, Pushing song to Queue")
-    add+=1
-    print("offset: ", add)
-    songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "userID":clientID, "offset":add})
-    # print("Updated Queue : ",songToBeQueued.json())
+    songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "userID":clientID})
     
-    print("Updated Queue : \n")
-    for ele in songToBeQueued.json()['queue']:
-        print(ele)
+    # print("Updated Queue : \n")
+    # for ele in songToBeQueued.json()['queue']:
+    #     print(ele)
 
 #function to play the song by sending the request to the spotify server associated with this client
 def playSong(trkArr):
@@ -89,11 +84,10 @@ def playSong(trkArr):
 
 #function to continue playing immediately
 def playSongsToContinue():
-    global add, playing
+    global playing
     continueSongImmediate=requests.get(baseUrl+"continuePlayingImmediate")
     trackArr=[]
     trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
-    add-=1
     playSong(trackArr)
     playing=True
 
@@ -141,7 +135,7 @@ def TapBPM():
 
 #function to periodically check the client state to indicate when a bpm is added
 def checkBPMAdded():    
-    global playing, add, flag, bpmAdded
+    global playing,flag, bpmAdded
     msCurr=int(time()*1000)
     if flag==1 and msCurr-msPrev>1000*2:
     # if flag==1:
@@ -199,12 +193,11 @@ def on_message(ws, message): # function which is called whenever a new message c
     print("")
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
-    global add,playing
+    global playing
     if playing:
         print("playing")
     else:
         seekToPlay()
-    add=int(json_data["songdata"]["offset"])
     print("") # printing new line for better legibility
 
 def on_error(ws, error): # function call when there is an error
