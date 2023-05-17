@@ -41,9 +41,16 @@ sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secre
 #function to show the states for each queue player client
 def setClientActive():
     global clientID
-    toggleClientActive=requests.post(baseUrl+"setClientActive", json={"clientID":clientID})
+    setClientActive=requests.post(baseUrl+"setClientActive", json={"clientID":clientID})
     print("Client States : \n")
-    print(toggleClientActive.json())
+    print(setClientActive.json())
+
+#function to show the states for each queue player client
+def setClientInactive():
+    global clientID
+    setClientInactive=requests.post(baseUrl+"setClientInactive", json={"clientID":clientID})
+    print("Client States : \n")
+    print(setClientInactive.json())
 
 #function to push the BPM added by the client to the master server and use the spotify server to call and play the song if no song is in the queue
 #simultaneously update the queue with the pushed BPM
