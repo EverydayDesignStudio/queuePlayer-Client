@@ -172,6 +172,16 @@ def infiniteloop1():
 
 def infiniteloop2():
     while True:
+        if playing:
+            if sp.currently_playing()['progress_ms']>0 and sp.currently_playing()['item']['id'] != None:
+                seekData=requests.post(baseUrl+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['item']['id']})
+            if sp.currently_playing()['progress_ms']>10000:
+                if(sp.currently_playing()['progress_ms']+10000>=sp.currently_playing()['item']['duration_ms']):
+                    print("Song has ended")
+                    playSongsToContinue()
+
+def infiniteloop3():
+    while True:
         # websocket.enableTrace(True) # print the connection details (for debuggi>
         ws = websocket.WebSocketApp("wss://qp-master-server.herokuapp.com/", # websocket URL to connect
             on_message = on_message, # what should happen when we receive a new message
@@ -212,16 +222,6 @@ def on_ping(wsapp, message):
 def on_pong(wsapp, message):
     print("Got a pong! No need to respond. ", message)
 
-def infiniteloop3():
-    while True:
-        if playing:
-            if sp.currently_playing()['progress_ms']>0 and sp.currently_playing()['item']['id'] != None:
-                seekData=requests.post(baseUrl+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['item']['id']})
-            if sp.currently_playing()['progress_ms']>10000:
-                if(sp.currently_playing()['progress_ms']+10000>=sp.currently_playing()['item']['duration_ms']):
-                    print("Song has ended")
-                    playSongsToContinue()
-
     
 thread1 = threading.Thread(target=infiniteloop1)
 thread1.start()
@@ -231,5 +231,31 @@ thread2.start()
 
 thread3 = threading.Thread(target=infiniteloop3)
 thread3.start()
+
+def ring1():
+    print("Perform Funtions of Ring 1")
+
+def ring2():
+    print("Perform Funtions of Ring 2")
+
+def ring3():
+    print("Perform Funtions of Ring 3")
+
+def ring4():
+    print("Perform Funtions of Ring 4")
+
+ring1Thread = threading.Thread(target=ring1)
+ring1Thread.start()
+
+ring2Thread = threading.Thread(target=ring2)
+ring2Thread.start()
+
+ring3Thread = threading.Thread(target=ring3)
+ring3Thread.start()
+
+ring4Thread = threading.Thread(target=ring4)
+ring4Thread.start()
+
+
 
 
