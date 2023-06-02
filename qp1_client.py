@@ -1,4 +1,6 @@
 import threading
+import keyboard
+from pynput.keyboard import Key
 from threading import Timer
 from time import time
 import requests
@@ -10,6 +12,9 @@ from spotipy.oauth2 import SpotifyOAuth
 
 #variable to determine the client number
 clientID=1
+
+#varibale to determine the client state
+state=True
 
 #variable that keeps the record of the current BPM added by the user
 bpmAdded=36
@@ -153,8 +158,12 @@ def checkBPMAdded():
         flag=0
     
     global bpmCheck
+    global bpmTimer
     if bpmCheck:
-        Timer(2,checkBPMAdded).start()
+        bpmTimer=Timer(2,checkBPMAdded)
+        bpmTimer.start()
+    else:
+        bpmTimer.cancel()
 
 def colorArrayBuilder(lights):
     global colorArrBefore,colorArrAfter
@@ -247,6 +256,18 @@ thread2.start()
 thread3 = threading.Thread(target=infiniteloop3)
 thread3.start()
 
+while state:
+    if keyboard.is_pressed("o"):
+        bpmCheck=False
+        setClientInactive()
+        sp.pause_playback(device_id=device_id)
+        print("Client is set Inactive")
+    elif keyboard.is_pressed("s"):
+        bpmCheck=True
+        setClientActive()
+        seekToPlay()
+        checkBPMAdded()
+        print("Client is set Active")
 
 
 

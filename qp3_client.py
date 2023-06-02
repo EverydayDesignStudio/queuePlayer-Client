@@ -30,24 +30,17 @@ count=0
 msFirst=0
 msPrev=0
 seekedPlayer=0
-timeouter=0
+colorArrBefore=[(0,0,0,0)]*144
+colorArrAfter=[0]*144
 
 #Spotify Library Required Variables
-#[OLO5 Credentials]
-client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
-client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
-spotify_username='n39su59fav4b7fmcm0cuwyv2w'
-device_id='1632b74b504b297585776e716b8336510639401a'
+# [OLO3] Credentials
+client_id='c2373a92cd9c44d59a92b4d6d851c7c9'
+client_secret='70212de075da44fcadfcd47cbc73c944'
+spotify_username='qjczeruw4padtyh69nxeqzohi'
+device_id=''
 spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing'
 spotify_redirect_uri = 'http://localhost:8000'
-
-#[OLO3] Credentials
-# client_id='c2373a92cd9c44d59a92b4d6d851c7c9'
-# client_secret='70212de075da44fcadfcd47cbc73c944'
-# spotify_username='qjczeruw4padtyh69nxeqzohi'
-# device_id=''
-# spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing'
-# spotify_redirect_uri = 'http://localhost:8000'
 
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
 
@@ -170,6 +163,22 @@ def checkBPMAdded():
     else:
         bpmTimer.cancel()
 
+def colorArrayBuilder(lights):
+    global colorArrBefore,colorArrAfter
+    n=0
+    for ring in lights:
+        colors=lights[ring]["colors"]
+        print(len(colors))
+        divs=int(36/len(colors))
+        for i in colors:
+            colorArrAfter[n:n+divs]=[(colors[i]["r"],colors[i]["g"],colors[i]["b"],colors[i]["w"])] * divs
+            n=n+divs
+
+    print(colorArrAfter[0:36])
+    print(colorArrAfter[36:72])
+    print(colorArrAfter[72:108])
+    print(colorArrAfter[108:144])
+
 
 setClientActive()
 seekToPlay()
@@ -213,6 +222,7 @@ def on_message(ws, message): # function which is called whenever a new message c
     print("")
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
+    colorArrayBuilder(json_data["lights"])
     global playing
     if playing:
         print("playing")
