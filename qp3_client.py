@@ -245,31 +245,6 @@ thread2.start()
 thread3 = threading.Thread(target=infiniteloop3)
 thread3.start()
 
-def ring1():
-    print("Perform Funtions of Ring 1")
-
-def ring2():
-    print("Perform Funtions of Ring 2")
-
-def ring3():
-    print("Perform Funtions of Ring 3")
-
-def ring4():
-    print("Perform Funtions of Ring 4")
-
-ring1Thread = threading.Thread(target=ring1)
-ring1Thread.start()
-
-ring2Thread = threading.Thread(target=ring2)
-ring2Thread.start()
-
-ring3Thread = threading.Thread(target=ring3)
-ring3Thread.start()
-
-ring4Thread = threading.Thread(target=ring4)
-ring4Thread.start()
-
-
 while state:
     if keyboard.is_pressed("o"):
         bpmCheck=False

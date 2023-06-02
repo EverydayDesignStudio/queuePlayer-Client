@@ -25,7 +25,8 @@ count=0
 msFirst=0
 msPrev=0
 seekedPlayer=0
-timeouter=0
+colorArrBefore=[]
+colorArrAfter=[]
 
 #Spotify Library Required Variables
 #[OLO5 Credentials]
@@ -155,6 +156,12 @@ def checkBPMAdded():
     if bpmCheck:
         Timer(2,checkBPMAdded).start()
 
+def colorArrayBuilder(lights):
+    for color in lights:
+        print(color)
+
+
+
 
 setClientActive()
 seekToPlay()
@@ -198,6 +205,7 @@ def on_message(ws, message): # function which is called whenever a new message c
     print("")
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
+    colorArrayBuilder(json_data["lights"])
     global playing
     if playing:
         print("playing")
@@ -230,29 +238,6 @@ thread2.start()
 thread3 = threading.Thread(target=infiniteloop3)
 thread3.start()
 
-def ring1():
-    print("Perform Funtions of Ring 1")
-
-def ring2():
-    print("Perform Funtions of Ring 2")
-
-def ring3():
-    print("Perform Funtions of Ring 3")
-
-def ring4():
-    print("Perform Funtions of Ring 4")
-
-ring1Thread = threading.Thread(target=ring1)
-ring1Thread.start()
-
-ring2Thread = threading.Thread(target=ring2)
-ring2Thread.start()
-
-ring3Thread = threading.Thread(target=ring3)
-ring3Thread.start()
-
-ring4Thread = threading.Thread(target=ring4)
-ring4Thread.start()
 
 
 
