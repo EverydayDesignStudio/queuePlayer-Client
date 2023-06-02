@@ -34,7 +34,7 @@ colorArrBefore=[(0,0,0,0)]*144
 colorArrAfter=[0]*144
 
 #Spotify Library Required Variables
-# [OLO3] Credentials
+#[OLO3] Credentials
 client_id='c2373a92cd9c44d59a92b4d6d851c7c9'
 client_secret='70212de075da44fcadfcd47cbc73c944'
 spotify_username='qjczeruw4padtyh69nxeqzohi'
@@ -50,7 +50,8 @@ def setClientActive():
     setClientActive=requests.post(baseUrl+"setClientActive", json={"clientID":clientID})
     print("Client States : \n")
     print(setClientActive.json())
-
+    
+#function to show the states for each queue player client
 def setClientInactive():
     global clientID
     setClientInactive=requests.post(baseUrl+"setClientInactive", json={"clientID":clientID})
