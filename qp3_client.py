@@ -50,7 +50,7 @@ def setClientActive():
     setClientActive=requests.post(baseUrl+"setClientActive", json={"clientID":clientID})
     print("Client States : \n")
     print(setClientActive.json())
-    
+
 #function to show the states for each queue player client
 def setClientInactive():
     global clientID
@@ -179,7 +179,6 @@ def colorArrayBuilder(lights):
     print(colorArrAfter[36:72])
     print(colorArrAfter[72:108])
     print(colorArrAfter[108:144])
-
 
 setClientActive()
 seekToPlay()

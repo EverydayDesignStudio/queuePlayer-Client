@@ -149,7 +149,6 @@ def checkBPMAdded():
     global playing,flag, bpmAdded
     msCurr=int(time()*1000)
     if flag==1 and msCurr-msPrev>1000*2:
-    # if flag==1:
         if playing:
             pushBPMToQueue()
         else:
