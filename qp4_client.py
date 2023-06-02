@@ -1,4 +1,6 @@
 import threading
+import keyboard
+from pynput.keyboard import Key
 from threading import Timer
 from time import time
 import requests
@@ -7,27 +9,29 @@ import ssl # import ssl library (native)
 import json # import json library (native)
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-import spotipy.util as util
 
-#variable to determine the user
-userID=4
+#variable to determine the client number
+clientID=4
+
+#varibale to determine the client state
+state=True
 
 #variable that keeps the record of the current BPM added by the user
 bpmAdded=36
 
 #both hosted servers for queue player funcitonality
-base_url="https://qp-master-server.herokuapp.com/"
+baseUrl="https://qp-master-server.herokuapp.com/"
 
 playerID=""
 playing=False
-add=0
 flag=0
 bpmCheck=True
 count=0
 msFirst=0
 msPrev=0
 seekedPlayer=0
-timeouter=0
+colorArrBefore=[(0,0,0,0)]*144
+colorArrAfter=[0]*144
 
 #Spotify Library Required Variables
 #[OLO2] Credentials
@@ -38,36 +42,46 @@ device_id=''
 spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing'
 spotify_redirect_uri = 'https://example.com/callback/'
 
-# sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=spotify_scope, client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, username=spotify_username))
-token = util.prompt_for_user_token(spotify_username, spotify_scope, client_id = client_id, client_secret = client_secret, redirect_uri = spotify_redirect_uri)
-if token:
-    sp = spotipy.Spotify(auth=token)
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
 
-#function to check the active users for each queue player client
-def makeUserActive():
-    global userID
-    userActive=requests.post(base_url+"makeActive", json={"user_id":userID})
-    print("Active Users :")
-    print(userActive.json())
+#function to show the states for each queue player client
+def setClientActive():
+    global clientID
+    setClientActive=requests.post(baseUrl+"setClientActive", json={"clientID":clientID})
+    print("Client States : \n")
+    print(setClientActive.json())
+
+#function to show the states for each queue player client
+def setClientInactive():
+    global clientID
+    setClientInactive=requests.post(baseUrl+"setClientInactive", json={"clientID":clientID})
+    print("Client States : \n")
+    print(setClientInactive.json())
 
 #function to push the BPM added by the client to the master server and use the spotify server to call and play the song if no song is in the queue
 #simultaneously update the queue with the pushed BPM
 def pushBPMToPlay():
-    print()
-    print("Since Queue was Empty, Pushing song to Play")
-    songToBePlayed=requests.post(base_url+"getTrackToPlay", json={"bpm":bpmAdded, "userID":userID})
-    print("Initial Queue : ", songToBePlayed.json())
+    print("\nSince Queue was Empty, Pushing song to Play")
+    songToBePlayed=requests.post(baseUrl+"getTrackToPlay", json={"bpm":bpmAdded, "clientID":clientID})
+
+    # print("Initial Queue : \n")
+    # for ele in songToBePlayed.json()['queue']:
+    #     print(ele)
+
     trackArr=[]
     trackArr.append("spotify:track:"+songToBePlayed.json()['song']['track_id'])
     playSong(trackArr)
 
 #function to push the BPM added by the client to the master server
 #simultaneously update the queue with the pushed BPM as the player is playing
-def pushBPMToQueue(add):
+def pushBPMToQueue():
     print()
     print("Since Song is playing, Pushing song to Queue")
-    songToBeQueued=requests.post(base_url+"getTrackToQueue", json={"bpm":bpmAdded, "userID":userID, "offset":add})
-    print("Updated Queue : ",songToBeQueued.json())
+    songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "userID":clientID})
+    
+    # print("Updated Queue : \n")
+    # for ele in songToBeQueued.json()['queue']:
+    #     print(ele)
 
 #function to play the song by sending the request to the spotify server associated with this client
 def playSong(trkArr):
@@ -79,49 +93,19 @@ def playSong(trkArr):
     global playing
     playing=True
 
-#function to continue playing the next song from the queue by sending the request to the spotify server associated with this client
-# def playSongsToContinue():
-#     print()
-#     global add,playing, timeouter
-#     tc=Timer(1,playSongsToContinue)
-#     timeouter+=1
-#     print("Continue Playing")
-#     print("Timeout Timer: ", timeouter)
-#     if(timeouter>=10):
-#         continueSongImmediate=requests.get(base_url+"continuePlayingImmediate")
-#         trackArr=[]
-#         trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
-#         add-=1
-#         playSong(trackArr)
-#         playing=True
-
-#     continueSong=requests.post(base_url+"continuePlaying", json={"user_id":userID})
-#     if(timeouter<10 and len(continueSong.json()['queue']) != 0):
-#         trackArr=[]
-#         trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
-#         add-=1
-#         playSong(trackArr)
-
-#         playing=True
-
-#     if playing:
-#         tc.cancel()
-#         timeouter=0
-
 #function to continue playing immediately
 def playSongsToContinue():
-    global add, playing
-    continueSongImmediate=requests.get(base_url+"continuePlayingImmediate")
+    global playing
+    continueSongImmediate=requests.get(baseUrl+"continuePlayingImmediate")
     trackArr=[]
     trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
-    add-=1
     playSong(trackArr)
     playing=True
 
 #function to get the current timestamp playing in all the rest of the players and seek the player 
 def seekToPlay():
     global seekedPlayer
-    playerSeek=requests.get(base_url+"getSeek")
+    playerSeek=requests.get(baseUrl+"getSeek")
     if(playerSeek.json()['seek']>0):
         print("Seeked Song")
         print(playerSeek)
@@ -162,23 +146,41 @@ def TapBPM():
 
 #function to periodically check the client state to indicate when a bpm is added
 def checkBPMAdded():    
-    global playing, add, flag, bpmAdded
+    global playing,flag, bpmAdded
     msCurr=int(time()*1000)
     if flag==1 and msCurr-msPrev>1000*2:
-    # if flag==1:
         if playing:
-            add+=1
-            pushBPMToQueue(add)
+            pushBPMToQueue()
         else:
             pushBPMToPlay()
         
         flag=0
     
     global bpmCheck
+    global bpmTimer
     if bpmCheck:
-        Timer(2,checkBPMAdded).start()
+        bpmTimer=Timer(2,checkBPMAdded)
+        bpmTimer.start()
+    else:
+        bpmTimer.cancel()
 
-makeUserActive()
+def colorArrayBuilder(lights):
+    global colorArrBefore,colorArrAfter
+    n=0
+    for ring in lights:
+        colors=lights[ring]["colors"]
+        print(len(colors))
+        divs=int(36/len(colors))
+        for i in colors:
+            colorArrAfter[n:n+divs]=[(colors[i]["r"],colors[i]["g"],colors[i]["b"],colors[i]["w"])] * divs
+            n=n+divs
+
+    print(colorArrAfter[0:36])
+    print(colorArrAfter[36:72])
+    print(colorArrAfter[72:108])
+    print(colorArrAfter[108:144])
+
+setClientActive()
 seekToPlay()
 checkBPMAdded()
 
@@ -193,20 +195,39 @@ def infiniteloop1():
 
 def infiniteloop2():
     while True:
-        # websocket.enableTrace(True) # print the connection details (for debugging purposes)
-        ws = websocket.WebSocketApp("wss://qp-master-server.herokuapp.com/", # websocket URL to connect to
-                                on_message = on_message, # what should happen when we receive a new message
-                                on_error = on_error, # what should happen when we get an error
-                                on_close = on_close) # what should happen when the connection is closed
+        if playing:
+            if sp.currently_playing()['progress_ms']>0 and sp.currently_playing()['item']['id'] != None:
+                seekData=requests.post(baseUrl+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['item']['id']})
+            if sp.currently_playing()['progress_ms']>10000:
+                if(sp.currently_playing()['progress_ms']+10000>=sp.currently_playing()['item']['duration_ms']):
+                    print("Song has ended")
+                    playSongsToContinue()
+
+def infiniteloop3():
+    while True:
+        # websocket.enableTrace(True) # print the connection details (for debuggi>
+        ws = websocket.WebSocketApp("wss://qp-master-server.herokuapp.com/", # websocket URL to connect
+            on_message = on_message, # what should happen when we receive a new message
+            on_error = on_error, # what should happen when we get an error
+            on_close = on_close, # what should happen when the connection is closed
+            on_ping = on_ping, # on ping
+            on_pong = on_pong) # on pong
         ws.on_open = on_open # call on_open function when the ws connection is opened
-        ws.run_forever(sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+        # ws.run_forever(reconnect=5, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+        ws.run_forever(reconnect=1, sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+
 
 def on_message(ws, message): # function which is called whenever a new message comes in
     json_data = json.loads(message) # incoming message is transformed into a JSON object
     print("")
     print("Server Sent the JSON:")
-    print(message) # printing the data (for testing purposes)
-    # print(json_data["blockHash"]) # printing a specific part of the JSON object (for testing purposes)
+    print(json.dumps(json_data, indent = 2))
+    colorArrayBuilder(json_data["lights"])
+    global playing
+    if playing:
+        print("playing")
+    else:
+        seekToPlay()
     print("") # printing new line for better legibility
 
 def on_error(ws, error): # function call when there is an error
@@ -218,15 +239,11 @@ def on_close(ws): # function call when the connection is closed (this should not
 def on_open(ws): # function call when a new connection is established
     print("### open ###")
 
-def infiniteloop3():
-    while True:
-        if playing:
-            if sp.currently_playing()['progress_ms']>0 and sp.currently_playing()['item']['id'] != None:
-                seekData=requests.post(base_url+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['item']['id']})
-            if sp.currently_playing()['progress_ms']>10000:
-                if(sp.currently_playing()['progress_ms']+10000>=sp.currently_playing()['item']['duration_ms']):
-                    print("Song has ended")
-                    playSongsToContinue()
+def on_ping(wsapp, message):
+    print("Got a ping! A pong reply has already been automatically sent. ", message)
+
+def on_pong(wsapp, message):
+    print("Got a pong! No need to respond. ", message)
 
     
 thread1 = threading.Thread(target=infiniteloop1)
@@ -237,5 +254,20 @@ thread2.start()
 
 thread3 = threading.Thread(target=infiniteloop3)
 thread3.start()
+
+while state:
+    if keyboard.is_pressed("o"):
+        bpmCheck=False
+        setClientInactive()
+        sp.pause_playback(device_id=device_id)
+        print("Client is set Inactive")
+    elif keyboard.is_pressed("s"):
+        bpmCheck=True
+        setClientActive()
+        seekToPlay()
+        checkBPMAdded()
+        print("Client is set Active")
+
+
 
 
