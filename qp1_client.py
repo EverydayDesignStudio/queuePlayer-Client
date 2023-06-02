@@ -166,7 +166,11 @@ def colorArrayBuilder(lights):
         for i in colors:
             colorArrAfter[n:n+divs]=[(colors[i]["r"],colors[i]["g"],colors[i]["b"],colors[i]["w"])] * divs
             n=n+divs
-        n+=36
+
+    print(colorArrAfter[0:36])
+    print(colorArrAfter[36:72])
+    print(colorArrAfter[72:108])
+    print(colorArrAfter[108:144])
 
 setClientActive()
 seekToPlay()
