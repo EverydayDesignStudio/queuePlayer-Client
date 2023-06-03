@@ -9,6 +9,30 @@ import ssl # import ssl library (native)
 import json # import json library (native)
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+from spotipy.oauth2 import SpotifyClientCredentials, SpotifyPKCE
+import board
+import neopixel
+import RPi.GPIO as GPIO
+from adafruit_led_animation.animation.pulse import Pulse
+
+#Neopixel Setup
+pixel_pin1 = board.D12 # the pin to which the LED strip is connected to
+pixel_pin2 = board.D10 # the pin to which the ring light is connected to
+num_pixels = 144 # this specifies the TOTAL number of pixels (should be a multiple of 12. ie. 12, 24, 36, 48 etc)
+num_ring_pixels = 16
+ORDER = neopixel.GRBW # set the color type of the neopixel
+ledSegment = 36 # number of LEDs in a single segment
+ledArray = [[[0 for i in range(4)] for j in range(ledSegment)] for z in range(4)] #the array which stores the pixel information
+
+#Create and initiate neopixel objects
+pixels = neopixel.NeoPixel(pixel_pin1, num_pixels, brightness=0.2, auto_write=False, pixel_order=ORDER)
+ring_pixels = neopixel.NeoPixel(pixel_pin2, num_ring_pixels, brightness = 0.4, auto_write = False, pixel_order=ORDER)
+
+#Tap Sensor Setup
+channel = 23
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(channel, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+
 
 #variable to determine the client number
 clientID=1
@@ -179,19 +203,53 @@ def colorArrayBuilder(lights):
     print(colorArrAfter[36:72])
     print(colorArrAfter[72:108])
     print(colorArrAfter[108:144])
+   
+   #Check if color array is different to trigger fade in and out
+   if colorArrBefore != colorArrAfter:
+        # Define the maximum brightness value
+        max_brightness = 255
 
+        # Fade-out effect
+        for brightness in range(max_brightness, -1, -1):
+            for i in range (144):
+                pixels[i] = colorArrBefore[i]
+            #pixels.fill(colorArrBefore)
+            pixels.brightness = brightness / max_brightness
+            pixels.show()
+            time.sleep(0.01)  # Adjust the delay time as desired
+
+        # Fade-in effect
+        for brightness in range(max_brightness + 1):
+            for i in range (144):
+                pixels[i] = colorArrAfter[i]
+            #pixels.fill(colorArrAfter)
+            pixels.brightness = brightness / max_brightness
+            pixels.show()
+            time.sleep(0.01)  # Adjust the delay time as desired
+    
+        colorArrBefore = copy.deepcopy(colorArrAfter)
+        
 setClientActive()
 seekToPlay()
 checkBPMAdded()
 
 print("Press enter for BPM")
+#print("Tap for BPM")
 
-def infiniteloop1():
+def infiniteloop1(channel):
     while True:
         value = input()
         if(value==""):
             TapBPM()
         # time.sleep(1)
+#     if GPIO.input(channel):
+#             print ("Tap")
+#             TapBPM()
+#     else:
+#             print ("No Tap")
+
+# GPIO.add_event_detect(channel, GPIO.BOTH, bouncetime=50)  # let us know when the pin goes HIGH or LOW
+# GPIO.add_event_callback(channel, on_tap)  # assign function to GPIO PIN, Run function on change
 
 def infiniteloop2():
     while True:
@@ -247,6 +305,7 @@ def on_pong(wsapp, message):
 
     
 thread1 = threading.Thread(target=infiniteloop1)
+#thread1 = threading.Thread(target=on_tap(channel))
 thread1.start()
 
 thread2 = threading.Thread(target=infiniteloop2)
