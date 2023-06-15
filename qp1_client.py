@@ -279,14 +279,17 @@ def infiniteloop3():
 def on_message(ws, message): # function which is called whenever a new message comes in
     json_data = json.loads(message) # incoming message is transformed into a JSON object
     print("")
-    print("Server Sent the JSON:")
-    print(json.dumps(json_data, indent = 2))
-    colorArrayBuilder(json_data["lights"])
-    global playing
-    if playing:
-        print("playing")
+    if(json_data=="Just Checking"):
+        print("Pinged")
     else:
-        seekToPlay()
+        print("Server Sent the JSON:")
+        print(json.dumps(json_data, indent = 2))
+        colorArrayBuilder(json_data["lights"])
+        global playing
+        if playing:
+            print("playing")
+        else:
+            seekToPlay()
     print("") # printing new line for better legibility
 
 def on_error(ws, error): # function call when there is an error
