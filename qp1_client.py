@@ -10,28 +10,28 @@ import json # import json library (native)
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy.oauth2 import SpotifyClientCredentials, SpotifyPKCE
-import board
-import neopixel
-import RPi.GPIO as GPIO
-from adafruit_led_animation.animation.pulse import Pulse
+# import board
+# import neopixel
+# import RPi.GPIO as GPIO
+# from adafruit_led_animation.animation.pulse import Pulse
 
 #Neopixel Setup
-pixel_pin1 = board.D12 # the pin to which the LED strip is connected to
-pixel_pin2 = board.D10 # the pin to which the ring light is connected to
-num_pixels = 144 # this specifies the TOTAL number of pixels (should be a multiple of 12. ie. 12, 24, 36, 48 etc)
-num_ring_pixels = 16
-ORDER = neopixel.GRBW # set the color type of the neopixel
-ledSegment = 36 # number of LEDs in a single segment
-ledArray = [[[0 for i in range(4)] for j in range(ledSegment)] for z in range(4)] #the array which stores the pixel information
+# pixel_pin1 = board.D12 # the pin to which the LED strip is connected to
+# pixel_pin2 = board.D10 # the pin to which the ring light is connected to
+# num_pixels = 144 # this specifies the TOTAL number of pixels (should be a multiple of 12. ie. 12, 24, 36, 48 etc)
+# num_ring_pixels = 16
+# ORDER = neopixel.GRBW # set the color type of the neopixel
+# ledSegment = 36 # number of LEDs in a single segment
+# ledArray = [[[0 for i in range(4)] for j in range(ledSegment)] for z in range(4)] #the array which stores the pixel information
 
-#Create and initiate neopixel objects
-pixels = neopixel.NeoPixel(pixel_pin1, num_pixels, brightness=0.2, auto_write=False, pixel_order=ORDER)
-ring_pixels = neopixel.NeoPixel(pixel_pin2, num_ring_pixels, brightness = 0.4, auto_write = False, pixel_order=ORDER)
+# #Create and initiate neopixel objects
+# pixels = neopixel.NeoPixel(pixel_pin1, num_pixels, brightness=0.2, auto_write=False, pixel_order=ORDER)
+# ring_pixels = neopixel.NeoPixel(pixel_pin2, num_ring_pixels, brightness = 0.4, auto_write = False, pixel_order=ORDER)
 
-#Tap Sensor Setup
-channel = 23
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(channel, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+# #Tap Sensor Setup
+# channel = 23
+# GPIO.setmode(GPIO.BCM)
+# GPIO.setup(channel, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
 
 
 #variable to determine the client number
@@ -205,29 +205,29 @@ def colorArrayBuilder(lights):
     print(colorArrAfter[108:144])
    
    #Check if color array is different to trigger fade in and out
-   if colorArrBefore != colorArrAfter:
-        # Define the maximum brightness value
-        max_brightness = 255
+#    if colorArrBefore != colorArrAfter:
+#         # Define the maximum brightness value
+#         max_brightness = 255
 
-        # Fade-out effect
-        for brightness in range(max_brightness, -1, -1):
-            for i in range (144):
-                pixels[i] = colorArrBefore[i]
-            #pixels.fill(colorArrBefore)
-            pixels.brightness = brightness / max_brightness
-            pixels.show()
-            time.sleep(0.01)  # Adjust the delay time as desired
+#         # Fade-out effect
+#         for brightness in range(max_brightness, -1, -1):
+#             for i in range (144):
+#                 pixels[i] = colorArrBefore[i]
+#             #pixels.fill(colorArrBefore)
+#             pixels.brightness = brightness / max_brightness
+#             pixels.show()
+#             time.sleep(0.01)  # Adjust the delay time as desired
 
-        # Fade-in effect
-        for brightness in range(max_brightness + 1):
-            for i in range (144):
-                pixels[i] = colorArrAfter[i]
-            #pixels.fill(colorArrAfter)
-            pixels.brightness = brightness / max_brightness
-            pixels.show()
-            time.sleep(0.01)  # Adjust the delay time as desired
+#         # Fade-in effect
+#         for brightness in range(max_brightness + 1):
+#             for i in range (144):
+#                 pixels[i] = colorArrAfter[i]
+#             #pixels.fill(colorArrAfter)
+#             pixels.brightness = brightness / max_brightness
+#             pixels.show()
+#             time.sleep(0.01)  # Adjust the delay time as desired
     
-        colorArrBefore = copy.deepcopy(colorArrAfter)
+#         colorArrBefore = copy.deepcopy(colorArrAfter)
         
 setClientActive()
 seekToPlay()
@@ -236,7 +236,8 @@ checkBPMAdded()
 print("Press enter for BPM")
 #print("Tap for BPM")
 
-def infiniteloop1(channel):
+# def infiniteloop1(channel):
+def infiniteloop1():
     while True:
         value = input()
         if(value==""):
@@ -253,7 +254,7 @@ def infiniteloop1(channel):
 
 def infiniteloop2():
     while True:
-        if playing:
+        if playing and sp.currently_playing() != None:
             if sp.currently_playing()['progress_ms']>0 and sp.currently_playing()['item']['id'] != None:
                 seekData=requests.post(baseUrl+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['item']['id']})
             if sp.currently_playing()['progress_ms']>10000:
@@ -314,18 +315,18 @@ thread2.start()
 thread3 = threading.Thread(target=infiniteloop3)
 thread3.start()
 
-while state:
-    if keyboard.is_pressed("o"):
-        bpmCheck=False
-        setClientInactive()
-        sp.pause_playback(device_id=device_id)
-        print("Client is set Inactive")
-    elif keyboard.is_pressed("s"):
-        bpmCheck=True
-        setClientActive()
-        seekToPlay()
-        checkBPMAdded()
-        print("Client is set Active")
+# while state:
+#     if keyboard.is_pressed("o"):
+#         bpmCheck=False
+#         setClientInactive()
+#         sp.pause_playback(device_id=device_id)
+#         print("Client is set Inactive")
+#     elif keyboard.is_pressed("s"):
+#         bpmCheck=True
+#         setClientActive()
+#         seekToPlay()
+#         checkBPMAdded()
+#         print("Client is set Active")
 
 
 
