@@ -272,8 +272,8 @@ def infiniteloop3():
             on_ping = on_ping, # on ping
             on_pong = on_pong) # on pong
         ws.on_open = on_open # call on_open function when the ws connection is opened
-        # ws.run_forever(reconnect=5, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
-        ws.run_forever(reconnect=1, sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+        ws.run_forever(reconnect=1, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+        # ws.run_forever(reconnect=1, sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
 
 
 def on_message(ws, message): # function which is called whenever a new message comes in
