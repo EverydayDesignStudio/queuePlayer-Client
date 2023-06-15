@@ -279,7 +279,7 @@ def infiniteloop3():
 def on_message(ws, message): # function which is called whenever a new message comes in
     json_data = json.loads(message) # incoming message is transformed into a JSON object
     print("")
-    if(json_data=="Just Checking"):
+    if(json_data["msg"]=="Pinged"):
         print("Pinged")
     else:
         print("Server Sent the JSON:")
