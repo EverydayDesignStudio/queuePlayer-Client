@@ -65,7 +65,6 @@ spotify_username='n39su59fav4b7fmcm0cuwyv2w'
 device_id='1632b74b504b297585776e716b8336510639401a'
 spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing'
 spotify_redirect_uri = 'http://localhost:8000'
-
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
 
 #function to show the states for each queue player client
@@ -188,15 +187,36 @@ def checkBPMAdded():
     else:
         bpmTimer.cancel()
 
+def interpolate_rgbw(start_rgbw, end_rgbw, steps):
+    r1, g1, b1, w1 = start_rgbw
+    r2, g2, b2, w2 = end_rgbw
+
+    delta_r = (r2 - r1) / steps
+    delta_g = (g2 - g1) / steps
+    delta_b = (b2 - b1) / steps
+    delta_w = (w2 - w1) / steps
+
+    results = []
+    for i in range(steps + 1):
+        r = int(r1 + delta_r * i)
+        g = int(g1 + delta_g * i)
+        b = int(b1 + delta_b * i)
+        w = int(w1 + delta_w * i)
+        results.append((r, g, b, w))
+
+    return results
+
 def colorArrayBuilder(lights):
     global colorArrBefore,colorArrAfter
     n=0
     for ring in lights:
         colors=lights[ring]["colors"]
-        print(len(colors))
         divs=int(36/len(colors))
+        rgb_vals=[]
         for i in colors:
-            colorArrAfter[n:n+divs]=[(colors[i]["r"],colors[i]["g"],colors[i]["b"],colors[i]["w"])] * divs
+            rgb_vals.append((colors[i]["r"],colors[i]["g"],colors[i]["b"],colors[i]["w"]))
+        for i in range(len(rgb_vals)):
+            colorArrAfter[n:n+divs]=interpolate_rgbw(rgb_vals[i],rgb_vals[(i+1)%len(rgb_vals)], divs)
             n=n+divs
 
     print(colorArrAfter[0:36])
@@ -258,6 +278,7 @@ def infiniteloop2():
             if sp.currently_playing()['progress_ms']>0 and sp.currently_playing()['item']['id'] != None:
                 seekData=requests.post(baseUrl+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['item']['id']})
             if sp.currently_playing()['progress_ms']>10000:
+                # if sp.currently_playing()['item']['duration_ms']-sp.currently_playing()['progress_ms'] <= 50000:
                 if(sp.currently_playing()['progress_ms']+10000>=sp.currently_playing()['item']['duration_ms']):
                     print("Song has ended")
                     playSongsToContinue()
