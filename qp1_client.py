@@ -10,6 +10,7 @@ import json # import json library (native)
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy.oauth2 import SpotifyClientCredentials, SpotifyPKCE
+
 # import board
 # import neopixel
 # import RPi.GPIO as GPIO
@@ -35,7 +36,7 @@ from spotipy.oauth2 import SpotifyClientCredentials, SpotifyPKCE
 
 
 #variable to determine the client number
-clientID=1
+clientID=2
 
 #varibale to determine the client state
 state=True
@@ -161,7 +162,8 @@ def TapBPM():
     else:
         bpmAvg= 60000 * count / (msCurr-msFirst)
         global bpmAdded
-        bpmAdded=round(round(bpmAvg*100)/100)
+        # bpmAdded=round(round(bpmAvg*100)/100)
+        bpmAdded=215
         count+=1 
 
     msPrev=msCurr
@@ -227,7 +229,7 @@ def colorArrayBuilder(lights):
    #Check if color array is different to trigger fade in and out
 #    if colorArrBefore != colorArrAfter:
 #         # Define the maximum brightness value
-#         max_brightness = 255
+#         max_brightness = 255 
 
 #         # Fade-out effect
 #         for brightness in range(max_brightness, -1, -1):
@@ -274,14 +276,23 @@ def infiniteloop1():
 
 def infiniteloop2():
     while True:
-        if playing and sp.currently_playing() != None:
-            if sp.currently_playing()['progress_ms']>0 and sp.currently_playing()['item']['id'] != None:
-                seekData=requests.post(baseUrl+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['item']['id']})
-            if sp.currently_playing()['progress_ms']>10000:
-                # if sp.currently_playing()['item']['duration_ms']-sp.currently_playing()['progress_ms'] <= 50000:
-                if(sp.currently_playing()['progress_ms']+10000>=sp.currently_playing()['item']['duration_ms']):
-                    print("Song has ended")
-                    playSongsToContinue()
+        try:    
+            currSong=sp.currently_playing()
+        except requests.exceptions.ReadTimeout:
+            print("Minor Setback, Continue Continue")
+        if playing and currSong['progress_ms'] != None and currSong['item'] != None:
+            if currSong['progress_ms']>0:
+                try:
+                    seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSong['progress_ms'], "song":currSong['item']['id']})
+                except requests.exceptions.ConnectionError:
+                    print("Minor Setback, Continue Continue")
+                if currSong['progress_ms']>10000:
+                    # if sp.currently_playing()['item']['duration_ms']-sp.currently_playing()['progress_ms'] <= 50000:
+                    if(currSong['progress_ms']+10000>=currSong['item']['duration_ms']):
+                        print("Song has ended")
+                        playSongsToContinue()
+        else:
+            print("Song Trasitioning")
 
 def infiniteloop3():
     while True:
