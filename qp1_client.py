@@ -37,7 +37,7 @@ from datetime import datetime
 
 
 #variable to determine the client number
-clientID=2
+clientID=1
 
 #varibale to determine the client state
 state=True
