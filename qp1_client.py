@@ -10,6 +10,7 @@ import json # import json library (native)
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy.oauth2 import SpotifyClientCredentials, SpotifyPKCE
+from datetime import datetime
 
 # import board
 # import neopixel
@@ -114,6 +115,7 @@ def playSong(trkArr):
     print()
     print("Playing Song with ID: ", trkArr)
     sp.start_playback(device_id=device_id, uris=trkArr)
+    sp.volume(100, device_id)   
     global playing
     playing=True
 
@@ -287,8 +289,11 @@ def infiniteloop2():
                 except requests.exceptions.ConnectionError:
                     print("Minor Setback, Continue Continue")
                 if currSong['progress_ms']>10000:
-                    # if sp.currently_playing()['item']['duration_ms']-sp.currently_playing()['progress_ms'] <= 50000:
-                    if(currSong['progress_ms']+10000>=currSong['item']['duration_ms']):
+                    if currSong['item']['duration_ms']-currSong['progress_ms'] <= 18000:
+                        currVolume = sp.current_playback()['device']['volume_percent']
+                        currVolume=currVolume*0.8
+                        sp.volume(int(currVolume), device_id)   
+                    if(currSong['progress_ms']+8000>=currSong['item']['duration_ms']):
                         print("Song has ended")
                         playSongsToContinue()
         else:
