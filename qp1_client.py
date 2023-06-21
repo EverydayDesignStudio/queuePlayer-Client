@@ -293,7 +293,7 @@ def infiniteloop2():
                         currVolume = sp.current_playback()['device']['volume_percent']
                         currVolume=currVolume*0.8
                         sp.volume(int(currVolume), device_id)   
-                    if(currSong['progress_ms']+8000>=currSong['item']['duration_ms']):
+                    if(currSong['progress_ms']+6000>=currSong['item']['duration_ms']):
                         print("Song has ended")
                         playSongsToContinue()
         else:
