@@ -9,6 +9,31 @@ import ssl # import ssl library (native)
 import json # import json library (native)
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+from spotipy.oauth2 import SpotifyClientCredentials, SpotifyPKCE
+
+# import board
+# import neopixel
+# import RPi.GPIO as GPIO
+# from adafruit_led_animation.animation.pulse import Pulse
+
+#Neopixel Setup
+# pixel_pin1 = board.D12 # the pin to which the LED strip is connected to
+# pixel_pin2 = board.D10 # the pin to which the ring light is connected to
+# num_pixels = 144 # this specifies the TOTAL number of pixels (should be a multiple of 12. ie. 12, 24, 36, 48 etc)
+# num_ring_pixels = 16
+# ORDER = neopixel.GRBW # set the color type of the neopixel
+# ledSegment = 36 # number of LEDs in a single segment
+# ledArray = [[[0 for i in range(4)] for j in range(ledSegment)] for z in range(4)] #the array which stores the pixel information
+
+# #Create and initiate neopixel objects
+# pixels = neopixel.NeoPixel(pixel_pin1, num_pixels, brightness=0.2, auto_write=False, pixel_order=ORDER)
+# ring_pixels = neopixel.NeoPixel(pixel_pin2, num_ring_pixels, brightness = 0.4, auto_write = False, pixel_order=ORDER)
+
+# #Tap Sensor Setup
+# channel = 23
+# GPIO.setmode(GPIO.BCM)
+# GPIO.setup(channel, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+
 
 #variable to determine the client number
 clientID=3
@@ -41,7 +66,6 @@ spotify_username='qjczeruw4padtyh69nxeqzohi'
 device_id=''
 spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing'
 spotify_redirect_uri = 'http://localhost:8000'
-
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
 
 #function to show the states for each queue player client
@@ -90,6 +114,7 @@ def playSong(trkArr):
     print()
     print("Playing Song with ID: ", trkArr)
     sp.start_playback(device_id=device_id, uris=trkArr)
+    sp.volume(100, device_id)   
     global playing
     playing=True
 
@@ -139,6 +164,7 @@ def TapBPM():
         bpmAvg= 60000 * count / (msCurr-msFirst)
         global bpmAdded
         bpmAdded=round(round(bpmAvg*100)/100)
+        # bpmAdded=215
         count+=1 
 
     msPrev=msCurr
@@ -146,7 +172,7 @@ def TapBPM():
 
 #function to periodically check the client state to indicate when a bpm is added
 def checkBPMAdded():    
-    global playing,flag,bpmAdded
+    global playing,flag, bpmAdded
     msCurr=int(time()*1000)
     if flag==1 and msCurr-msPrev>1000*2:
         if playing:
@@ -164,44 +190,113 @@ def checkBPMAdded():
     else:
         bpmTimer.cancel()
 
+def interpolate_rgbw(start_rgbw, end_rgbw, steps):
+    r1, g1, b1, w1 = start_rgbw
+    r2, g2, b2, w2 = end_rgbw
+
+    delta_r = (r2 - r1) / steps
+    delta_g = (g2 - g1) / steps
+    delta_b = (b2 - b1) / steps
+    delta_w = (w2 - w1) / steps
+
+    results = []
+    for i in range(steps + 1):
+        r = int(r1 + delta_r * i)
+        g = int(g1 + delta_g * i)
+        b = int(b1 + delta_b * i)
+        w = int(w1 + delta_w * i)
+        results.append((r, g, b, w))
+
+    return results
+
 def colorArrayBuilder(lights):
     global colorArrBefore,colorArrAfter
     n=0
     for ring in lights:
         colors=lights[ring]["colors"]
-        print(len(colors))
         divs=int(36/len(colors))
+        rgb_vals=[]
         for i in colors:
-            colorArrAfter[n:n+divs]=[(colors[i]["r"],colors[i]["g"],colors[i]["b"],colors[i]["w"])] * divs
+            rgb_vals.append((colors[i]["r"],colors[i]["g"],colors[i]["b"],colors[i]["w"]))
+        for i in range(len(rgb_vals)):
+            colorArrAfter[n:n+divs]=interpolate_rgbw(rgb_vals[i],rgb_vals[(i+1)%len(rgb_vals)], divs)
             n=n+divs
 
     print(colorArrAfter[0:36])
     print(colorArrAfter[36:72])
     print(colorArrAfter[72:108])
     print(colorArrAfter[108:144])
+   
+   #Check if color array is different to trigger fade in and out
+#    if colorArrBefore != colorArrAfter:
+#         # Define the maximum brightness value
+#         max_brightness = 255 
 
+#         # Fade-out effect
+#         for brightness in range(max_brightness, -1, -1):
+#             for i in range (144):
+#                 pixels[i] = colorArrBefore[i]
+#             #pixels.fill(colorArrBefore)
+#             pixels.brightness = brightness / max_brightness
+#             pixels.show()
+#             time.sleep(0.01)  # Adjust the delay time as desired
+
+#         # Fade-in effect
+#         for brightness in range(max_brightness + 1):
+#             for i in range (144):
+#                 pixels[i] = colorArrAfter[i]
+#             #pixels.fill(colorArrAfter)
+#             pixels.brightness = brightness / max_brightness
+#             pixels.show()
+#             time.sleep(0.01)  # Adjust the delay time as desired
+    
+#         colorArrBefore = copy.deepcopy(colorArrAfter)
+        
 setClientActive()
 seekToPlay()
 checkBPMAdded()
 
 print("Press enter for BPM")
+#print("Tap for BPM")
 
+# def infiniteloop1(channel):
 def infiniteloop1():
     while True:
         value = input()
         if(value==""):
             TapBPM()
         # time.sleep(1)
+#     if GPIO.input(channel):
+#             print ("Tap")
+#             TapBPM()
+#     else:
+#             print ("No Tap")
+
+# GPIO.add_event_detect(channel, GPIO.BOTH, bouncetime=50)  # let us know when the pin goes HIGH or LOW
+# GPIO.add_event_callback(channel, on_tap)  # assign function to GPIO PIN, Run function on change
 
 def infiniteloop2():
     while True:
-        if playing:
-            if sp.currently_playing()['progress_ms']>0 and sp.currently_playing()['item']['id'] != None:
-                seekData=requests.post(baseUrl+"updateSeek", json={"seek":sp.currently_playing()['progress_ms'], "song":sp.currently_playing()['item']['id']})
-            if sp.currently_playing()['progress_ms']>10000:
-                if(sp.currently_playing()['progress_ms']+10000>=sp.currently_playing()['item']['duration_ms']):
-                    print("Song has ended")
-                    playSongsToContinue()
+        try:    
+            currSong=sp.currently_playing()
+        except requests.exceptions.ReadTimeout:
+            print("Minor Setback, Continue Continue")
+        if playing and currSong['progress_ms'] != None and currSong['item'] != None:
+            if currSong['progress_ms']>0:
+                try:
+                    seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSong['progress_ms'], "song":currSong['item']['id']})
+                except requests.exceptions.ConnectionError:
+                    print("Minor Setback, Continue Continue")
+                if currSong['progress_ms']>10000:
+                    if currSong['item']['duration_ms']-currSong['progress_ms'] <= 18000:
+                        currVolume = sp.current_playback()['device']['volume_percent']
+                        currVolume=currVolume*0.8
+                        sp.volume(int(currVolume), device_id)   
+                    if(currSong['progress_ms']+6000>=currSong['item']['duration_ms']):
+                        print("Song has ended")
+                        playSongsToContinue()
+        else:
+            print("Song Trasitioning")
 
 def infiniteloop3():
     while True:
@@ -213,21 +308,24 @@ def infiniteloop3():
             on_ping = on_ping, # on ping
             on_pong = on_pong) # on pong
         ws.on_open = on_open # call on_open function when the ws connection is opened
-        # ws.run_forever(reconnect=5, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
-        ws.run_forever(reconnect=1, sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+        ws.run_forever(reconnect=1, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+        # ws.run_forever(reconnect=1, sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
 
 
 def on_message(ws, message): # function which is called whenever a new message comes in
     json_data = json.loads(message) # incoming message is transformed into a JSON object
     print("")
-    print("Server Sent the JSON:")
-    print(json.dumps(json_data, indent = 2))
-    colorArrayBuilder(json_data["lights"])
-    global playing
-    if playing:
-        print("playing")
+    if(json_data["msg"]=="Pinged"):
+        print("Pinged")
     else:
-        seekToPlay()
+        print("Server Sent the JSON:")
+        print(json.dumps(json_data, indent = 2))
+        colorArrayBuilder(json_data["lights"])
+        global playing
+        if playing:
+            print("playing")
+        else:
+            seekToPlay()
     print("") # printing new line for better legibility
 
 def on_error(ws, error): # function call when there is an error
@@ -247,6 +345,7 @@ def on_pong(wsapp, message):
 
     
 thread1 = threading.Thread(target=infiniteloop1)
+#thread1 = threading.Thread(target=on_tap(channel))
 thread1.start()
 
 thread2 = threading.Thread(target=infiniteloop2)
@@ -255,20 +354,19 @@ thread2.start()
 thread3 = threading.Thread(target=infiniteloop3)
 thread3.start()
 
-while state:
-    if keyboard.is_pressed("o"):
-        bpmCheck=False
-        setClientInactive()
-        sp.pause_playback(device_id=device_id)
-        print("Client is set Inactive")
-    elif keyboard.is_pressed("s"):
-        bpmCheck=True
-        setClientActive()
-        seekToPlay()
-        checkBPMAdded()
-        print("Client is set Active")
+# while state:
+#     if keyboard.is_pressed("o"):
+#         bpmCheck=False
+#         setClientInactive()
+#         sp.pause_playback(device_id=device_id)
+#         print("Client is set Inactive")
+#     elif keyboard.is_pressed("s"):
+#         bpmCheck=True
+#         setClientActive()
+#         seekToPlay()
+#         checkBPMAdded()
+#         print("Client is set Active")
 
 
-        
 
 
