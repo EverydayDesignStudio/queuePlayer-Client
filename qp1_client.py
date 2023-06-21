@@ -290,7 +290,7 @@ def infiniteloop2():
                 if currSong['progress_ms']>10000:
                     if currSong['item']['duration_ms']-currSong['progress_ms'] <= 18000:
                         currVolume = sp.current_playback()['device']['volume_percent']
-                        currVolume=currVolume*0.8
+                        currVolume=currVolume*0.9
                         sp.volume(int(currVolume), device_id)   
                     if(currSong['progress_ms']+6000>=currSong['item']['duration_ms']):
                         print("Song has ended")
@@ -298,17 +298,9 @@ def infiniteloop2():
         else:
             print("Song Trasitioning")
 
-def infiniteloop3():
-    while True:
+# def infiniteloop3():
+    # while True:
         # websocket.enableTrace(True) # print the connection details (for debuggi>
-        ws = websocket.WebSocketApp("wss://qp-master-server.herokuapp.com/", # websocket URL to connect
-            on_message = on_message, # what should happen when we receive a new message
-            on_error = on_error, # what should happen when we get an error
-            on_close = on_close, # what should happen when the connection is closed
-            on_ping = on_ping, # on ping
-            on_pong = on_pong) # on pong
-        ws.on_open = on_open # call on_open function when the ws connection is opened
-        ws.run_forever(reconnect=1, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
         # ws.run_forever(reconnect=1, sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
 
 
@@ -351,8 +343,18 @@ thread1.start()
 thread2 = threading.Thread(target=infiniteloop2)
 thread2.start()
 
-thread3 = threading.Thread(target=infiniteloop3)
-thread3.start()
+# thread3 = threading.Thread(target=infiniteloop3)
+# thread3.start()
+
+ws = websocket.WebSocketApp("wss://qp-master-server.herokuapp.com/", # websocket URL to connect
+    on_message = on_message, # what should happen when we receive a new message
+    on_error = on_error, # what should happen when we get an error
+    on_close = on_close, # what should happen when the connection is closed
+    on_ping = on_ping, # on ping
+    on_pong = on_pong) # on pong
+ws.on_open = on_open # call on_open function when the ws connection is opened
+ws.run_forever(reconnect=1, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+
 
 # while state:
 #     if keyboard.is_pressed("o"):

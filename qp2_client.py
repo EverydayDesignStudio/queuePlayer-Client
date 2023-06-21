@@ -228,29 +228,29 @@ def colorArrayBuilder(lights):
     print(colorArrAfter[108:144])
    
    #Check if color array is different to trigger fade in and out
-#    if colorArrBefore != colorArrAfter:
-#         # Define the maximum brightness value
-#         max_brightness = 255 
+    # if colorArrBefore != colorArrAfter:
+    #     # Define the maximum brightness value
+    #     max_brightness = 255 
 
-#         # Fade-out effect
-#         for brightness in range(max_brightness, -1, -1):
-#             for i in range (144):
-#                 pixels[i] = colorArrBefore[i]
-#             #pixels.fill(colorArrBefore)
-#             pixels.brightness = brightness / max_brightness
-#             pixels.show()
-#             time.sleep(0.01)  # Adjust the delay time as desired
+    #     # Fade-out effect
+    #     for brightness in range(max_brightness, -1, -1):
+    #         for i in range (144):
+    #             pixels[i] = colorArrBefore[i]
+    #         #pixels.fill(colorArrBefore)
+    #         pixels.brightness = brightness / max_brightness
+    #         pixels.show()
+    #         time.sleep(0.01)  # Adjust the delay time as desired
 
-#         # Fade-in effect
-#         for brightness in range(max_brightness + 1):
-#             for i in range (144):
-#                 pixels[i] = colorArrAfter[i]
-#             #pixels.fill(colorArrAfter)
-#             pixels.brightness = brightness / max_brightness
-#             pixels.show()
-#             time.sleep(0.01)  # Adjust the delay time as desired
+    #     # Fade-in effect
+    #     for brightness in range(max_brightness + 1):
+    #         for i in range (144):
+    #             pixels[i] = colorArrAfter[i]
+    #         #pixels.fill(colorArrAfter)
+    #         pixels.brightness = brightness / max_brightness
+    #         pixels.show()
+    #         time.sleep(0.01)  # Adjust the delay time as desired
     
-#         colorArrBefore = copy.deepcopy(colorArrAfter)
+    #     colorArrBefore = copy.deepcopy(colorArrAfter)
         
 setClientActive()
 seekToPlay()
