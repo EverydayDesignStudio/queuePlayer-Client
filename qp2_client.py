@@ -64,9 +64,10 @@ client_id='aeeefb7f628b41d0b7f5581b668c27f4'
 client_secret='7a75e01c59f046888fa4b99fbafc4784'
 spotify_username='x8eug7lj2opi0in1gnvr8lfsz'
 device_id='13a8df6c2e97a189e4a9439317f06d4df730d0bd'
-spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing'
+spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing,user-read-playback-state'
 spotify_redirect_uri = 'https://example.com/callback/'
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True ))
+# print(sp.devices())
 
 #function to show the states for each queue player client
 def setClientActive():
