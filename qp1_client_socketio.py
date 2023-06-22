@@ -11,8 +11,6 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy.oauth2 import SpotifyClientCredentials, SpotifyPKCE
 import socketio
-sio = socketio.Client()
-
 
 # import board
 # import neopixel
@@ -43,8 +41,6 @@ clientID=1
 
 #varibale to determine the client state
 state=True
-
-
 
 #variable that keeps the record of the current BPM added by the user
 bpmAdded=36
@@ -77,20 +73,20 @@ sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secre
 def setClientActive():
     global clientID
     setClientActive=requests.post(baseUrl+"setClientActive", json={"clientID":clientID})
-    print("Client States : \n")
-    print(setClientActive.json())
+    # print("Client States : \n")
+    # print(setClientActive.json())
 
 #function to show the states for each queue player client
 def setClientInactive():
     global clientID
     setClientInactive=requests.post(baseUrl+"setClientInactive", json={"clientID":clientID})
-    print("Client States : \n")
-    print(setClientInactive.json())
+    # print("Client States : \n")
+    # print(setClientInactive.json())
 
 #function to push the BPM added by the client to the master server and use the spotify server to call and play the song if no song is in the queue
 #simultaneously update the queue with the pushed BPM
 def pushBPMToPlay():
-    print("\nSince Queue was Empty, Pushing song to Play")
+    # print("\nSince Queue was Empty, Pushing song to Play")
     songToBePlayed=requests.post(baseUrl+"getTrackToPlay", json={"bpm":bpmAdded, "clientID":clientID})
 
     # print("Initial Queue : \n")
@@ -104,8 +100,8 @@ def pushBPMToPlay():
 #function to push the BPM added by the client to the master server
 #simultaneously update the queue with the pushed BPM as the player is playing
 def pushBPMToQueue():
-    print()
-    print("Since Song is playing, Pushing song to Queue")
+    # print()
+    # print("Since Song is playing, Pushing song to Queue")
     songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "userID":clientID})
     
     # print("Updated Queue : \n")
@@ -115,9 +111,9 @@ def pushBPMToQueue():
 #function to play the song by sending the request to the spotify server associated with this client
 def playSong(trkArr):
     global playerID
-    print(playerID)
-    print()
-    print("Playing Song with ID: ", trkArr)
+    # print(playerID)
+    # print()
+    # print("Playing Song with ID: ", trkArr)
     sp.start_playback(device_id=device_id, uris=trkArr)
     sp.volume(100, device_id)   
     global playing
@@ -137,8 +133,8 @@ def seekToPlay():
     global seekedPlayer
     playerSeek=requests.get(baseUrl+"getSeek")
     if(playerSeek.json()['seek']>0):
-        print("Seeked Song")
-        print(playerSeek)
+        # print("Seeked Song")
+        # print(playerSeek)
         trackArr=[]
         trackArr.append("spotify:track:"+playerSeek.json()['id'])
         playSong(trackArr)
@@ -148,7 +144,7 @@ def seekToPlay():
 #function to play the song pointed with the seek timestamp by sending the request to the spotify server associated with this client
 def playSongFromSeek():
     global seekedPlayer, device_id
-    print("PlayFromSeek: ", seekedPlayer)
+    # print("PlayFromSeek: ", seekedPlayer)
     sp.seek_track(seekedPlayer, device_id)
 
 #function to calculate BPM input
@@ -227,10 +223,10 @@ def colorArrayBuilder(lights):
             colorArrAfter[n:n+divs]=interpolate_rgbw(rgb_vals[i],rgb_vals[(i+1)%len(rgb_vals)], divs)
             n=n+divs
 
-    print(colorArrAfter[0:36])
-    print(colorArrAfter[36:72])
-    print(colorArrAfter[72:108])
-    print(colorArrAfter[108:144])
+    # print(colorArrAfter[0:36])
+    # print(colorArrAfter[36:72])
+    # print(colorArrAfter[72:108])
+    # print(colorArrAfter[108:144])
    
    #Check if color array is different to trigger fade in and out
 #    if colorArrBefore != colorArrAfter:
@@ -302,7 +298,8 @@ def infiniteloop2():
                             print("Song has ended")
                             playSongsToContinue()
         else:
-            print("Song Trasitioning")
+            rx=1
+            # print("Song Trasitioning")
 
 
 thread1 = threading.Thread(target=infiniteloop1)
@@ -310,6 +307,8 @@ thread1.start()
 
 thread2 = threading.Thread(target=infiniteloop2)
 thread2.start()
+
+sio = socketio.Client()
 
 @sio.event
 def connect():
@@ -331,10 +330,10 @@ def message(data):
     colorArrayBuilder(json_data["lights"])
     global playing
     if playing:
-        print("playing")
+        rx=1
+        # print("playing")
     else:
         seekToPlay()
-    print("") # printing new line for better legibility
 
 sio.connect('https://qp-master-server.herokuapp.com/')
 sio.wait()
