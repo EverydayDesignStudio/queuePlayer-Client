@@ -10,6 +10,9 @@ import json # import json library (native)
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy.oauth2 import SpotifyClientCredentials, SpotifyPKCE
+import socketio
+sio = socketio.Client()
+
 
 # import board
 # import neopixel
@@ -301,67 +304,42 @@ def infiniteloop2():
         else:
             print("Song Trasitioning")
 
-# def infiniteloop3():
-    # while True:
-        # websocket.enableTrace(True) # print the connection details (for debuggi>
-        # ws.run_forever(reconnect=1, sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
 
-
-def on_message(ws, message): # function which is called whenever a new message comes in
-    json_data = json.loads(message) # incoming message is transformed into a JSON object
-    print("")
-    if(json_data["msg"]=="Pinged"):
-        print("Pinged")
-    else:
-        print("Server Sent the JSON:")
-        print(json.dumps(json_data, indent = 2))
-        colorArrayBuilder(json_data["lights"])
-        global playing
-        if playing:
-            print("playing")
-        else:
-            seekToPlay()
-    print("") # printing new line for better legibility
-
-def on_error(ws, error): # function call when there is an error
-    print(error)
-
-def on_close(ws): # function call when the connection is closed (this should not happend currently as we are staying connected)
-    print("### closed ###")
-
-def on_open(ws): # function call when a new connection is established
-    print("### open ###")
-
-def on_ping(wsapp, message):
-    print("Got a ping! A pong reply has already been automatically sent. ", message)
-
-def on_pong(wsapp, message):
-    print("Got a pong! No need to respond. ", message)
-
-    
 thread1 = threading.Thread(target=infiniteloop1)
-#thread1 = threading.Thread(target=on_tap(channel))
 thread1.start()
 
 thread2 = threading.Thread(target=infiniteloop2)
 thread2.start()
 
-# thread3 = threading.Thread(target=infiniteloop3)
-# thread3.start()
+@sio.event
+def connect():
+    print('Connected to server')
 
-ws = websocket.WebSocketApp("wss://qp-master-server.herokuapp.com/", # websocket URL to connect
-    on_message = on_message, # what should happen when we receive a new message
-    on_error = on_error, # what should happen when we get an error
-    on_close = on_close, # what should happen when the connection is closed
-    on_ping = on_ping, # on ping
-    on_pong = on_pong) # on pong
-ws.on_open = on_open # call on_open function when the ws connection is opened
-# ws.run_forever(reconnect=1, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
-ws.run_forever(reconnect=1, sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+@sio.event
+def disconnect():
+    print('Disconnected from server')
 
+@sio.event
+def message(data):
+    json_data = json.loads(data) # incoming message is transformed into a JSON object
+    # print("")
+    # if(json_data["msg"]=="Pinged"):
+    #     print("Pinged")
+    # else:
+    print("Server Sent the JSON:")
+    print(json.dumps(json_data, indent = 2))
+    colorArrayBuilder(json_data["lights"])
+    global playing
+    if playing:
+        print("playing")
+    else:
+        seekToPlay()
+    print("") # printing new line for better legibility
 
-
-# while state:
+sio.connect('https://qp-master-server.herokuapp.com/')
+sio.wait()
+    
+ # while state:
 #     if keyboard.is_pressed("o"):
 #         bpmCheck=False
 #         setClientInactive()
