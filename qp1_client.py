@@ -281,20 +281,21 @@ def infiniteloop2():
             currSong=sp.currently_playing()
         except requests.exceptions.ReadTimeout:
             print("Minor Setback, Continue Continue")
-        if playing and currSong['progress_ms'] != None and currSong['item'] != None:
-            if currSong['progress_ms']>0:
-                try:
-                    seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSong['progress_ms'], "song":currSong['item']['id']})
-                except requests.exceptions.ConnectionError:
-                    print("Minor Setback, Continue Continue")
-                if currSong['progress_ms']>10000:
-                    if currSong['item']['duration_ms']-currSong['progress_ms'] <= 18000:
-                        currVolume = sp.current_playback()['device']['volume_percent']
-                        currVolume=currVolume*0.9
-                        sp.volume(int(currVolume), device_id)   
-                    if(currSong['progress_ms']+6000>=currSong['item']['duration_ms']):
-                        print("Song has ended")
-                        playSongsToContinue()
+        if playing and currSong !=None: 
+            if currSong['progress_ms'] != None and currSong['item'] != None:
+                if currSong['progress_ms']>0:
+                    try:
+                        seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSong['progress_ms'], "song":currSong['item']['id']})
+                    except requests.exceptions.ConnectionError:
+                        print("Minor Setback, Continue Continue")
+                    if currSong['progress_ms']>10000:
+                        if currSong['item']['duration_ms']-currSong['progress_ms'] <= 18000:
+                            currVolume = sp.current_playback()['device']['volume_percent']
+                            currVolume=currVolume*0.9
+                            sp.volume(int(currVolume), device_id)   
+                        if(currSong['progress_ms']+6000>=currSong['item']['duration_ms']):
+                            print("Song has ended")
+                            playSongsToContinue()
         else:
             print("Song Trasitioning")
 
@@ -353,7 +354,8 @@ ws = websocket.WebSocketApp("wss://qp-master-server.herokuapp.com/", # websocket
     on_ping = on_ping, # on ping
     on_pong = on_pong) # on pong
 ws.on_open = on_open # call on_open function when the ws connection is opened
-ws.run_forever(reconnect=1, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+# ws.run_forever(reconnect=1, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+ws.run_forever(reconnect=1, sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
 
 
 # while state:
