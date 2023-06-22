@@ -303,7 +303,8 @@ def message(data):
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
-    colorArrayBuilder(json_data["lights"])
+    if(json_data["msg"]!="Initial"):
+        colorArrayBuilder(json_data["lights"])
     global playing
     if playing:
         rx=1
