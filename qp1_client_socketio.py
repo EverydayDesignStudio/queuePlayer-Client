@@ -4,13 +4,12 @@ from pynput.keyboard import Key
 from threading import Timer
 from time import time
 import requests
-import websocket #import websockt library -> pip install websocket-client
-import ssl # import ssl library (native)
-import json # import json library (native)
+import socketio
+import json 
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy.oauth2 import SpotifyClientCredentials, SpotifyPKCE
-import socketio
+
 
 # import board
 # import neopixel
@@ -89,10 +88,6 @@ def pushBPMToPlay():
     # print("\nSince Queue was Empty, Pushing song to Play")
     songToBePlayed=requests.post(baseUrl+"getTrackToPlay", json={"bpm":bpmAdded, "clientID":clientID})
 
-    # print("Initial Queue : \n")
-    # for ele in songToBePlayed.json()['queue']:
-    #     print(ele)
-
     trackArr=[]
     trackArr.append("spotify:track:"+songToBePlayed.json()['song']['track_id'])
     playSong(trackArr)
@@ -100,20 +95,12 @@ def pushBPMToPlay():
 #function to push the BPM added by the client to the master server
 #simultaneously update the queue with the pushed BPM as the player is playing
 def pushBPMToQueue():
-    # print()
-    # print("Since Song is playing, Pushing song to Queue")
+    # print("\nSince Song is playing, Pushing song to Queue")
     songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "userID":clientID})
-    
-    # print("Updated Queue : \n")
-    # for ele in songToBeQueued.json()['queue']:
-    #     print(ele)
 
 #function to play the song by sending the request to the spotify server associated with this client
 def playSong(trkArr):
     global playerID
-    # print(playerID)
-    # print()
-    # print("Playing Song with ID: ", trkArr)
     sp.start_playback(device_id=device_id, uris=trkArr)
     sp.volume(100, device_id)   
     global playing
@@ -222,11 +209,6 @@ def colorArrayBuilder(lights):
         for i in range(len(rgb_vals)):
             colorArrAfter[n:n+divs]=interpolate_rgbw(rgb_vals[i],rgb_vals[(i+1)%len(rgb_vals)], divs)
             n=n+divs
-
-    # print(colorArrAfter[0:36])
-    # print(colorArrAfter[36:72])
-    # print(colorArrAfter[72:108])
-    # print(colorArrAfter[108:144])
    
    #Check if color array is different to trigger fade in and out
 #    if colorArrBefore != colorArrAfter:
@@ -258,7 +240,6 @@ seekToPlay()
 checkBPMAdded()
 
 print("Press enter for BPM")
-#print("Tap for BPM")
 
 # def infiniteloop1(channel):
 def infiniteloop1():
@@ -271,7 +252,7 @@ def infiniteloop1():
 #             print ("Tap")
 #             TapBPM()
 #     else:
-#             print ("No Tap")
+#       print ("No Tap")
 
 # GPIO.add_event_detect(channel, GPIO.BOTH, bouncetime=50)  # let us know when the pin goes HIGH or LOW
 # GPIO.add_event_callback(channel, on_tap)  # assign function to GPIO PIN, Run function on change
@@ -299,8 +280,6 @@ def infiniteloop2():
                             playSongsToContinue()
         else:
             rx=1
-            # print("Song Trasitioning")
-
 
 thread1 = threading.Thread(target=infiniteloop1)
 thread1.start()
@@ -321,17 +300,12 @@ def disconnect():
 @sio.event
 def message(data):
     json_data = json.loads(data) # incoming message is transformed into a JSON object
-    # print("")
-    # if(json_data["msg"]=="Pinged"):
-    #     print("Pinged")
-    # else:
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
     colorArrayBuilder(json_data["lights"])
     global playing
     if playing:
         rx=1
-        # print("playing")
     else:
         seekToPlay()
 
