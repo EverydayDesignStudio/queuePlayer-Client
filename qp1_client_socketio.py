@@ -55,8 +55,11 @@ count=0
 msFirst=0
 msPrev=0
 seekedPlayer=0
+prevDuration=0
 colorArrBefore=[(0,0,0,0)]*144
 colorArrAfter=[0]*144
+prevCheck=True
+prevID=' '
 
 #Spotify Library Required Variables
 #[OLO5 Credentials]
@@ -107,8 +110,10 @@ def playSong(trkArr):
     playing=True
 
 #function to continue playing immediately
-def playSongsToContinue():
-    global playing
+def playSongsToContinue(songDuration, songID):
+    global playing,prevDuration, prevID
+    prevDuration=songDuration
+    prevID=songID
     continueSongImmediate=requests.get(baseUrl+"continuePlayingImmediate", json={"userID":clientID})
     trackArr=[]
     trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
@@ -151,8 +156,8 @@ def TapBPM():
     else:
         bpmAvg= 60000 * count / (msCurr-msFirst)
         global bpmAdded
-        # bpmAdded=round(round(bpmAvg*100)/100)
-        bpmAdded=209
+        bpmAdded=round(round(bpmAvg*100)/100)
+        # bpmAdded=209
         count+=1 
 
     msPrev=msCurr
@@ -258,26 +263,51 @@ def infiniteloop1():
 # GPIO.add_event_callback(channel, on_tap)  # assign function to GPIO PIN, Run function on change
 
 def infiniteloop2():
+    global prevCheck,prevDuration, prevID 
     while True:
         try:    
             currSong=sp.currently_playing()
-        except requests.exceptions.ReadTimeout:
-            print("Minor Setback, Continue Continue")
+        except requests.exceptions.ConnectionError:
+            print("[Request to SpotifyAPI] Minor Setback, Continue Continue")
+            print("ConnectionError: Failed to establish a connection.")
+        except requests.exceptions.Timeout:
+            print("[Request to SpotifyAPI] Minor Setback, Continue Continue")
+            print("Timeout: The request timed out.")
+        except requests.exceptions.TooManyRedirects:
+            print("[Request to SpotifyAPI] Minor Setback, Continue Continue")
+            print("TooManyRedirects: Exceeded maximum redirects.")
+
+
+
         if playing and currSong !=None: 
             if currSong['progress_ms'] != None and currSong['item'] != None:
                 if currSong['progress_ms']>0:
                     try:
                         seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSong['progress_ms'], "song":currSong['item']['id']})
                     except requests.exceptions.ConnectionError:
-                        print("Minor Setback, Continue Continue")
+                        print("ConnectionError: Failed to establish a connection.")
+                    except requests.exceptions.Timeout:
+                        print("Timeout: The request timed out.")
+                    except requests.exceptions.TooManyRedirects:
+                        print("TooManyRedirects: Exceeded maximum redirects.")
+
                     if currSong['progress_ms']>10000:
+                        if currSong['progress_ms']-10000 > 0 and (prevDuration==currSong['item']['duration_ms'] or prevID==currSong['item']['id']):
+                            print("Forcing Continue")
+                            playSongsToContinue(currSong['item']['duration_ms'],currSong['item']['id'])
                         if currSong['item']['duration_ms']-currSong['progress_ms'] <= 18000:
+                            print("Fading out")
                             currVolume = sp.current_playback()['device']['volume_percent']
                             currVolume=currVolume*0.9
                             sp.volume(int(currVolume), device_id)   
                         if(currSong['progress_ms']+6000>=currSong['item']['duration_ms']):
                             print("Song has ended")
-                            playSongsToContinue()
+                            # prevCheck=True
+                            playSongsToContinue(currSong['item']['duration_ms'],currSong['item']['id'])
+                        
+                        # if prevCheck:
+                        #     prevDuration=currSong['item']['duration_ms']
+                        #     prevCheck=False
         else:
             rx=1
 
@@ -299,6 +329,7 @@ def disconnect():
 
 @sio.event
 def message(data):
+    global prevID
     json_data = json.loads(data) # incoming message is transformed into a JSON object
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
@@ -307,6 +338,8 @@ def message(data):
         colorArrayBuilder(json_data["lights"])
     global playing
     if playing:
+        print(prevID)
+        print(json_data["songdata"]["songID"])
         rx=1
     else:
         seekToPlay()
