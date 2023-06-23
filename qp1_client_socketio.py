@@ -109,7 +109,7 @@ def playSong(trkArr):
 #function to continue playing immediately
 def playSongsToContinue():
     global playing
-    continueSongImmediate=requests.get(baseUrl+"continuePlayingImmediate")
+    continueSongImmediate=requests.get(baseUrl+"continuePlayingImmediate", json={"userID":clientID})
     trackArr=[]
     trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
     playSong(trackArr)
@@ -151,8 +151,8 @@ def TapBPM():
     else:
         bpmAvg= 60000 * count / (msCurr-msFirst)
         global bpmAdded
-        bpmAdded=round(round(bpmAvg*100)/100)
-        # bpmAdded=215
+        # bpmAdded=round(round(bpmAvg*100)/100)
+        bpmAdded=209
         count+=1 
 
     msPrev=msCurr
