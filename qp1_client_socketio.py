@@ -347,7 +347,8 @@ def message(data):
 sio.connect('https://qp-master-server.herokuapp.com/')
 sio.wait()
     
- # while state:
+# while state:
+#     # sp.volume(device_id=device, volume=potentionmet)
 #     if keyboard.is_pressed("o"):
 #         bpmCheck=False
 #         setClientInactive()
@@ -359,7 +360,5 @@ sio.wait()
 #         seekToPlay()
 #         checkBPMAdded()
 #         print("Client is set Active")
-
-
 
 
