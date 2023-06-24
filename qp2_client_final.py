@@ -341,6 +341,8 @@ def infiniteloop2():
                         #     prevCheck=False
         else:
             rx=1
+
+
 def infiniteloop3():
     while state:
         #if keyboard.is_pressed("o"):
