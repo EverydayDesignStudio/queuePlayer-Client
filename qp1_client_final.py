@@ -316,7 +316,7 @@ def infiniteloop3():
             bpmCheck=False
             playing=False
             setClientInactive()
-            sp.pause_playback(device_id=device_id)
+            sp.pause_playback(device_id=device_id) # might give the error for spotify command failed
             print("Client is set Inactive")
         elif keyboard.is_pressed("s"):
         # elif chan_pot.voltage > 1.0 and not bpmCheck:
