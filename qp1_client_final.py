@@ -360,9 +360,9 @@ def message(data):
     json_data = json.loads(data) # incoming message is transformed into a JSON object
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
-    print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
     if(json_data["msg"]!="Initial"):
         colorArrayBuilder(json_data["lights"])
+    print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
 
 sio.connect('https://qp-master-server.herokuapp.com/')
 sio.wait()
