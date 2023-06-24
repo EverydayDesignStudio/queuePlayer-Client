@@ -279,7 +279,7 @@ def infiniteloop1():
             TapBPM()
 
     # while True:
-    #     global THRESHOLD, DEBOUND_TIME
+    #     global THRESHOLD, DEBOUNCE_TIME
     #
     #     if chan_piezo.voltage >= THRESHOLD * ads.gain:
     #         current_time = time.monotonic()  # Get the current time
