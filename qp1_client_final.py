@@ -53,7 +53,6 @@ bpmAdded=36
 
 baseUrl="https://qp-master-server.herokuapp.com/"
 
-playerID=""
 playing=False
 flag=0
 bpmCheck=True
@@ -267,7 +266,7 @@ def infiniteloop1():
 
 
 def infiniteloop2():
-    global currSong, prevCheck,prevDuration, prevID 
+    global currSong, prevCheck, prevDuration, prevID 
     while True:
         try:    
             currSong=sp.currently_playing()
