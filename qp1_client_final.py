@@ -72,7 +72,7 @@ client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
 client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
 spotify_username='n39su59fav4b7fmcm0cuwyv2w'
 device_id='1632b74b504b297585776e716b8336510639401a'
-spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing'
+spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing,user-read-playback-state'
 spotify_redirect_uri = 'http://localhost:8000'
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
 
