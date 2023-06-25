@@ -309,8 +309,8 @@ def infiniteloop2():
             rx=1
 
 def infiniteloop3():
+    global bpmCheck,prevVal,currVol,playing
     while True:
-        global bpmCheck,prevVal,currVol,playing
         if keyboard.is_pressed("o"):
         # if chan_pot.voltage < 0.01:
             if bpmCheck and playing:
@@ -345,6 +345,7 @@ thread2.start()
 
 thread3 = threading.Thread(target=infiniteloop3)
 thread3.start()
+
 
 sio = socketio.Client()
 
