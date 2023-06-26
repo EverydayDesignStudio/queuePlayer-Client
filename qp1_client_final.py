@@ -55,7 +55,7 @@ baseUrl="https://qp-master-server.herokuapp.com/"
 
 playing=False
 flag=0
-bpmCheck=True
+bpmCheck=False
 count=0
 msFirst=0
 msPrev=0
@@ -327,7 +327,7 @@ def infiniteloop3():
             checkBPMAdded()
             print("Client is set Active")
 
-        # if bpmCheck:
+        # if bpmCheck and playing:
         #     currVol = int (map_to_volume(chan_pot.voltage))
         #     #print(currVol)
         #     if(abs(prevVal-currVol) >= 5):
