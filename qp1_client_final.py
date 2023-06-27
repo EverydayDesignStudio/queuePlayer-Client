@@ -66,7 +66,6 @@ colorArrAfter=[0]*144
 prevCheck=True
 prevID=''
 currSong=''
-continueCheck=False
 
 #[OLO5 Credentials]
 client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
@@ -101,14 +100,11 @@ def playSong(trkArr):
     playing=True
 
 def playSongsToContinue(songDuration, songID): 
-    global playing,prevDuration, prevID, continueCheck
+    global playing,prevDuration, prevID
     prevDuration=songDuration
     prevID=songID
     continueSongImmediate=requests.get(baseUrl+"continuePlaying", json={"userID":clientID})
-    continueCheck=True
     playing=False
-
-def continueSong(id):
     trackArr=[]
     trackArr.append("spotify:track:"+id)
     playSong(trackArr)
@@ -271,7 +267,7 @@ def infiniteloop1():
 
 
 def infiniteloop2():
-    global currSong, prevCheck, prevDuration, prevID, continueCheck 
+    global currSong, prevCheck, prevDuration, prevID
     while True:
         try:    
             currSong=sp.currently_playing()
@@ -297,21 +293,21 @@ def infiniteloop2():
                     except requests.exceptions.TooManyRedirects:
                         print("TooManyRedirects: Exceeded maximum redirects.")
 
-                    if not continueCheck:
-                        if prevDuration==currSong['item']['duration_ms'] or prevID==currSong['item']['id']:
-                            print("Forcing Continue")
-                            print("prevID", prevID)
-                            print("currID",currSong['item']['id'])
-                            playSongsToContinue(currSong['item']['duration_ms'],currSong['item']['id'])
-                        if currSong['item']['duration_ms']-currSong['progress_ms'] <= 18000:
-                            print("Fading out")
-                            currVolume = sp.current_playback()['device']['volume_percent']
-                            currVolume=currVolume*0.95
-                            sp.volume(int(currVolume), device_id)   
-                        if currSong['progress_ms']+6000>=currSong['item']['duration_ms']:
-                            print("Song has ended")
-                            sp.pause_playback(device_id=device_id)
-                            playSongsToContinue(currSong['item']['duration_ms'],currSong['item']['id'])
+
+                    if prevDuration==currSong['item']['duration_ms'] or prevID==currSong['item']['id']:
+                        print("Forcing Continue")
+                        print("prevID", prevID)
+                        print("currID",currSong['item']['id'])
+                        playSongsToContinue(currSong['item']['duration_ms'],currSong['item']['id'])
+                    if currSong['item']['duration_ms']-currSong['progress_ms'] <= 18000:
+                        print("Fading out")
+                        currVolume = sp.current_playback()['device']['volume_percent']
+                        currVolume=currVolume*0.95
+                        sp.volume(int(currVolume), device_id)   
+                    if currSong['progress_ms']+6000>=currSong['item']['duration_ms']:
+                        print("Song has ended")
+                        # sp.pause_playback(device_id=device_id)
+                        playSongsToContinue(currSong['item']['duration_ms'],currSong['item']['id'])
                         
         else:
             rx=1
@@ -373,9 +369,6 @@ def message(data):
     print(json.dumps(json_data, indent = 2))
     if(json_data["msg"]!="Initial"):
         colorArrayBuilder(json_data["lights"])
-        if(continueCheck):
-            continueSong(json_data["songdata"]["songID"])
-            continueCheck=False
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
 
 sio.connect('https://qp-master-server.herokuapp.com/')
