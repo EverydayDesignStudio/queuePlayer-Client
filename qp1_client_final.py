@@ -108,7 +108,6 @@ def playSongsToContinue(songDuration, songID):
     continueCheck=True
     playing=False
 
-
 def continueSong(id):
     trackArr=[]
     trackArr.append("spotify:track:"+id)
