@@ -104,8 +104,10 @@ def playSongsToContinue(songDuration, songID):
     global playing,prevDuration, prevID, continueCheck
     prevDuration=songDuration
     prevID=songID
-    continueSongImmediate=requests.get(baseUrl+"continuePlayingImmediate", json={"userID":clientID})
+    continueSongImmediate=requests.get(baseUrl+"continuePlaying", json={"userID":clientID})
     continueCheck=True
+    playing=False
+
 
 def continueSong(id):
     trackArr=[]
@@ -270,7 +272,7 @@ def infiniteloop1():
 
 
 def infiniteloop2():
-    global currSong, prevCheck, prevDuration, prevID 
+    global currSong, prevCheck, prevDuration, prevID, continueCheck 
     while True:
         try:    
             currSong=sp.currently_playing()
@@ -296,17 +298,20 @@ def infiniteloop2():
                     except requests.exceptions.TooManyRedirects:
                         print("TooManyRedirects: Exceeded maximum redirects.")
 
-                    if prevDuration==currSong['item']['duration_ms'] or prevID==currSong['item']['id']:
-                        print("Forcing Continue")
-                        playSongsToContinue(currSong['item']['duration_ms'],currSong['item']['id'])
-                    if currSong['item']['duration_ms']-currSong['progress_ms'] <= 18000:
-                        print("Fading out")
-                        currVolume = sp.current_playback()['device']['volume_percent']
-                        currVolume=currVolume*0.95
-                        sp.volume(int(currVolume), device_id)   
-                    if currSong['progress_ms']+6000>=currSong['item']['duration_ms']:
-                        print("Song has ended")
-                        playSongsToContinue(currSong['item']['duration_ms'],currSong['item']['id'])
+                    if not continueCheck:
+                        if prevDuration==currSong['item']['duration_ms'] and prevID==currSong['item']['id']:
+                            print("Forcing Continue")
+                            print("prevID", prevID)
+                            print("currID",currSong['item']['id'])
+                            playSongsToContinue(currSong['item']['duration_ms'],currSong['item']['id'])
+                        if currSong['item']['duration_ms']-currSong['progress_ms'] <= 18000:
+                            print("Fading out")
+                            currVolume = sp.current_playback()['device']['volume_percent']
+                            currVolume=currVolume*0.95
+                            sp.volume(int(currVolume), device_id)   
+                        if currSong['progress_ms']+6000>=currSong['item']['duration_ms']:
+                            print("Song has ended")
+                            playSongsToContinue(currSong['item']['duration_ms'],currSong['item']['id'])
                         
         else:
             rx=1
@@ -369,6 +374,7 @@ def message(data):
     if(json_data["msg"]!="Initial"):
         colorArrayBuilder(json_data["lights"])
         if(continueCheck):
+            sp.pause_playback(device_id=device_id) 
             continueSong(json_data["songdata"]["songID"])
             continueCheck=False
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
