@@ -66,6 +66,7 @@ colorArrAfter=[0]*144
 prevCheck=True
 prevID=''
 currSong=''
+continueCheck=False
 
 #[OLO5 Credentials]
 client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
@@ -100,14 +101,16 @@ def playSong(trkArr):
     playing=True
 
 def playSongsToContinue(songDuration, songID):
-    global playing,prevDuration, prevID
+    global playing,prevDuration, prevID, continueCheck
     prevDuration=songDuration
     prevID=songID
     continueSongImmediate=requests.get(baseUrl+"continuePlayingImmediate", json={"userID":clientID})
+    continueCheck=True
+
+def continueSong(id):
     trackArr=[]
-    trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
+    trackArr.append("spotify:track:"+id)
     playSong(trackArr)
-    # playing=True
 
 def seekToPlay():
     global seekedPlayer
@@ -359,12 +362,15 @@ def disconnect():
 
 @sio.event
 def message(data):
-    global currSong, playing
+    global currSong, playing, continueCheck
     json_data = json.loads(data) # incoming message is transformed into a JSON object
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
     if(json_data["msg"]!="Initial"):
         colorArrayBuilder(json_data["lights"])
+        if(continueCheck):
+            continueSong(json_data["songdata"]["songID"])
+            continueCheck=False
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
 
 sio.connect('https://qp-master-server.herokuapp.com/')
