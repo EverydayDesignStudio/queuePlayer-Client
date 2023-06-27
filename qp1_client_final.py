@@ -106,7 +106,7 @@ def playSongsToContinue(songDuration, songID):
     continueSongImmediate=requests.get(baseUrl+"continuePlaying", json={"userID":clientID})
     playing=False
     trackArr=[]
-    trackArr.append("spotify:track:"+id)
+    trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
     playSong(trackArr)
 
 def seekToPlay():
@@ -306,7 +306,6 @@ def infiniteloop2():
                         sp.volume(int(currVolume), device_id)   
                     if currSong['progress_ms']+6000>=currSong['item']['duration_ms']:
                         print("Song has ended")
-                        # sp.pause_playback(device_id=device_id)
                         playSongsToContinue(currSong['item']['duration_ms'],currSong['item']['id'])
                         
         else:
