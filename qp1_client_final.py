@@ -100,7 +100,7 @@ def playSong(trkArr):
     global playing
     playing=True
 
-def playSongsToContinue(songDuration, songID):
+def playSongsToContinue(songDuration, songID): 
     global playing,prevDuration, prevID, continueCheck
     prevDuration=songDuration
     prevID=songID
@@ -147,8 +147,8 @@ def TapBPM():
     else:
         bpmAvg= 60000 * count / (msCurr-msFirst)
         global bpmAdded
-        # bpmAdded=round(round(bpmAvg*100)/100)
-        bpmAdded=10
+        bpmAdded=round(round(bpmAvg*100)/100)
+        # bpmAdded=10
         count+=1 
 
     msPrev=msCurr
@@ -299,7 +299,7 @@ def infiniteloop2():
                         print("TooManyRedirects: Exceeded maximum redirects.")
 
                     if not continueCheck:
-                        if prevDuration==currSong['item']['duration_ms'] and prevID==currSong['item']['id']:
+                        if prevDuration==currSong['item']['duration_ms'] or prevID==currSong['item']['id']:
                             print("Forcing Continue")
                             print("prevID", prevID)
                             print("currID",currSong['item']['id'])
@@ -311,6 +311,7 @@ def infiniteloop2():
                             sp.volume(int(currVolume), device_id)   
                         if currSong['progress_ms']+6000>=currSong['item']['duration_ms']:
                             print("Song has ended")
+                            sp.pause_playback(device_id=device_id)
                             playSongsToContinue(currSong['item']['duration_ms'],currSong['item']['id'])
                         
         else:
@@ -374,7 +375,6 @@ def message(data):
     if(json_data["msg"]!="Initial"):
         colorArrayBuilder(json_data["lights"])
         if(continueCheck):
-            sp.pause_playback(device_id=device_id) 
             continueSong(json_data["songdata"]["songID"])
             continueCheck=False
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
