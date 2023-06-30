@@ -239,12 +239,6 @@ def map_to_volume(input_value):
     else:
         return volume
 
-# setClientActive()
-# seekToPlay()
-# checkBPMAdded()
-
-print("Press enter for BPM")
-
 def infiniteloop1():
     while True:
         value = input()
@@ -361,6 +355,7 @@ def infiniteloop3():
             seekToPlay()
             checkBPMAdded()
             print("Client is set Active")
+            print("Press enter for BPM")
 
         # if bpmCheck and playing:
         #     currVol = int (map_to_volume(chan_pot.voltage))
