@@ -9,6 +9,7 @@ import socketio
 import json 
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+from spotipy.exceptions import SpotifyException
 
 
 # import board
@@ -66,14 +67,19 @@ colorArrAfter=[0]*144
 prevCheck=True
 prevID=''
 currSong=''
+rateLimitCheck=False
 
-#[OLO5 Credentials]
+#[OLO5 : QP Client Credentials]
 client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
 client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
+#[OLO5 : QP Client Backup Credentials]
+client_id_backup='90d5b8a99e5b4a9aae491534be38b245'
+client_secret_backup='caf79ca3787646089dd8e8ea460d1009'
+
 spotify_username='n39su59fav4b7fmcm0cuwyv2w'
 device_id='1632b74b504b297585776e716b8336510639401a'
 spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing,user-read-playback-state'
-spotify_redirect_uri = 'http://localhost:8000'
+spotify_redirect_uri = 'http://localhost:8000/callback'
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
 
 def setClientActive():
@@ -88,13 +94,13 @@ def pushBPMToPlay():
     songToBePlayed=requests.post(baseUrl+"getTrackToPlay", json={"bpm":bpmAdded, "clientID":clientID})
     trackArr=[]
     trackArr.append("spotify:track:"+songToBePlayed.json()['song']['track_id'])
-    playSong(trackArr)
+    playSong(trackArr,0)
 
 def pushBPMToQueue():
     songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "userID":clientID})
 
-def playSong(trkArr):
-    sp.start_playback(device_id=device_id, uris=trkArr)
+def playSong(trkArr, pos):
+    sp.start_playback(device_id=device_id, uris=trkArr, position_ms=pos)
     sp.volume(currVol, device_id)   
     global playing
     playing=True
@@ -107,7 +113,7 @@ def playSongsToContinue(songDuration, songID):
     playing=False
     trackArr=[]
     trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
-    playSong(trackArr)
+    playSong(trackArr,0)
 
 def seekToPlay():
     global seekedPlayer
@@ -115,9 +121,9 @@ def seekToPlay():
     if(playerSeek.json()['seek']>0):
         trackArr=[]
         trackArr.append("spotify:track:"+playerSeek.json()['id'])
-        playSong(trackArr)
         seekedPlayer=playerSeek.json()['seek']
-        playSongFromSeek()
+        playSong(trackArr,seekedPlayer)
+        # playSongFromSeek()
 
 def playSongFromSeek():
     global seekedPlayer, device_id, currVol
@@ -265,12 +271,45 @@ def infiniteloop1():
     #             TapBPM()
     #     time.sleep(0.01)  # Adjust the sleep time based on your requirements
 
+def calculate_wait_time(rate_limit_status):
+    # Extract relevant information from the rate limit status
+    limit = rate_limit_status['limit']  # Total available requests within the time window
+    remaining = rate_limit_status['remaining']  # Remaining requests within the time window
+    reset_timestamp = rate_limit_status['reset']  # Unix timestamp when the rate limit will reset
+
+    # Check if remaining requests are close to the limit
+    if remaining <= limit * 0.1:  # You can adjust the threshold as per your needs
+        reset_time = time.gmtime(reset_timestamp)
+        current_time = time.gmtime()
+        wait_time = max(reset_time - current_time, 0)  # Calculate the remaining time until reset
+        wait_time = time.mktime(wait_time) - time.time() + 1  # Add an additional second as a buffer
+
+        return wait_time
+
+    return 0  # No need to wait, continue with the requests immediately
 
 def infiniteloop2():
-    global currSong, prevCheck, prevDuration, prevID
+    global currSong, prevCheck, prevDuration, prevID, sp
     while True:
         try:    
             currSong=sp.currently_playing()
+        except SpotifyException as e:
+            if e.http_status == 429:
+                rateLimitCheck = not rateLimitCheck
+                print("Rate Limit Error, Activating Fail-Safe Strategy")
+                # rate_limit_status = sp.rate_limit_status()
+                # wait_time = calculate_wait_time(rate_limit_status)  # Determine the wait time based on rate limit status
+                # print("Waiting for (in seconds): ",wait_time)
+                # time.sleep(wait_time)
+                if(rateLimitCheck):
+                    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id_backup, client_secret=client_secret_backup, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
+                else:
+                    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
+                
+                currSong=sp.currently_playing()
+            else:
+                print(f"Spotify API error: {e}")
+
         except requests.exceptions.ConnectionError:
             print("[Request to SpotifyAPI] Minor Setback, Continue Continue")
             print("ConnectionError: Failed to establish a connection.")
@@ -292,7 +331,6 @@ def infiniteloop2():
                         print("Timeout: The request timed out.")
                     except requests.exceptions.TooManyRedirects:
                         print("TooManyRedirects: Exceeded maximum redirects.")
-
 
                     if prevDuration==currSong['item']['duration_ms'] or prevID==currSong['item']['id']:
                         print("Forcing Continue")
