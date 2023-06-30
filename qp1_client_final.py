@@ -123,13 +123,6 @@ def seekToPlay():
         trackArr.append("spotify:track:"+playerSeek.json()['id'])
         seekedPlayer=playerSeek.json()['seek']
         playSong(trackArr,seekedPlayer)
-        # playSongFromSeek()
-
-def playSongFromSeek():
-    global seekedPlayer, device_id, currVol
-    sp.seek_track(seekedPlayer, device_id)
-    sp.volume(currVol,device_id)
-
 
 #function to calculate BPM input
 def TapBPM(): 
