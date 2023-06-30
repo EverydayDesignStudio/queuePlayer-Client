@@ -78,8 +78,10 @@ client_secret_backup='caf79ca3787646089dd8e8ea460d1009'
 
 spotify_username='n39su59fav4b7fmcm0cuwyv2w'
 device_id='1632b74b504b297585776e716b8336510639401a'
+
 spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing,user-read-playback-state'
 spotify_redirect_uri = 'http://localhost:8000/callback'
+
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
 
 def setClientActive():
