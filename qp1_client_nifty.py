@@ -158,6 +158,7 @@ def TapBPM():
     else:
         bpmAvg= 60000 * tapCount / (msCurr-msFirst)
         bpmAdded=round(round(bpmAvg*100)/100)
+        # bpmAdded=204
         tapCount+=1 
 
     msPrev=msCurr
