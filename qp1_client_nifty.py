@@ -157,8 +157,7 @@ def TapBPM():
         tapCount = 1
     else:
         bpmAvg= 60000 * tapCount / (msCurr-msFirst)
-        # bpmAdded=round(round(bpmAvg*100)/100)
-        bpmAdded=207
+        bpmAdded=round(round(bpmAvg*100)/100)
         tapCount+=1 
 
     msPrev=msCurr
@@ -334,7 +333,6 @@ def infiniteloop3():
         elif keyboard.is_pressed("s"):
         # elif chan_pot.voltage > 1.0 and not bpmCountCheck:
             bpmCountCheck=True
-            # durationCheck=True
             setClientActive()
             time.sleep(0.5)
             seekToPlay()
