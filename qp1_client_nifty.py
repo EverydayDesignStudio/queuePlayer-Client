@@ -29,8 +29,6 @@ from spotipy.exceptions import SpotifyException
 # THRESHOLD = 0.8  # Adjust this value based on your piezo sensitivity
 # DEBOUNCE_TIME = 0.1  # Adjust this value based on min. time needed between consecutive taps
 
-
-
 # #Neopixel Setup for strip and ring light 
 # pixel_pin1 = board.D12 # the pin to which the LED strip is connected to
 # pixel_pin2 = board.D10 # the pin to which the ring light is connected to
@@ -44,56 +42,66 @@ from spotipy.exceptions import SpotifyException
 # pixels = neopixel.NeoPixel(pixel_pin1, num_pixels, brightness=0.2, auto_write=False, pixel_order=ORDER)
 # ring_pixels = neopixel.NeoPixel(pixel_pin2, num_ring_pixels, brightness = 0.4, auto_write = False, pixel_order=ORDER)
 
+
+
+#Client essential variables
+clientID=1
+    #[OLO5 : QP Client Credentials]
+client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
+client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
+spotify_username='n39su59fav4b7fmcm0cuwyv2w'
+device_id='1632b74b504b297585776e716b8336510639401a'
+spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing,user-read-playback-state'
+spotify_redirect_uri = 'http://localhost:8000/callback'
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
+
+#Global check variables
+bpmTapCheck=False
+bpmCountCheck=False
+playingCheck=False
+seekCheck=False
+durationCheck=True
+
+#BPM function variables
+bpmAdded=215
+tapCount=0
+msFirst=0
+msPrev=0
+
+#Server Variable
+baseUrl="https://qp-master-server.herokuapp.com/"
+
 #Global volume variables 
 prevVal = 0 #previous value for volume
 currVol = 100 #current value for volume
 
-clientID=1
-
-bpmAdded=36
-
-baseUrl="https://qp-master-server.herokuapp.com/"
-
-playing=False
-flag=0
-bpmCheck=False
-count=0
-msFirst=0
-msPrev=0
-seekedPlayer=0
-prevDuration=0
+#Lights function variables
 colorArrBefore=[(0,0,0,0)]*144
 colorArrAfter=[0]*144
-prevCheck=True
+
+#Global seek variable
+seekedPlayer=0
+
+#Global idling fail-safe variable
 prevID=''
-currSong=''
-rateLimitCheck=False
-durationCheck=True
-start_time=None
-currSongDuration=None
+prevDuration=0
 currSongID=''
-seekCheck=False
+currDuration=None
+
+# Local timer variables for song end check
+startTime=None
+totalTime=None
 seekedClient=0
-checkCheck=False
 
-#[OLO5 : QP Client Credentials]
-client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
-client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
-
-spotify_username='n39su59fav4b7fmcm0cuwyv2w'
-device_id='1632b74b504b297585776e716b8336510639401a'
-
-spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing,user-read-playback-state'
-spotify_redirect_uri = 'http://localhost:8000/callback'
-
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
 
 def setClientActive():
     global clientID
+
     setClientActive=requests.post(baseUrl+"setClientActive", json={"clientID":clientID})
 
 def setClientInactive():
     global clientID
+    
     setClientInactive=requests.post(baseUrl+"setClientInactive", json={"clientID":clientID})
 
 def pushBPMToPlay():
@@ -106,71 +114,70 @@ def pushBPMToQueue():
     songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "userID":clientID})
 
 def playSong(trkArr, pos):
+    global playingCheck, durationCheck
+
     sp.start_playback(device_id=device_id, uris=trkArr, position_ms=pos)
     sp.volume(currVol, device_id)   
-    global playing
-    playing=True
+    playingCheck=True
+    durationCheck=True
 
-def playSongsToContinue(songDuration, songID): 
-    global playing,prevDuration, prevID
+
+def playSongsToContinue(songDuration, songID, msg): 
+    global playingCheck,prevDuration, prevID
+
+    playingCheck=False
     prevDuration=songDuration
     prevID=songID
-    continueSongImmediate=requests.get(baseUrl+"continuePlaying", json={"userID":clientID})
-    playing=False
+    continueSong=requests.get(baseUrl+"continuePlaying", json={"userID":clientID,"msg":msg})
     trackArr=[]
-    trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
+    trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
     playSong(trackArr,0)
 
 def seekToPlay():
-    global seekedPlayer, seekCheck,checkCheck
+    global seekedPlayer, seekCheck
+
     playerSeek=requests.get(baseUrl+"getSeek")
-    if(playerSeek.json()['seek']>0):
+    if(playerSeek.json()['seek']>=0):
         trackArr=[]
         trackArr.append("spotify:track:"+playerSeek.json()['id'])
         seekedPlayer=playerSeek.json()['seek']
         playSong(trackArr,seekedPlayer)
         seekCheck=True
-        checkCheck=True
 
 #function to calculate BPM input
 def TapBPM(): 
-    global count
-    global msFirst  
-    global msPrev
-    global flag
+    global tapCount,msFirst,msPrev,bpmAdded,bpmTapCheck
 
     msCurr=int(time.time()*1000)
     if(msCurr-msPrev > 1000*2):
-        count = 0
+        tapCount = 0
 
-    if(count == 0):
+    if(tapCount == 0):
         msFirst = msCurr
-        count = 1
+        tapCount = 1
     else:
-        bpmAvg= 60000 * count / (msCurr-msFirst)
-        global bpmAdded
-        bpmAdded=round(round(bpmAvg*100)/100)
-        # bpmAdded=10
-        count+=1 
+        bpmAvg= 60000 * tapCount / (msCurr-msFirst)
+        # bpmAdded=round(round(bpmAvg*100)/100)
+        bpmAdded=207
+        tapCount+=1 
 
     msPrev=msCurr
-    flag=1
+    bpmTapCheck=True
 
 #function to periodically check the client state to indicate when a bpm is added
 def checkBPMAdded():    
-    global playing,flag, bpmAdded
+    global playingCheck,bpmTapCheck, bpmAdded, bpmCountCheck, bpmTimer
+
     msCurr=int(time.time()*1000)
-    if flag==1 and msCurr-msPrev>1000*2:
-        if playing:
+    if bpmTapCheck==True and msCurr-msPrev>1000*2:
+        if playingCheck:
             pushBPMToQueue()
         else:
             pushBPMToPlay()
         
-        flag=0
+        bpmTapCheck=False
     
-    global bpmCheck
-    global bpmTimer
-    if bpmCheck:
+    if bpmCountCheck:
         bpmTimer=Timer(2,checkBPMAdded)
         bpmTimer.start()
     else:
@@ -197,6 +204,7 @@ def interpolate_rgbw(start_rgbw, end_rgbw, steps):
 
 def colorArrayBuilder(lights):
     global colorArrBefore,colorArrAfter
+
     n=0
     for ring in lights:
         colors=lights[ring]["colors"]
@@ -266,87 +274,67 @@ def infiniteloop1():
     #             TapBPM()
     #     time.sleep(0.01)  # Adjust the sleep time based on your requirements
 
-def calculate_wait_time(rate_limit_status):
-    # Extract relevant information from the rate limit status
-    limit = rate_limit_status['limit']  # Total available requests within the time window
-    remaining = rate_limit_status['remaining']  # Remaining requests within the time window
-    reset_timestamp = rate_limit_status['reset']  # Unix timestamp when the rate limit will reset
-
-    # Check if remaining requests are close to the limit
-    if remaining <= limit * 0.1:  # You can adjust the threshold as per your needs
-        reset_time = time.gmtime(reset_timestamp)
-        current_time = time.gmtime()
-        wait_time = max(reset_time - current_time, 0)  # Calculate the remaining time until reset
-        wait_time = time.mktime(wait_time) - time.time() + 1  # Add an additional second as a buffer
-
-        return wait_time
-
-    return 0  # No need to wait, continue with the requests immediately
-
 def infiniteloop2():
-    global currSong, prevCheck, prevDuration, prevID, start_time,currSongDuration, durationCheck, currSongID, seekCheck, seekedPlayer,seekedClient
+    global prevDuration, prevID, startTime ,totalTime, durationCheck, currSongID, seekCheck, seekedPlayer,seekedClient, currDuration
+
     while True:
-        if playing: 
+        if playingCheck: 
             if(durationCheck):
                 print("Duration Checking")
                 currSongItem = sp.currently_playing()['item']
                 if(currSongItem):
                     durationCheck=False
                     print("Duration set")
+                    currDuration=currSongItem['duration_ms']
+                    currSongID=currSongItem['id']
                     if(seekCheck):
                         print("Duration set by seeking")
-                        currSongDuration=currSongItem['duration_ms']-seekedPlayer
+                        totalTime=currSongItem['duration_ms']-seekedPlayer
                         seekCheck=False
                     else:
-                        currSongDuration=currSongItem['duration_ms']
-                    currSongID=currSongItem['id']
-                    start_time=time.time()
+                        totalTime=currDuration
+                    startTime=time.time()
 
             if(not durationCheck):
-                elapsed_time=(time.time() - start_time) * 1000 
+                elapsed_time=(time.time() - startTime) * 1000 
                 seekedClient=int(elapsed_time)
-                if currSongDuration-seekedClient<=10000:
+                if prevDuration==currDuration or prevID==currSongID:
+                        print("Forcing to Continue")
+                        print("prevID", prevID)
+                        print("currID",currSongID)
+                        playSongsToContinue(currDuration, currSongID, "Immediate")
+                if totalTime-seekedClient<=10000:
                     print("Fading out")
                     currVolume = sp.current_playback()['device']['volume_percent']
                     currVolume=currVolume*0.95
                     sp.volume(int(currVolume), device_id)   
                 
-                if currSongDuration-elapsed_time<=2000:
+                if totalTime-elapsed_time<=2000:
                     print("Song has ended")
-                    durationCheck=True
                     seekedPlayer=0
-                    playSongsToContinue(currSongDuration,currSongID)
-
-                
-                    # if currSong['item']['duration_ms']-currSong['progress_ms'] <= 18000:
-                    #     print("Fading out")
-                    #     currVolume = sp.current_playback()['device']['volume_percent']
-                    #     currVolume=currVolume*0.95
-                    #     sp.volume(int(currVolume), device_id)   
-                    # if currSong['progress_ms']+6000>=currSong['item']['duration_ms']:
-                    #     print("Song has ended")
-                    #     playSongsToContinue(currSong['item']['duration_ms'],currSong['item']['id'])
-                        
+                    playSongsToContinue(currDuration,currSongID, "Normal")          
         else:
             rx=1
 
 def infiniteloop3():
-    global bpmCheck,prevVal,currVol,playing, currSongID, seekedClient, durationCheck, checkCheck
+    global bpmCountCheck,prevVal,currVol,playingCheck, currSongID, seekedClient, durationCheck
+
     while True:
         if keyboard.is_pressed("o"):
         # if chan_pot.voltage < 0.01:
-            if bpmCheck and playing:
+            if playingCheck and bpmCountCheck:
+                playingCheck=False
+                bpmCountCheck=False
                 sp.pause_playback(device_id=device_id) # will givw the error for spotify command failed have to incorporate similar mechanism as volume
                 setClientInactive()
-                # seekData=requests.post(baseUrl+"updateSeek", json={"seek":seekedClient+seekedPlayer, "song":currSongID})
-                bpmCheck=False
-                playing=False
+                seekData=requests.post(baseUrl+"updateSeek", json={"seek":seekedClient+seekedPlayer, "song":currSongID})
+
                 print("Client is set Inactive")
 
         elif keyboard.is_pressed("s"):
-        # elif chan_pot.voltage > 1.0 and not bpmCheck:
-            bpmCheck=True
-            durationCheck=True
+        # elif chan_pot.voltage > 1.0 and not bpmCountCheck:
+            bpmCountCheck=True
+            # durationCheck=True
             setClientActive()
             time.sleep(0.5)
             seekToPlay()
@@ -354,7 +342,7 @@ def infiniteloop3():
             print("Client is set Active")
             print("Press enter for BPM")
 
-        # if bpmCheck and playing:
+        # if bpmCountCheck and playingCheck:
         #     currVol = int (map_to_volume(chan_pot.voltage))
         #     #print(currVol)
         #     if(abs(prevVal-currVol) >= 5):
@@ -385,20 +373,18 @@ def disconnect():
 
 @sio.event
 def message(data):
-    global currSong, playing,currSongID, seekedClient, durationCheck, checkCheck
+    global playingCheck, currSongID
+
     json_data = json.loads(data) # incoming message is transformed into a JSON object
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
     if(json_data["msg"]=="Updated"):
         colorArrayBuilder(json_data["lights"])
     elif(json_data["msg"]=="Seeking"):
-        if(checkCheck):
+        if playingCheck:
             print("Updating seek")
             currSeeker=sp.currently_playing()
             seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSeeker['progress_ms'], "song":currSeeker['item']['id']})
-            # seekData=requests.post(baseUrl+"updateSeek", json={"seek":seekedClient+seekedPlayer, "song":currSongID})
-            checkCheck=False
-
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
 
 sio.connect('https://qp-master-server.herokuapp.com/')
