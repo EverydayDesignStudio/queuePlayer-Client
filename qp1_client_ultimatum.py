@@ -106,9 +106,6 @@ def setClientInactive():
 
 def pushBPMToPlay():
     songToBePlayed=requests.post(baseUrl+"getTrackToPlay", json={"bpm":bpmAdded, "clientID":clientID})
-    # trackArr=[]
-    # trackArr.append("spotify:track:"+songToBePlayed.json()['song']['track_id'])
-    # playSong(trackArr,0)
 
 def pushBPMToQueue():
     songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "userID":clientID})
@@ -129,10 +126,6 @@ def playSongsToContinue(songDuration, songID, msg):
     prevDuration=songDuration
     prevID=songID
     continueSong=requests.get(baseUrl+"continuePlaying", json={"userID":clientID,"msg":msg})
-    
-    # trackArr=[]
-    # trackArr.append("spotify:track:"+continueSong.json()['song']['track_id'])
-    # playSong(trackArr,0)
 
 def seekToPlay():
     global seekedPlayer, seekCheck
@@ -378,9 +371,11 @@ def message(data):
     json_data = json.loads(data) # incoming message is transformed into a JSON object
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
-    if(json_data["msg"]=="Updated"):
-        playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+    if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song"):
         colorArrayBuilder(json_data["lights"])
+        if(json_data["msg"]=="Song"):
+            playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+
     elif(json_data["msg"]=="Seeking"):
         if playingCheck:
             print("Updating seek")
