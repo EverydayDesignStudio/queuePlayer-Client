@@ -379,7 +379,7 @@ def message(data):
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
     if(json_data["msg"]=="Updated"):
-        playSong(json_data["songdata"]["songID"],json_data["songdata"]["timestamp"])
+        playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
         colorArrayBuilder(json_data["lights"])
     elif(json_data["msg"]=="Seeking"):
         if playingCheck:
