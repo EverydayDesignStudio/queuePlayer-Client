@@ -329,7 +329,7 @@ def infiniteloop3():
         # elif chan_pot.voltage > 1.0 and not bpmCountCheck:
             bpmCountCheck=True
             setClientActive()
-            time.sleep(0.5)
+            time.sleep(1)
             seekToPlay()
             checkBPMAdded()
             print("Client is set Active")
@@ -371,7 +371,7 @@ def message(data):
     json_data = json.loads(data) # incoming message is transformed into a JSON object
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
-    if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song"):
+    if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
         colorArrayBuilder(json_data["lights"])
         if(json_data["msg"]=="Song"):
             playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
