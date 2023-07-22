@@ -322,7 +322,7 @@ def infiniteloop3():
                 bpmCountCheck=False
                 sp.pause_playback(device_id=device_id) # will givw the error for spotify command failed have to incorporate similar mechanism as volume
                 setClientInactive()
-                seekData=requests.post(baseUrl+"updateSeek", json={"seek":seekedClient+seekedPlayer, "song":currSongID})
+                seekData=requests.post(baseUrl+"updateSeek", json={"seek":seekedClient+seekedPlayer, "song":currSongID,"prompt":"Continue"})
                 print("Client is set Inactive")
 
         elif keyboard.is_pressed("s"):
@@ -383,7 +383,6 @@ def message(data):
             seekCheck=True
             seekedPlayer=json_data["songdata"]["timestamp"]
             playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
-
 
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
 
