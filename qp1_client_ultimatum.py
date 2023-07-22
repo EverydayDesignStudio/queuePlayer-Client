@@ -60,6 +60,7 @@ bpmTapCheck=False
 bpmCountCheck=False
 playingCheck=False
 seekCheck=False
+newCheck=False
 durationCheck=True
 
 #BPM function variables
@@ -127,16 +128,16 @@ def playSongsToContinue(songDuration, songID, msg):
     prevID=songID
     continueSong=requests.get(baseUrl+"continuePlaying", json={"userID":clientID,"msg":msg})
 
-def seekToPlay():
-    global seekedPlayer, seekCheck
+# def seekToPlay():
+#     global seekedPlayer, seekCheck
 
-    playerSeek=requests.get(baseUrl+"getSeek")
-    if(playerSeek.json()['seek']>=0):
-        trackArr=[]
-        trackArr.append("spotify:track:"+playerSeek.json()['id'])
-        seekedPlayer=playerSeek.json()['seek']
-        playSong(trackArr,seekedPlayer)
-        seekCheck=True
+#     playerSeek=requests.get(baseUrl+"getSeek")
+#     if(playerSeek.json()['seek']>=0):
+#         trackArr=[]
+#         trackArr.append("spotify:track:"+playerSeek.json()['id'])
+#         seekedPlayer=playerSeek.json()['seek']
+#         playSong(trackArr,seekedPlayer)
+#         seekCheck=True
 
 #function to calculate BPM input
 def TapBPM(): 
@@ -322,15 +323,12 @@ def infiniteloop3():
                 sp.pause_playback(device_id=device_id) # will givw the error for spotify command failed have to incorporate similar mechanism as volume
                 setClientInactive()
                 seekData=requests.post(baseUrl+"updateSeek", json={"seek":seekedClient+seekedPlayer, "song":currSongID})
-
                 print("Client is set Inactive")
 
         elif keyboard.is_pressed("s"):
         # elif chan_pot.voltage > 1.0 and not bpmCountCheck:
             bpmCountCheck=True
             setClientActive()
-            time.sleep(1)
-            seekToPlay()
             checkBPMAdded()
             print("Client is set Active")
             print("Press enter for BPM")
@@ -366,7 +364,7 @@ def disconnect():
 
 @sio.event
 def message(data):
-    global playingCheck, currSongID
+    global playingCheck, currSongID,seekCheck,seekedPlayer
 
     json_data = json.loads(data) # incoming message is transformed into a JSON object
     print("Server Sent the JSON:")
@@ -375,12 +373,18 @@ def message(data):
         colorArrayBuilder(json_data["lights"])
         if(json_data["msg"]=="Song"):
             playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
-
     elif(json_data["msg"]=="Seeking"):
         if playingCheck:
             print("Updating seek")
             currSeeker=sp.currently_playing()
             seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSeeker['progress_ms'], "song":currSeeker['item']['id']})
+    elif(json_data["msg"]=="SeekSong"):
+        if not playingCheck:
+            seekCheck=True
+            seekedPlayer=json_data["songdata"]["timestamp"]
+            playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+
+
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
 
 sio.connect('https://qp-master-server.herokuapp.com/')
