@@ -377,7 +377,7 @@ def message(data):
         if playingCheck:
             print("Updating seek")
             currSeeker=sp.currently_playing()
-            seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSeeker['progress_ms'], "song":currSeeker['item']['id']})
+            seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSeeker['progress_ms'], "song":currSeeker['item']['id'],"prompt":"Bro"})
     elif(json_data["msg"]=="SeekSong"):
         if not playingCheck:
             seekCheck=True
