@@ -153,7 +153,7 @@ def TapBPM():
     else:
         bpmAvg= 60000 * tapCount / (msCurr-msFirst)
         bpmAdded=round(round(bpmAvg*100)/100)
-        # bpmAdded=204
+        # bpmAdded=137
         tapCount+=1 
 
     msPrev=msCurr
@@ -371,7 +371,7 @@ def message(data):
     print(json.dumps(json_data, indent = 2))
     if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
         colorArrayBuilder(json_data["lights"])
-        if(json_data["msg"]=="Song"):
+        if(json_data["msg"]=="Song" and bpmCountCheck):
             playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
     elif(json_data["msg"]=="Seeking"):
         if playingCheck:
@@ -379,7 +379,8 @@ def message(data):
             currSeeker=sp.currently_playing()
             seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSeeker['progress_ms'], "song":currSeeker['item']['id'],"prompt":"Bro"})
     elif(json_data["msg"]=="SeekSong"):
-        if not playingCheck:
+        if not playingCheck and bpmCountCheck:
+            print("This is the new client")
             seekCheck=True
             seekedPlayer=json_data["songdata"]["timestamp"]
             playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
