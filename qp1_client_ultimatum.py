@@ -360,6 +360,7 @@ def connect():
 
 @sio.event
 def disconnect():
+    sio.emit("disconnect_data",clientID)
     print('Disconnected from server')
 
 @sio.event
