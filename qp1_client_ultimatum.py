@@ -62,6 +62,7 @@ playingCheck=False
 seekCheck=False
 newCheck=False
 durationCheck=True
+lightCheck=False
 
 #BPM function variables
 bpmAdded=215
@@ -82,6 +83,9 @@ colorArrAfter=[0]*144
 
 #Global seek variable
 seekedPlayer=0
+
+#Global light variable
+lights=None
 
 #Global idling fail-safe variable
 prevID=''
@@ -341,6 +345,13 @@ def infiniteloop3():
         #         prevVal = currVol
         #         print("changing volume")
 
+def infiniteloop4():
+    global lights,lightCheck
+    while True:
+        if(lightCheck):
+            colorArrayBuilder(lights)
+            lightCheck=False
+
 
 thread1 = threading.Thread(target=infiniteloop1)
 thread1.start()
@@ -350,6 +361,9 @@ thread2.start()
 
 thread3 = threading.Thread(target=infiniteloop3)
 thread3.start()
+
+thread4= threading.Thread(target=infiniteloop4)
+thread4.start()
 
 
 sio = socketio.Client()
@@ -364,13 +378,14 @@ def disconnect():
 
 @sio.event
 def message(data):
-    global playingCheck, currSongID,seekCheck,seekedPlayer
+    global playingCheck, currSongID,seekCheck,seekedPlayer,lights,lightCheck
 
     json_data = json.loads(data) # incoming message is transformed into a JSON object
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
     if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
-        colorArrayBuilder(json_data["lights"])
+        lights=json_data["lights"]
+        lightCheck=True
         if(json_data["msg"]=="Song" and bpmCountCheck):
             playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
     elif(json_data["msg"]=="Seeking"):
