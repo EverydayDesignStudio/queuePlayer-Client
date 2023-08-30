@@ -304,7 +304,9 @@ def infiniteloop2():
                         playSongsToContinue(currDuration, currSongID, "Immediate")
                 if totalTime-seekedClient<=10000:
                     print("Fading out")
-                    currVolume = sp.current_playback()['device']['volume_percent']
+                    playback = sp.current_playback()
+                    if playback['device'] != None:
+                        currVolume= playback['device']['volume_percent']
                     currVolume=currVolume*0.95
                     sp.volume(int(currVolume), device_id)   
                 
