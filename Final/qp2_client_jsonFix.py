@@ -1,9 +1,10 @@
-import keyboard
-from pynput.keyboard import Key
+#import keyboard
+#from pynput.keyboard import Key
 import copy
 import threading
 from threading import Timer
 import time
+import math
 import requests
 import socketio
 import json 
@@ -22,8 +23,8 @@ from adafruit_ads1x15.analog_in import AnalogIn
 # #Setup for potentiometer and piezo ADC channels 
 i2c = busio.I2C(board.SCL, board.SDA)
 ads = ADS.ADS1015(i2c)
-chan_piezo = AnalogIn(ads, ADS.P0)  #piezo connected to pin A0 
-chan_pot = AnalogIn(ads, ADS.P1) #potentiometer connected to pin A1
+#chan_piezo = AnalogIn(ads, ADS.P0)  #piezo connected to pin A0 
+chan_pot = AnalogIn(ads, ADS.P0) #potentiometer connected to pin A1
 
 # #Variables to tune and adjust piezo sensitivity 
 THRESHOLD = 0.8  # Adjust this value based on your piezo sensitivity
@@ -39,10 +40,19 @@ ledSegment = 36 # number of LEDs in a single segment
 ledArray = [[[0 for i in range(4)] for j in range(ledSegment)] for z in range(4)] #the array which stores the pixel information
 
 # #Create and initiate neopixel objects
-pixels = neopixel.NeoPixel(pixel_pin1, num_pixels, brightness=0.2, auto_write=False, pixel_order=ORDER)
+pixels = neopixel.NeoPixel(pixel_pin1, num_pixels, brightness=0.4, auto_write=False, pixel_order=ORDER)
 ring_pixels = neopixel.NeoPixel(pixel_pin2, num_ring_pixels, brightness = 0.4, auto_write = False, pixel_order=ORDER)
 
+#Indicator Light Setup
+GPIO.setup(23,GPIO.OUT)
+GPIO.setup(24,GPIO.OUT)
+GPIO.setup(25,GPIO.OUT)
 
+
+#Tap Sensor Setup
+channel = 17
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(channel, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
 
 #Client essential variables
 clientID=2
@@ -66,6 +76,10 @@ lightCheck = False
 lights = None 
 rotation = None
 rotationCheck = False
+ringLightCheck = False
+serverConnCheck = False
+
+clientStates = []
 
 #BPM function variables
 bpmAdded=215
@@ -206,6 +220,9 @@ def interpolate_rgbw(start_rgbw, end_rgbw, steps):
 def colorArrayBuilder(lights):
     global colorArrBefore, colorArrAfter
     n = 0
+    print("inside colorArrayBuilder")
+    print(pixels[0])
+
     for ring in lights:
         colors = lights[ring]["colors"]
         divs = int(36 / len(colors))
@@ -226,13 +243,14 @@ def colorArrayBuilder(lights):
         num_steps = int(fade_duration / 0.01)
 
         # Fade-out effect
-        for step in range(num_steps, -1, -1):
-            brightness = int(step * max_brightness / num_steps)
-            for i in range(144):
-                pixels[i] = colorArrBefore[i]
-            pixels.brightness = brightness / max_brightness
-            pixels.show()
-            time.sleep(0.01)
+        if not (pixels[0] == [0,0,0,0]):
+            for step in range(num_steps, -1, -1):
+                brightness = int(step * max_brightness / num_steps)
+                for i in range(144):
+                    pixels[i] = colorArrBefore[i]
+                pixels.brightness = brightness / max_brightness
+                pixels.show()
+                time.sleep(0.01)
 
         # Fade-in effect
         for step in range(num_steps + 1):
@@ -245,13 +263,100 @@ def colorArrayBuilder(lights):
 
         colorArrBefore = copy.deepcopy(colorArrAfter)
 
-def ringLightUpdate(ringColor):
-    pixels[145:160]=ringColor
-    pixels.show()
+# def lerp(a, b, t):
+#     return a + (b - a) * t
+
+# def ringLightUpdate(ringColor, bpm):
+#     # for i in range(144, 160):  # Indices for the last 16 LEDs
+#     #     pixels[i] = ringColor
+#     # pixels.show()
+#     global playingCheck
+
+#     interval = 60 / bpm  # Calculate the time interval between beats
+#     start_time = time.time()
+
+#     print(ringColor)
+#     print(bpm)
+    
+#     while True:
+
+#         if not playingCheck:
+#             break
+#         else:
+#             elapsed_time = time.time() - start_time
+#             t = (elapsed_time % interval) / interval  # Calculate a value between 0 and 1
+
+#             brightness = lerp(0, 1, t)
+
+#             # Calculate the color with adjusted brightness
+#             adjusted_color = tuple(int(c * brightness) for c in ringColor)
+
+#             # Update NeoPixels
+#             for i in range(144, 160):
+#                 pixels[i] = adjusted_color
+#             pixels.show()
+
+#             time.sleep(0.005)  # Small delay for smoother animation
+def ringLightUpdate(ringColor, bpm):
+    global playingCheck
+
+    interval = 60 / bpm  # Calculate the time interval between beats
+    half_interval = interval / 4
+    
+    while playingCheck:
+        start_time = time.time()
+        
+        for i in range(144, 160):
+            pixels[i] = ringColor
+        pixels.show()
+        
+        time.sleep(half_interval)
+        
+        for i in range(144, 160):
+            pixels[i] = (0, 0, 0, 0)
+        pixels.show()
+        
+        elapsed_time = time.time() - start_time
+        sleep_time = interval - elapsed_time
+        
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+            if elapsed_time >= interval:
+                start_time = time.time()
+
+# def ringLightUpdate(ringColor, bpm):
+#     global playingCheck
+
+#     interval = 60 / bpm  # Calculate the time interval between beats
+#     num_steps = 3  # Number of steps for intensity adjustment
+    
+#     print(ringColor)
+#     print(bpm)
+
+#     while playingCheck:
+#         for step in range(num_steps):
+#             intensity = step / (num_steps - 1)
+#             adjusted_color = tuple(int(c * intensity) for c in ringColor)
+            
+#             for i in range(144, 160):
+#                 pixels[i] = adjusted_color
+#             pixels.show()
+            
+#             time.sleep(interval / (num_steps * 4))
+            
+#         for step in range(num_steps - 1, -1, -1):
+#             intensity = step / (num_steps - 1)
+#             adjusted_color = tuple(int(c * intensity) for c in ringColor)
+            
+#             for i in range(144, 160):
+#                 pixels[i] = adjusted_color
+#             pixels.show()
+            
+#             time.sleep(interval / (num_steps * 4))
 
 # Function to calculate time interval (in seconds) between each pulse
-def calculate_pulse_interval(bpm):
-    return 60.0 / bpm
+# def calculate_pulse_interval(bpm):
+#     return 60.0 / bpm
 
 # def pulse_neopixels(lights):
 #     # Loop through each ring in the lights dictionary
@@ -317,25 +422,39 @@ def map_to_volume(input_value):
         return 0.0 
     else:
         return volume
+    
+def fadeToBlack():
+          # Define the maximum brightness value
+        max_brightness = 255
+        fade_duration = 0.15 # Adjust the fade duration as desired
 
-def infiniteloop1():
-    while True:
-        value = input()
-        if(value==""):
+        # Calculate the number of steps based on the fade duration and delay
+        num_steps = int(fade_duration / 0.01)
+
+        # Fade-out effect
+        #if not (pixels[0] == [0,0,0,0]):
+        for step in range(num_steps, -1, -1):
+            brightness = int(step * max_brightness / num_steps)
+            for i in range(144):
+                pixels[i] = [0,0,0,0]
+            pixels.brightness = brightness / max_brightness
+            pixels.show()
+            time.sleep(0.01)
+
+# def infiniteloop1():
+#     while True:
+#         value = input()
+#         if(value==""):
+#             TapBPM()
+
+def infiniteloop1(channel):
+    if GPIO.input(channel):
             TapBPM()
+            print ("Tap")
 
-    # while True:
-    #     global THRESHOLD, DEBOUNCE_TIME
-    #
-    #     if chan_piezo.voltage >= THRESHOLD * ads.gain:
-    #         current_time = time.monotonic()  # Get the current time
-            
-    #         # Apply debounce: Ignore taps that occur within the debounce time window
-    #         if current_time - last_tap_time > DEBOUNCE_TIME:
-    #             last_tap_time = current_time  # Update the last tap time
-    #             print("Tap detected")
-    #             TapBPM()
-    #     time.sleep(0.01)  # Adjust the sleep time based on your requirements
+GPIO.add_event_detect(channel, GPIO.BOTH, bouncetime=50)  # let us know when the pin goes HIGH or LOW
+GPIO.add_event_callback(channel, infiniteloop1)  # assign function to GPIO PIN, Run function on change
+
 
 def infiniteloop2():
     global prevDuration, prevID, startTime ,totalTime, durationCheck, currSongID, seekCheck, seekedPlayer,seekedClient, currDuration
@@ -387,8 +506,8 @@ def infiniteloop3():
     global bpmCountCheck,prevVal,currVol,playingCheck, currSongID, seekedClient, durationCheck
 
     while True:
-        if keyboard.is_pressed("o"):
-        # if chan_pot.voltage < 0.01:
+        #if keyboard.is_pressed("o"):
+        if chan_pot.voltage < 0.04:
             if playingCheck and bpmCountCheck:
                 playingCheck=False
                 bpmCountCheck=False
@@ -396,40 +515,73 @@ def infiniteloop3():
                 setClientInactive()
                 seekData=requests.post(baseUrl+"updateSeek", json={"seek":seekedClient+seekedPlayer, "song":currSongID,"prompt":"Continue"})
                 print("Client is set Inactive")
+                #pixels.fill((0,0,0,0))
+                #pixels.show()
+                fadeToBlack()
+            
 
-        elif keyboard.is_pressed("s"):
-        # elif chan_pot.voltage > 1.0 and not bpmCountCheck:
+        #elif keyboard.is_pressed("s"):
+        elif chan_pot.voltage > 0.1 and not bpmCountCheck and serverConnCheck:
             bpmCountCheck=True
             setClientActive()
             checkBPMAdded()
             print("Client is set Active")
             print("Press enter for BPM")
 
-        # if bpmCountCheck and playingCheck:
-        #     currVol = int (map_to_volume(chan_pot.voltage))
-        #     #print(currVol)
-        #     if(abs(prevVal-currVol) >= 5):
-        #         sp.volume(currVol, device_id)
-        #         prevVal = currVol
-        #         print("changing volume")
+        if bpmCountCheck and playingCheck:
+            currVol = int (map_to_volume(chan_pot.voltage))
+            #print(currVol)
+            if(abs(prevVal-currVol) >= 5):
+                sp.volume(currVol, device_id)
+                prevVal = currVol
+                print("changing volume")
 
 def infiniteloop4():
     global lights,lightCheck
     while True:
         if(lightCheck):
+            print("color should be updating")
             colorArrayBuilder(lights)
-            ringLightUpdate(lights["ring1"]["rlight"])
+            #ringLightUpdate(lights["ring1"]["rlight"], lights["ring1"]["bpm"])
             lightCheck=False
 
 def infiniteloop5():
-    global rotation,rotationCheck
+    global lights, ringLightCheck, playingCheck
     while True:
-        if(rotationCheck):
-            pulse_neopixels(rotation)
-            lightCheck=False
+        if(ringLightCheck and playingCheck):
+            ringLightUpdate(lights["ring1"]["rlight"], lights["ring1"]["bpm"])
+            ringLightCheck=False
 
-thread1 = threading.Thread(target=infiniteloop1)
+def infiniteloop6():
+   global clientStates
+
+   while True:
+        # if len(clientStates) > 0:
+        #     print("clientStates in infiniteloop6:", clientStates)  # Debug print
+        if(len(clientStates) > 0 and clientStates[0] == True): #Yellow QP
+            GPIO.output(23,GPIO.HIGH)
+            #print("Yellow QP Active")
+        else:
+            GPIO.output(23,GPIO.LOW)
+            
+        if(len(clientStates) > 0 and clientStates[2] == True): #Violet QP
+            GPIO.output(24,GPIO.HIGH)
+            #print("Violet QP Active")
+        else:
+            GPIO.output(24,GPIO.LOW)
+
+        if(len(clientStates) > 0 and clientStates[3] == True): #Orange QP
+            GPIO.output(25,GPIO.HIGH)
+            #print("Orange QP Active")
+        else:
+            GPIO.output(25,GPIO.LOW)
+
+
+thread1 = threading.Thread(target=infiniteloop1(channel))
 thread1.start()
+
+# thread1 = threading.Thread(target=infiniteloop1)
+# thread1.start()
 
 thread2 = threading.Thread(target=infiniteloop2)
 thread2.start()
@@ -443,11 +595,17 @@ thread4.start()
 thread5 = threading.Thread(target=infiniteloop5)
 thread5.start()
 
+thread6 = threading.Thread(target=infiniteloop6)
+thread6.start()
+
 
 sio = socketio.Client()
 
 @sio.event
 def connect():
+    global serverConnCheck
+    
+    serverConnCheck = True
     print('Connected to server')
 
 @sio.event
@@ -456,20 +614,29 @@ def disconnect():
 
 @sio.event
 def message(data):
-    global playingCheck, currSongID,seekCheck,seekedPlayer,lights,lightCheck
+    global playingCheck, currSongID,seekCheck,seekedPlayer,lights,lightCheck, ringLightCheck, clientStates
 
     json_data = json.loads(data) # incoming message is transformed into a JSON object
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
+
+    if(json_data["msg"]!="Initial"):
+        clientStates = json_data["activeUsers"]
+    #print(clientStates)
+    #print("clientStates in message:", clientStates)
+
     if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
         #colorArrayBuilder(json_data["lights"])
         lights=json_data["lights"]
         lightCheck=True
+        ringLightCheck = True
+
         print(bpmCountCheck)
         print(json_data["msg"])
         if(json_data["msg"]=="Song" and bpmCountCheck):
             print("playing song")
             playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+        
     elif(json_data["msg"]=="Seeking"):
         if playingCheck:
             print("Updating seek")
@@ -481,6 +648,10 @@ def message(data):
             seekCheck=True
             seekedPlayer=json_data["songdata"]["timestamp"]
             playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+
+            lights=json_data["lights"]
+            lightCheck=True
+            ringLightCheck = True
 
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
 

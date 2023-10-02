@@ -70,6 +70,8 @@ tapCount=0
 msFirst=0
 msPrev=0
 
+clientStates=[]
+
 #Server Variable
 baseUrl="https://qp-master-server.herokuapp.com/"
 
@@ -156,8 +158,8 @@ def TapBPM():
         tapCount = 1
     else:
         bpmAvg= 60000 * tapCount / (msCurr-msFirst)
-        bpmAdded=round(round(bpmAvg*100)/100)
-        # bpmAdded=137
+        # bpmAdded=round(round(bpmAvg*100)/100)
+        bpmAdded=210
         tapCount+=1 
 
     msPrev=msCurr
@@ -203,7 +205,7 @@ def interpolate_rgbw(start_rgbw, end_rgbw, steps):
 
 def colorArrayBuilder(lights):
     global colorArrBefore,colorArrAfter
-
+    print("Hiiiiiiiiiiii")
     n=0
     for ring in lights:
         colors=lights[ring]["colors"]
@@ -354,6 +356,12 @@ def infiniteloop4():
             colorArrayBuilder(lights)
             lightCheck=False
 
+def infiniteloop6():
+    global clientStates
+    while True:
+        if(len(clientStates)!=0):
+            print(clientStates)
+    
 
 thread1 = threading.Thread(target=infiniteloop1)
 thread1.start()
@@ -366,6 +374,9 @@ thread3.start()
 
 thread4= threading.Thread(target=infiniteloop4)
 thread4.start()
+
+thread6=threading.Thread(target=infiniteloop6)
+thread6.start()
 
 
 sio = socketio.Client()
@@ -380,12 +391,15 @@ def disconnect():
 
 @sio.event
 def message(data):
-    global playingCheck, currSongID,seekCheck,seekedPlayer,lights,lightCheck
+    global playingCheck, currSongID,seekCheck,seekedPlayer,lights,lightCheck, clientStates
 
     json_data = json.loads(data) # incoming message is transformed into a JSON object
     print("Server Sent the JSON:")
     print(json.dumps(json_data, indent = 2))
-    if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
+    if(json_data["msg"]!="Initial"):
+        clientStates=json_data["activeUsers"]
+    # if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
+    if(json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
         lights=json_data["lights"]
         lightCheck=True
         if(json_data["msg"]=="Song" and bpmCountCheck):
