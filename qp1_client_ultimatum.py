@@ -45,7 +45,7 @@ from spotipy.exceptions import SpotifyException
 
 
 #Client essential variables
-clientID=1
+clientID=2
     #[OLO5 : QP Client Credentials]
 client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
 client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
@@ -358,9 +358,9 @@ def infiniteloop4():
 
 def infiniteloop6():
     global clientStates
-    while True:
-        if(len(clientStates)!=0):
-            print(clientStates)
+    # while True:
+    #     if(len(clientStates)!=0):
+    #         print(clientStates)
     
 
 thread1 = threading.Thread(target=infiniteloop1)
@@ -409,6 +409,11 @@ def message(data):
             print("Updating seek")
             currSeeker=sp.currently_playing()
             seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSeeker['progress_ms'], "song":currSeeker['item']['id'],"prompt":"Bro"})
+        else:
+            lights=json_data["lights"]
+            lightCheck=True
+            playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+            
     elif(json_data["msg"]=="SeekSong"):
         if not playingCheck and bpmCountCheck:
             print("This is the new client")
