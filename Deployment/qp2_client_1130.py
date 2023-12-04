@@ -246,7 +246,7 @@ def infiniteloop3():
 
         sio.disconnect()
         time.sleep(2)
-        sio.connect()
+        sio.connect('https://qp-master-server.herokuapp.com/')
 
 # def infiniteloop3():
     # global bpmCountCheck,prevVal,currVol,playingCheck, currSongID, seekedClient, durationCheck
@@ -342,13 +342,13 @@ def playSong(trkArr, pos):
 
         sio.disconnect()
         time.sleep(2)
-        sio.connect()
+        sio.connect('https://qp-master-server.herokuapp.com/')
     except requests.exceptions.ReadTimeout:
         print("Read timeout while playing a song")
 
         sio.disconnect()
         time.sleep(2)
-        sio.connect()
+        sio.connect('https://qp-master-server.herokuapp.com/')
 
     #Last Resort is to restart script
     # except requests.exceptions.ReadTimeout:
@@ -390,7 +390,7 @@ def infiniteloop1():
 
             sio.disconnect()
             time.sleep(2)
-            sio.connect()
+            sio.connect('https://qp-master-server.herokuapp.com/')
 
             
 # def infiniteloop1(channel):
@@ -620,23 +620,24 @@ def fadeToBlack(lights):
     num_steps = int(fade_duration / 0.01)
 
     # Fade-out effect
-    for step in range(num_steps, -1, -1):
-        brightness = int(step * max_brightness / num_steps)
+    while(pixels[0]==[0,0,0,0]):
+        for step in range(num_steps, -1, -1):
+            brightness = int(step * max_brightness / num_steps)
 
-        # Set the color for all pixels
-        for i in range(144):
-            pixels[i] = colorArrBefore[i]
+            # Set the color for all pixels
+            for i in range(144):
+                pixels[i] = colorArrBefore[i]
+            
+            # Update the brightness for all pixels
+            pixels.brightness = brightness / max_brightness
         
-        # Update the brightness for all pixels
-        pixels.brightness = brightness / max_brightness
-    
 
-        # Display the updated pixels
-        pixels.show()
-        print("in fade to black function")
-        
-        # Add a slightly longer delay for a slower fade-off
-        time.sleep(0.01)
+            # Display the updated pixels
+            pixels.show()
+            print("in fade to black function")
+            
+            # Add a slightly longer delay for a slower fade-off
+            time.sleep(0.01)
 
 # ----------------------------------------------------------
 # Section 4 : Timer Controls     
@@ -700,7 +701,7 @@ def infiniteloop2():
         sio.disconnect()
 
         time.sleep(2)
-        sio.connect()
+        sio.connect('https://qp-master-server.herokuapp.com/')
 
 # ----------------------------------------------------------
 
