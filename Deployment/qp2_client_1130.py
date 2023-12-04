@@ -247,7 +247,7 @@ def infiniteloop3():
         sio.disconnect()
         time.sleep(2)
         sio.connect()
-        
+
 # def infiniteloop3():
     # global bpmCountCheck,prevVal,currVol,playingCheck, currSongID, seekedClient, durationCheck
 
@@ -698,6 +698,7 @@ def infiniteloop2():
         print("Interrupted by Keyboard, script terminated")
 
         sio.disconnect()
+
         time.sleep(2)
         sio.connect()
 
@@ -762,107 +763,116 @@ def moving_average(values):
 # thread1 = threading.Thread(target=infiniteloop1(channel))
 # thread1.start()
 
-thread1 = threading.Thread(target=infiniteloop1)
-thread1.start()
+try:
 
-thread2 = threading.Thread(target=infiniteloop2)
-thread2.start()
+    thread1 = threading.Thread(target=infiniteloop1)
+    thread1.start()
 
-thread3 = threading.Thread(target=infiniteloop3)
-thread3.start()
+    thread2 = threading.Thread(target=infiniteloop2)
+    thread2.start()
 
-# thread4 = threading.Thread(target=infiniteloop4)
-# thread4.start()
+    thread3 = threading.Thread(target=infiniteloop3)
+    thread3.start()
 
-# thread5 = threading.Thread(target=infiniteloop5)
-# thread5.start()
+    # thread4 = threading.Thread(target=infiniteloop4)
+    # thread4.start()
 
-# thread6 = threading.Thread(target=infiniteloop6)
-# thread6.start()
+    # thread5 = threading.Thread(target=infiniteloop5)
+    # thread5.start()
 
-# thread7 = threading.Thread(target=infiniteloop7)
-# thread7.start()
+    # thread6 = threading.Thread(target=infiniteloop6)
+    # thread6.start()
 
-
-# ----------------------------------------------------------
-# Section 5 : Socket Controls   
-
-sio = socketio.Client()
-
-@sio.event
-def connect():
-    global serverConnCheck, clientID, device_id, sp
-    
-    serverConnCheck = True
-    print('Connected to server')
-    sio.emit('connect_user',{"userID":2})
-    
-    #potentially add ringlight feedback for not connecting 
-    # [OLO5 Credentials]
-    # Client essential variables
-    client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
-    client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
-    spotify_username='n39su59fav4b7fmcm0cuwyv2w'
-    device_id='1632b74b504b297585776e716b8336510639401a'
-    spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing,user-read-playback-state'
-    spotify_redirect_uri = 'http://localhost:8000/callback'
-    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
-
-@sio.event
-def disconnect():
-    print('Disconnected from server')
-
-@sio.event
-def message(data):
-    global playingCheck, currSongID,seekCheck,seekedPlayer,lights,lightCheck, ringLightCheck, clientStates
-
-    json_data = json.loads(data) # incoming message is transformed into a JSON object
-    print("Server Sent the JSON:")
-    print(json.dumps(json_data, indent = 2))
-
-    if(json_data["msg"]!="Initial"):
-        clientStates = json_data["activeUsers"]
+    # thread7 = threading.Thread(target=infiniteloop7)
+    # thread7.start()
 
 
-    if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
-        #colorArrayBuilder(json_data["lights"])
-        lights=json_data["lights"]
-        lightCheck=True
-        ringLightCheck = True
+    # ----------------------------------------------------------
+    # Section 5 : Socket Controls   
 
-        print(bpmCountCheck)
-        print(json_data["msg"])
-        if(json_data["msg"]=="Song" and bpmCountCheck):
-            print("playing song")
-            try:
-                playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
-            except Exception as e:
-                print(f"An error occurred in the message thread: {str(e)}")
-    elif(json_data["msg"]=="Seeking"):
-        if playingCheck:
-            print("Updating seek")
-            try:
-                currSeeker=sp.currently_playing()
-            except requests.exceptions.ReadTimeout:
-                print("Minor Setback, Continue Continue")
-            seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSeeker['progress_ms'], "song":currSeeker['item']['id'],"prompt":"Bro"})
-    elif(json_data["msg"]=="SeekSong"):
-        if not playingCheck and bpmCountCheck:
-            print("This is the new client")
-            seekCheck=True
-            seekedPlayer=json_data["songdata"]["timestamp"]
-            print("json retrieved")
-            playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
-            print("playsong")
+    sio = socketio.Client()
 
+    @sio.event
+    def connect():
+        global serverConnCheck, clientID, device_id, sp
+        
+        serverConnCheck = True
+        print('Connected to server')
+        sio.emit('connect_user',{"userID":1})
+        
+        #potentially add ringlight feedback for not connecting 
+        # [OLO5 Credentials]
+        # Client essential variables
+        client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
+        client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
+        spotify_username='n39su59fav4b7fmcm0cuwyv2w'
+        device_id='1632b74b504b297585776e716b8336510639401a'
+        spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing,user-read-playback-state'
+        spotify_redirect_uri = 'http://localhost:8000/callback'
+        sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
+
+    @sio.event
+    def disconnect():
+        print('Disconnected from server')
+
+    @sio.event
+    def message(data):
+        global playingCheck, currSongID,seekCheck,seekedPlayer,lights,lightCheck, ringLightCheck, clientStates
+
+        json_data = json.loads(data) # incoming message is transformed into a JSON object
+        print("Server Sent the JSON:")
+        print(json.dumps(json_data, indent = 2))
+
+        if(json_data["msg"]!="Initial"):
+            clientStates = json_data["activeUsers"]
+
+
+        if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
+            #colorArrayBuilder(json_data["lights"])
             lights=json_data["lights"]
             lightCheck=True
             ringLightCheck = True
 
-    print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
+            print(bpmCountCheck)
+            print(json_data["msg"])
+            if(json_data["msg"]=="Song" and bpmCountCheck):
+                print("playing song")
+                try:
+                    playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+                except Exception as e:
+                    print(f"An error occurred in the message thread: {str(e)}")
+        elif(json_data["msg"]=="Seeking"):
+            if playingCheck:
+                print("Updating seek")
+                try:
+                    currSeeker=sp.currently_playing()
+                except requests.exceptions.ReadTimeout:
+                    print("Minor Setback, Continue Continue")
+                seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSeeker['progress_ms'], "song":currSeeker['item']['id'],"prompt":"Bro"})
+        elif(json_data["msg"]=="SeekSong"):
+            if not playingCheck and bpmCountCheck:
+                print("This is the new client")
+                seekCheck=True
+                seekedPlayer=json_data["songdata"]["timestamp"]
+                print("json retrieved")
+                playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+                print("playsong")
 
-sio.connect('https://qp-master-server.herokuapp.com/')
-sio.wait()
+                lights=json_data["lights"]
+                lightCheck=True
+                ringLightCheck = True
+
+        print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
+
+    sio.connect('https://qp-master-server.herokuapp.com/')
+    sio.wait()
+except KeyboardInterrupt:
+    print("Interrupted by Keyboard, script terminated")
+    sio.disconnect()
+    # playingCheck=False
+    # bpmCountCheck=False
+    time.sleep(2)
+    sio.connect('https://qp-master-server.herokuapp.com/')
 
 # ----------------------------------------------------------
 
