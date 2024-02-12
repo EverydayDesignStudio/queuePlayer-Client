@@ -1,373 +1,976 @@
+# Python libraries for Queue Player Software
+#import keyboard
+#from pynput.keyboard import Key
+import copy
 import threading
-import keyboard
-from pynput.keyboard import Key
 from threading import Timer
-from time import time
+import time
+import math
 import requests
-import websocket #import websockt library -> pip install websocket-client
-import ssl # import ssl library (native)
-import json # import json library (native)
+import requests.exceptions
+import socketio
+import json 
 import spotipy
+import subprocess
 from spotipy.oauth2 import SpotifyOAuth
-from spotipy.oauth2 import SpotifyClientCredentials, SpotifyPKCE
+from spotipy.exceptions import SpotifyException
+import sys
+import os
 
-# import board
-# import neopixel
-# import RPi.GPIO as GPIO
-# from adafruit_led_animation.animation.pulse import Pulse
+# ----------------------------------------------------------
+# Python libraries for Queue Player Hardware
+import board
+import neopixel
+import RPi.GPIO as GPIO
+import busio
+import adafruit_ads1x15.ads1015 as ADS
+from adafruit_ads1x15.analog_in import AnalogIn
 
-#Neopixel Setup
-# pixel_pin1 = board.D12 # the pin to which the LED strip is connected to
-# pixel_pin2 = board.D10 # the pin to which the ring light is connected to
-# num_pixels = 144 # this specifies the TOTAL number of pixels (should be a multiple of 12. ie. 12, 24, 36, 48 etc)
-# num_ring_pixels = 16
-# ORDER = neopixel.GRBW # set the color type of the neopixel
-# ledSegment = 36 # number of LEDs in a single segment
-# ledArray = [[[0 for i in range(4)] for j in range(ledSegment)] for z in range(4)] #the array which stores the pixel information
+#Setup for potentiometer and piezo ADC channels 
+i2c = busio.I2C(board.SCL, board.SDA)
+ads = ADS.ADS1015(i2c)
+chan_piezo = AnalogIn(ads, ADS.P1)  #piezo connected to pin A0 
+chan_pot = AnalogIn(ads, ADS.P0) #potentiometer connected to pin A1
+
+#Variables to tune and adjust piezo sensitivity 
+# THRESHOLD = 0.8  # Adjust this value based on your piezo sensitivity
+# DEBOUNCE_TIME = 0.1  # Adjust this value based on min. time needed between consecutive taps
+#THRESHOLD = 0.5  # Adjust this value based on your piezo sensitivity
+#DEBOUNCE_TIME = 0.1  # Adjust this value based on min. time needed between consecutive taps
+
+#Neopixel Setup for strip and ring light 
+pixel_pin1 = board.D12 # the pin to which the LED strip is connected to
+pixel_pin2 = board.D10 # the pin to which the ring light is connected to
+num_pixels = 160 # this specifies the TOTAL number of pixels (should be a multiple of 12. ie. 12, 24, 36, 48 etc)
+num_ring_pixels = 16
+ORDER = neopixel.GRBW # set the color type of the neopixel
+ledSegment = 36 # number of LEDs in a single segment
+ledArray = [[[0 for i in range(4)] for j in range(ledSegment)] for z in range(4)] #the array which stores the pixel information
 
 # #Create and initiate neopixel objects
-# pixels = neopixel.NeoPixel(pixel_pin1, num_pixels, brightness=0.2, auto_write=False, pixel_order=ORDER)
-# ring_pixels = neopixel.NeoPixel(pixel_pin2, num_ring_pixels, brightness = 0.4, auto_write = False, pixel_order=ORDER)
+pixels = neopixel.NeoPixel(pixel_pin1, num_pixels, brightness=10, auto_write=False, pixel_order=ORDER)
+ring_pixels = neopixel.NeoPixel(pixel_pin2, num_ring_pixels, brightness = 10, auto_write = False, pixel_order=ORDER)
 
-# #Tap Sensor Setup
-# channel = 23
-# GPIO.setmode(GPIO.BCM)
-# GPIO.setup(channel, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+#Indicator Light Setup
+GPIO.setup(23,GPIO.OUT)
+GPIO.setup(24,GPIO.OUT)
+GPIO.setup(25,GPIO.OUT)
 
 
-#variable to determine the client number
+#Tap Sensor Setup
+channel = 17
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(channel, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+
+# ----------------------------------------------------------
+
 clientID=2
+device_id=None
+sp=None
 
-#varibale to determine the client state
-state=True
+#Global check variables 
+bpmTapCheck=False
+bpmCountCheck=False
+playingCheck=False
+seekCheck=False
+newCheck=False
+durationCheck=True
+lightCheck = False
+lights = None 
+rotation = None
+rotationCheck = False
+ringLightCheck = False
+fadeToBlackCheck = False
+serverConnCheck = False
+cluster = None
 
-#variable that keeps the record of the current BPM added by the user
-bpmAdded=36
+clientStates = []
 
-#both hosted servers for queue player funcitonality
-baseUrl="https://qp-master-server.herokuapp.com/"
-
-playerID=""
-playing=False
-flag=0
-bpmCheck=True
-count=0
+#BPM function variables
+bpmAdded=215
+tapCount=0
 msFirst=0
 msPrev=0
-seekedPlayer=0
+
+#Server Variable
+baseUrl="https://qp-master-server.herokuapp.com/"
+
+#Global volume variables 
+prevVal = 0 #previous value for volume
+currVol = 100 #current value for volume
+
+#Lights function variables
 colorArrBefore=[(0,0,0,0)]*144
 colorArrAfter=[0]*144
 
-#Spotify Library Required Variables
-#[OLO4 Credentials]
-client_id='aeeefb7f628b41d0b7f5581b668c27f4'
-client_secret='7a75e01c59f046888fa4b99fbafc4784'
-spotify_username='x8eug7lj2opi0in1gnvr8lfsz'
-device_id='13a8df6c2e97a189e4a9439317f06d4df730d0bd'
-spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing,user-read-playback-state'
-spotify_redirect_uri = 'http://localhost:8000'
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True ))
-print(sp.devices())
+#Global seek variable
+seekedPlayer=0
 
-# #function to show the states for each queue player client
-# def setClientActive():
-#     global clientID
-#     setClientActive=requests.post(baseUrl+"setClientActive", json={"clientID":clientID})
-#     print("Client States : \n")
-#     print(setClientActive.json())
+#Global idling fail-safe variable
+prevID=''
+prevDuration=0
+currSongID=''
+currDuration=None
 
-# #function to show the states for each queue player client
-# def setClientInactive():
-#     global clientID
-#     setClientInactive=requests.post(baseUrl+"setClientInactive", json={"clientID":clientID})
-#     print("Client States : \n")
-#     print(setClientInactive.json())
+# Local timer variables for song end check
+startTime=None
+totalTime=None
+seekedClient=0
 
-# #function to push the BPM added by the client to the master server and use the spotify server to call and play the song if no song is in the queue
-# #simultaneously update the queue with the pushed BPM
-# def pushBPMToPlay():
-#     print("\nSince Queue was Empty, Pushing song to Play")
-#     songToBePlayed=requests.post(baseUrl+"getTrackToPlay", json={"bpm":bpmAdded, "clientID":clientID})
+#playback variable to keep a check
+playback=None
 
-#     # print("Initial Queue : \n")
-#     # for ele in songToBePlayed.json()['queue']:
-#     #     print(ele)
+#Wrapper function for socket connection
+def socketConnection():
+    connected = False
+    while not connected:
+        try:
+            sio.connect('https://qp-master-server.herokuapp.com/')
+            print("Socket established")
+            connected = True
+        except Exception as ex:
+            print("Failed to establish initial connnection to server:", type(ex).__name__)
+            time.sleep(2)
+            
+            
+# Function to restart spotifyd
+def restart_spotifyd():
+    device_is_found = False
+    while not device_is_found:
+        try:
+            print("Device not found. Reconnecting to Spotify...")
+            subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
+            subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
+            device_is_found = True
+        except Exception as e:
+            print(f"An error occurred while restarting Spotifyd: {str(e)}")
+            time.sleep(2)
 
-#     trackArr=[]
-#     trackArr.append("spotify:track:"+songToBePlayed.json()['song']['track_id'])
-#     playSong(trackArr)
+def restart_script():
+    # Add any cleanup or state reset logic here
+    time.sleep(5)  # Optional delay before restarting to avoid immediate restart loop
+    print("Restarting the script...")
+    python = sys.executable
+    os.execl(python, python, *sys.argv)
 
-# #function to push the BPM added by the client to the master server
-# #simultaneously update the queue with the pushed BPM as the player is playing
-# def pushBPMToQueue():
-#     print()
-#     print("Since Song is playing, Pushing song to Queue")
-#     songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "userID":clientID})
+# ----------------------------------------------------------
+# Section 1 : Client States Control
+
+def setClientActive():
+    global clientID
+    setClientActive=requests.post(baseUrl+"setClientActive", json={"clientID":clientID})
+
+def setClientInactive():
+    global clientID
+    setClientInactive=requests.post(baseUrl+"setClientInactive", json={"clientID":clientID})
+
+def infiniteloop3():
+    global bpmCountCheck,prevVal,currVol,playingCheck, currSongID, seekedClient, durationCheck, fadeToBlackCheck
     
-#     # print("Updated Queue : \n")
-#     # for ele in songToBeQueued.json()['queue']:
-#     #     print(ele)
+    #Voltage variables
+    window_size = 4
+    voltage_readings = [0] * window_size  # Initialize with zeros
+    
+    try:
+    # Inside your main loop where you read the potentiometer voltage
+        while True:
+            # Read potentiometer voltage
+            current_voltage = chan_pot.voltage
 
-# #function to play the song by sending the request to the spotify server associated with this client
-# def playSong(trkArr):
-#     global playerID
-#     print(playerID)
-#     print()
-#     print("Playing Song with ID: ", trkArr)
-#     sp.start_playback(device_id=device_id, uris=trkArr)
-#     sp.volume(100, device_id)   
-#     global playing
-#     playing=True
+            # Update moving average readings
+            voltage_readings.append(current_voltage)
+            if len(voltage_readings) > window_size:
+                voltage_readings.pop(0)  # Remove the oldest reading
 
-# #function to continue playing immediately
-# def playSongsToContinue():
-#     global playing
-#     continueSongImmediate=requests.get(baseUrl+"continuePlayingImmediate")
-#     trackArr=[]
-#     trackArr.append("spotify:track:"+continueSongImmediate.json()['song']['track_id'])
-#     playSong(trackArr)
-#     playing=True
+            # Calculate the moving average
+            filtered_voltage = moving_average(voltage_readings)
+            filtered_voltage = current_voltage
+            #print(filtered_voltage)
 
-# #function to get the current timestamp playing in all the rest of the players and seek the player 
-# def seekToPlay():
-#     global seekedPlayer
-#     playerSeek=requests.get(baseUrl+"getSeek")
-#     if(playerSeek.json()['seek']>0):
-#         print("Seeked Song")
-#         print(playerSeek)
-#         trackArr=[]
-#         trackArr.append("spotify:track:"+playerSeek.json()['id'])
-#         playSong(trackArr)
-#         seekedPlayer=playerSeek.json()['seek']
-#         playSongFromSeek()
+            #if keyboard.is_pressed("o"):
+            if filtered_voltage < 0.03:
+                if playingCheck and bpmCountCheck:
+                    playingCheck=False
+                    bpmCountCheck=False
+                    sp.pause_playback(device_id=device_id) # will give the error for spotify command failed have to incorporate similar mechanism as volume
+                    setClientInactive()
+                    seekData=requests.post(baseUrl+"updateSeek", json={"seek":seekedClient+seekedPlayer, "song":currSongID,"prompt":"Continue"})
+                    print("Client is set Inactive")
+                    fadeToBlackCheck = True
+                
 
-# #function to play the song pointed with the seek timestamp by sending the request to the spotify server associated with this client
-# def playSongFromSeek():
-#     global seekedPlayer, device_id
-#     print("PlayFromSeek: ", seekedPlayer)
-#     sp.seek_track(seekedPlayer, device_id)
+            #elif keyboard.is_pressed("s"):
+            elif filtered_voltage > 0.1 and not bpmCountCheck and serverConnCheck:
+                currVol = int (map_to_volume(chan_pot.voltage)) #set current volume to potentiometer value
+                #currVol = int(map_to_volume(filtered_voltage))
+                bpmCountCheck=True
+                setClientActive()
+                checkBPMAdded()
+                print("Client is set Active")
+                print("Press enter for BPM")
 
-# #function to calculate BPM input
-# def TapBPM(): 
-#     global count
-#     global msFirst  
-#     global msPrev
-#     global flag
+            # have this as a seperate thread maybe just to have better code modularity, no point being here anyways
+            if bpmCountCheck and playingCheck:
+                currVol = int (map_to_volume(chan_pot.voltage)) 
+                #currVol = int(map_to_volume(filtered_voltage))
+                #print(currVol)
+                if(abs(prevVal-currVol) >= 5):
+                    try:
+                        sp.volume(currVol, device_id)
+                    except:
+                        print("Timeout while changing volume")
+                        print("Disconnecting from server...")
+                        sio.disconnect()
+                        time.sleep(2)
+                        print("Reconnecting to server...")
+                        #sio.connect('https://qp-master-server.herokuapp.com/')
+                        socketConnection()
+                        
+                    prevVal = currVol
+                    print("changing volume")
+    
+    except KeyboardInterrupt:
+        print("Interrupted by Keyboard, script terminated")
 
-#     msCurr=int(time()*1000)
-#     if(msCurr-msPrev > 1000*2):
-#         count = 0
-
-#     if(count == 0):
-#         msFirst = msCurr
-#         count = 1
-#     else:
-#         bpmAvg= 60000 * count / (msCurr-msFirst)
-#         global bpmAdded
-#         bpmAdded=round(round(bpmAvg*100)/100)
-#         # bpmAdded=215
-#         count+=1 
-
-#     msPrev=msCurr
-#     flag=1
-
-# #function to periodically check the client state to indicate when a bpm is added
-# def checkBPMAdded():    
-#     global playing,flag, bpmAdded
-#     msCurr=int(time()*1000)
-#     if flag==1 and msCurr-msPrev>1000*2:
-#         if playing:
-#             pushBPMToQueue()
-#         else:
-#             pushBPMToPlay()
+        sio.disconnect()
+        time.sleep(2)
+        #sio.connect('https://qp-master-server.herokuapp.com/')
+        socketConnection()
+    except spotipy.exceptions.SpotifyException as e:
+        # Check for "device not found" error
+        if e.http_status == 404 and "Device not found" in str(e):
+            print("Device not found. Restarting spotifyd...")
+            restart_spotifyd()
+            time.sleep(5)  # Wait for Spotifyd to restart
+            
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+            
+            print("Attempting to play song again...")
+            playSong(trkArr, pos)
+        else:
+            raise
         
-#         flag=0
+# ----------------------------------------------------------
+
+# ----------------------------------------------------------
+# Section 2 : Client->Server + Client->Spotify Controls
+
+def pushBPMToPlay():
+    songToBePlayed=requests.post(baseUrl+"getTrackToPlay", json={"bpm":bpmAdded, "clientID":clientID})
+
+def pushBPMToQueue():
+    songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "userID":clientID, "cln":cluster})
+
+def TapBPM(): 
+    global tapCount,msFirst,msPrev,bpmAdded,bpmTapCheck
+
+    msCurr=int(time.time()*1000)
+    if(msCurr-msPrev > 1000*2):
+        tapCount = 0
+
+    if(tapCount == 0):
+        msFirst = msCurr
+        tapCount = 1
+    else:
+        if msCurr-msFirst > 0:
+            #bpmAvg= 60000 * tapCount / (msCurr-msFirst)
+            bpmAvg= 60000 * tapCount / (msCurr-msFirst)
+            bpmAdded=round(round(bpmAvg*100)/100)
+        # bpmAdded=137
+        tapCount+=1 
+
+    msPrev=msCurr
+    bpmTapCheck=True
+
+def checkBPMAdded():    
+    global playingCheck,bpmTapCheck, bpmAdded, bpmCountCheck, bpmTimer
+
+    msCurr=int(time.time()*1000)
+    if bpmTapCheck==True and msCurr-msPrev>1000*2:
+        if playingCheck:
+            pushBPMToQueue()
+        else:
+            pushBPMToPlay()
+        
+        bpmTapCheck=False
     
-#     global bpmCheck
-#     global bpmTimer
-#     if bpmCheck:
-#         bpmTimer=Timer(2,checkBPMAdded)
-#         bpmTimer.start()
-#     else:
-#         bpmTimer.cancel()
+    if bpmCountCheck:
+        bpmTimer=Timer(2,checkBPMAdded)
+        bpmTimer.start()
+    else:
+        bpmTimer.cancel()
 
-# def interpolate_rgbw(start_rgbw, end_rgbw, steps):
-#     r1, g1, b1, w1 = start_rgbw
-#     r2, g2, b2, w2 = end_rgbw
+def playSong(trkArr, pos):
+    global playingCheck, durationCheck
+    try:
+        sp.start_playback(device_id=device_id, uris=trkArr, position_ms=pos) 
+    except requests.exceptions.ConnectTimeout:
+        print("Connection timeout while playing a song")
+        
+        print("Disconnecting from server...")
+        sio.disconnect()
+        time.sleep(2)
+        print("Reconnecting to server...")
+        #sio.connect('https://qp-master-server.herokuapp.com/')
+        socketConnection()
+        
+    except requests.exceptions.ReadTimeout:
+        print("Read timeout while playing a song")
 
-#     delta_r = (r2 - r1) / steps
-#     delta_g = (g2 - g1) / steps
-#     delta_b = (b2 - b1) / steps
-#     delta_w = (w2 - w1) / steps
+        print("Disconnecting from server...")
+        sio.disconnect()
+        time.sleep(2)
+        print("Reconnecting to server...")
+        #sio.connect('https://qp-master-server.herokuapp.com/')
+        socketConnection()
+        
+    #Last Resort is to restart script
+    # except requests.exceptions.ReadTimeout:
+        # print("Minor Setback. Restarting the script...")
+        # restart_script()
 
-#     results = []
-#     for i in range(steps + 1):
-#         r = int(r1 + delta_r * i)
-#         g = int(g1 + delta_g * i)
-#         b = int(b1 + delta_b * i)
-#         w = int(w1 + delta_w * i)
-#         results.append((r, g, b, w))
+    #Restart spotifyd with credentials if device is not found
+    except spotipy.exceptions.SpotifyException as e:
+        # Check for "device not found" error
+        if e.http_status == 404 and "Device not found" in str(e):
+            print("Device not found. Restarting spotifyd...")
+            restart_spotifyd()
+            time.sleep(5)  # Wait for Spotifyd to restart
+            
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+            
+            print("Attempting to play song again...")
+            playSong(trkArr, pos)
+        else:
+            raise
+            
+    sp.volume(currVol, device_id)   
+    playingCheck=True
+    durationCheck=True
 
-#     return results
+# def checkSpotifyConnection()
+    # try:
+        # devices = sp.devices()
+    # except:
+        
+
+def playSongsToContinue(songDuration, songID, msg): 
+    global playingCheck,prevDuration, prevID, cluster
+    playingCheck=False
+    prevDuration=songDuration
+    prevID=songID
+    continueSong=requests.get(baseUrl+"continuePlaying", json={"userID":clientID,"msg":msg, "cln":cluster})
+
+
+# def infiniteloop1():
+    # while True:
+        # try:
+            # if bpmCountCheck:
+                # value = input()
+                # if(value==""):
+                    # TapBPM()
+        # except KeyboardInterrupt:
+            # print("Interrupted by Keyboard, script terminated")
+
+            # sio.disconnect()
+            # time.sleep(2)
+            # sio.connect('https://qp-master-server.herokuapp.com/')
+
+
+def infiniteloop1(channel):
+    if bpmCountCheck:
+        try:
+            if GPIO.input(channel):
+                TapBPM()
+                print ("Tap")
+        except KeyboardInterrupt:
+            print("Interrupted by Keyboard, script terminated")
+            sio.disconnect()
+            time.sleep(2)
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+            
+GPIO.add_event_detect(channel, GPIO.BOTH, bouncetime=1)  # let us know when the pin goes HIGH or LOW
+GPIO.add_event_callback(channel, infiniteloop1)  # assign function to GPIO PIN, Run function on change
+            
+    
+    # print("inside inifiniteloop1")
+    # debounce_time = 0.05
+    # current_time = time.time()
+
+    # try:
+        # #if bpmCountCheck:
+        # if (current_time - infiniteloop1.last_time) > debounce_time:
+            # if GPIO.input(channel):
+                # TapBPM()
+                # print("Tap")
+            # infiniteloop1.last_time = current_time
+    # except KeyboardInterrupt:
+        # print("Interrupted by Keyboard, script terminated")
+
+        # sio.disconnect()
+        # time.sleep(2)
+        # sio.connect('https://qp-master-server.herokuapp.com/')
+       
+# infiniteloop1.last_time = time.time()
+
+    # if GPIO.input(channel):
+            # TapBPM()
+            # print ("Tap")
+
+
+
+
+def map_to_volume(input_value):
+    input_min = 0.01 #adjust this value to value right after pot clicks on
+    input_max = 4.0
+    output_min = 0.0
+    output_max = 100.0
+
+    volume = ((input_value - input_min) / (input_max - input_min)) * (output_max - output_min) + output_min
+    if volume > 100.0:
+        return 100.0
+    elif volume < 0.0:
+        return 0.0 
+    else:
+        return volume
+
+# ----------------------------------------------------------
+
+# ----------------------------------------------------------
+# Section 3 : NeoPixel & Ring Light Control
+
+def interpolate_rgbw(start_rgbw, end_rgbw, steps):
+    r1, g1, b1, w1 = start_rgbw
+    r2, g2, b2, w2 = end_rgbw
+
+    delta_r = (r2 - r1) / steps
+    delta_g = (g2 - g1) / steps
+    delta_b = (b2 - b1) / steps
+    delta_w = (w2 - w1) / steps
+
+    results = []
+    for i in range(steps + 1):
+        r = int(r1 + delta_r * i)
+        g = int(g1 + delta_g * i)
+        b = int(b1 + delta_b * i)
+        w = int(w1 + delta_w * i)
+        results.append((r, g, b, w))
+
+    return results
+    
 
 # def colorArrayBuilder(lights):
-#     global colorArrBefore,colorArrAfter
-#     n=0
-#     for ring in lights:
-#         colors=lights[ring]["colors"]
-#         divs=int(36/len(colors))
-#         rgb_vals=[]
-#         for i in colors:
-#             rgb_vals.append((colors[i]["r"],colors[i]["g"],colors[i]["b"],colors[i]["w"]))
-#         for i in range(len(rgb_vals)):
-#             colorArrAfter[n:n+divs]=interpolate_rgbw(rgb_vals[i],rgb_vals[(i+1)%len(rgb_vals)], divs)
-#             n=n+divs
+    # global colorArrBefore, colorArrAfter, pixels
+    # n = 0
+    # print("inside colorArrayBuilder")
+    # print(pixels[0])
 
-#     print(colorArrAfter[0:36])
-#     print(colorArrAfter[36:72])
-#     print(colorArrAfter[72:108])
-#     print(colorArrAfter[108:144])
-   
-#    #Check if color array is different to trigger fade in and out
-#     # if colorArrBefore != colorArrAfter:
-#     #     # Define the maximum brightness value
-#     #     max_brightness = 255 
+    # for ring in lights:
+        # print("for loop enters")
+        # colors = lights[ring]["colors"]
+        # newBPM = lights[ring]["rotate"]
 
-#     #     # Fade-out effect
-#     #     for brightness in range(max_brightness, -1, -1):
-#     #         for i in range (144):
-#     #             pixels[i] = colorArrBefore[i]
-#     #         #pixels.fill(colorArrBefore)
-#     #         pixels.brightness = brightness / max_brightness
-#     #         pixels.show()
-#     #         time.sleep(0.01)  # Adjust the delay time as desired
-
-#     #     # Fade-in effect
-#     #     for brightness in range(max_brightness + 1):
-#     #         for i in range (144):
-#     #             pixels[i] = colorArrAfter[i]
-#     #         #pixels.fill(colorArrAfter)
-#     #         pixels.brightness = brightness / max_brightness
-#     #         pixels.show()
-#     #         time.sleep(0.01)  # Adjust the delay time as desired
-    
-#     #     colorArrBefore = copy.deepcopy(colorArrAfter)
+        # divs = int(36 / len(colors))
+        # rgb_vals = []
+        # for i in colors:
+            # rgb_vals.append((colors[i]["r"], colors[i]["g"], colors[i]["b"], colors[i]["w"]))
         
-# setClientActive()
-# seekToPlay()
-# checkBPMAdded()
+        # rotation_speed = 1  # Adjust the rotation speed as desired
+        # offset = int(time.time() * 100 * rotation_speed) % 36  # Create a rotating offset based on time
 
-# print("Press enter for BPM")
-# #print("Tap for BPM")
+        # for i in range(len(rgb_vals)):
+            # colorArrAfter[n:n+divs] = interpolate_rgbw(rgb_vals[i], rgb_vals[(i+1) % len(rgb_vals)], divs)
+            
+            # for j in range(n, n + divs):
+                # rotated_index = (j + offset) % 36
+                # colorArrAfter[j] = colorArrAfter[rotated_index]
 
-# # def infiniteloop1(channel):
-# def infiniteloop1():
-#     while True:
-#         value = input()
-#         if(value==""):
-#             TapBPM()
-#         # time.sleep(1)
-# #     if GPIO.input(channel):
-# #             print ("Tap")
-# #             TapBPM()
-# #     else:
-# #             print ("No Tap")
+            # n += divs
 
-# # GPIO.add_event_detect(channel, GPIO.BOTH, bouncetime=50)  # let us know when the pin goes HIGH or LOW
-# # GPIO.add_event_callback(channel, on_tap)  # assign function to GPIO PIN, Run function on change
+    # # Check if color array is different to trigger fade in and out
+    # if colorArrBefore != colorArrAfter:
+        # print("if enters")
+        # # Define the maximum brightness value
+        # max_brightness = 255
+        # fade_duration = 0.15  # Adjust the fade duration as desired
 
-# def infiniteloop2():
-#     while True:
-#         try:    
-#             currSong=sp.currently_playing()
-#         except requests.exceptions.ReadTimeout:
-#             print("Minor Setback, Continue Continue")
-#         if playing and currSong['progress_ms'] != None and currSong['item'] != None:
-#             if currSong['progress_ms']>0:
-#                 try:
-#                     seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSong['progress_ms'], "song":currSong['item']['id']})
-#                 except requests.exceptions.ConnectionError:
-#                     print("Minor Setback, Continue Continue")
-#                 if currSong['progress_ms']>10000:
-#                     if currSong['item']['duration_ms']-currSong['progress_ms'] <= 18000:
-#                         currVolume = sp.current_playback()['device']['volume_percent']
-#                         currVolume=currVolume*0.8
-#                         sp.volume(int(currVolume), device_id)   
-#                     if(currSong['progress_ms']+6000>=currSong['item']['duration_ms']):
-#                         print("Song has ended")
-#                         playSongsToContinue()
-#         else:
-#             print("Song Trasitioning")
+        # # Calculate the number of steps based on the fade duration and delay
+        # num_steps = int(fade_duration / 0.01)
 
-# def infiniteloop3():
-#     while True:
-#         # websocket.enableTrace(True) # print the connection details (for debuggi>
-#         ws = websocket.WebSocketApp("wss://qp-master-server.herokuapp.com/", # websocket URL to connect
-#             on_message = on_message, # what should happen when we receive a new message
-#             on_error = on_error, # what should happen when we get an error
-#             on_close = on_close, # what should happen when the connection is closed
-#             on_ping = on_ping, # on ping
-#             on_pong = on_pong) # on pong
-#         ws.on_open = on_open # call on_open function when the ws connection is opened
-#         ws.run_forever(reconnect=1, ping_interval=15, ping_timeout=10, ping_payload="This is an optional ping payload", sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
-#         # ws.run_forever(reconnect=1, sslopt={"cert_reqs": ssl.CERT_NONE}) # run code forever and disable the requirement of SSL certificates
+        # # Fade-out effect
+        # if not (pixels[0] == [0,0,0,0]):
+            # print("fade out")
+            # for step in range(num_steps, -1, -1):
+                # brightness = int(step * max_brightness / num_steps)
+                # for i in range(144):
+                    # pixels[i] = tuple(int(val * brightness / max_brightness) for val in colorArrBefore[i])
+                # pixels.show()
+                # time.sleep(0.01)
+
+        # # Fade-in effect
+        # print("fade in")
+        # for step in range(num_steps + 1):
+            # brightness = int(step * max_brightness / num_steps)
+            # for i in range(144):
+                # pixels[i] = tuple(int(val * brightness / max_brightness) for val in colorArrAfter[i])
+            # pixels.show()
+            # time.sleep(0.01)
+
+        # colorArrBefore = copy.deepcopy(colorArrAfter)
 
 
-# def on_message(ws, message): # function which is called whenever a new message comes in
-#     json_data = json.loads(message) # incoming message is transformed into a JSON object
-#     print("")
-#     if(json_data["msg"]=="Pinged"):
-#         print("Pinged")
-#     else:
-#         print("Server Sent the JSON:")
-#         print(json.dumps(json_data, indent = 2))
-#         colorArrayBuilder(json_data["lights"])
-#         global playing
-#         if playing:
-#             print("playing")
-#         else:
-#             seekToPlay()
-#     print("") # printing new line for better legibility
+def colorArrayBuilder(lights):
+    global colorArrBefore, colorArrAfter, pixels
+    n = 0
+    print("inside colorArrayBuilder")
+    print(pixels[0])
 
-# def on_error(ws, error): # function call when there is an error
-#     print(error)
+    for ring in lights:
+        print("for loop enters")
+        colors = lights[ring]["colors"]
+        newBPM = lights[ring]["rotate"]
+        
+        # Check if "rotate" is True for the current ring
+        if newBPM:
+            dim_brightness = 50  # Adjust the dim brightness as needed
+        else:
+            dim_brightness = 255  # Full brightness for non-rotating rings
+        
+        divs = int(36 / len(colors))
+        rgb_vals = []
+        for i in colors:
+            rgb_vals.append((colors[i]["r"], colors[i]["g"], colors[i]["b"], colors[i]["w"]))
+        for i in range(len(rgb_vals)):
+            colorArrAfter[n:n+divs] = interpolate_rgbw(rgb_vals[i], rgb_vals[(i+1) % len(rgb_vals)], divs)
+            
+            if newBPM:
+                for j in range(n, n + divs):
+                    colorArrAfter[j] = tuple(int(val * dim_brightness / 255) for val in colorArrAfter[j])
 
-# def on_close(ws): # function call when the connection is closed (this should not happend currently as we are staying connected)
-#     print("### closed ###")
+            n += divs
 
-# def on_open(ws): # function call when a new connection is established
-#     print("### open ###")
+    # Check if color array is different to trigger fade in and out
+    if colorArrBefore != colorArrAfter:
+        print("if enters")
+        # Define the maximum brightness value
+        max_brightness = 255
+        fade_duration = 0.15 # Adjust the fade duration as desired
 
-# def on_ping(wsapp, message):
-#     print("Got a ping! A pong reply has already been automatically sent. ", message)
+        # Calculate the number of steps based on the fade duration and delay
+        num_steps = int(fade_duration / 0.01)
 
-# def on_pong(wsapp, message):
-#     print("Got a pong! No need to respond. ", message)
+        # Fade-out effect
+        if not (pixels[0] == [0,0,0,0]):
+            print("fade out")
+            for step in range(num_steps, -1, -1):
+                brightness = int(step * max_brightness / num_steps)
+                for i in range(144):
+                    pixels[i] = colorArrBefore[i]
+                pixels.brightness = brightness / max_brightness
+                pixels.show()
+                time.sleep(0.01)
 
+        # Fade-in effect
+        print("fade in")
+        for step in range(num_steps + 1):
+            brightness = int(step * max_brightness / num_steps)
+            for i in range(144):
+                pixels[i] = colorArrAfter[i]
+            pixels.brightness = brightness / max_brightness
+            pixels.show()
+            time.sleep(0.01)
+
+        colorArrBefore = copy.deepcopy(colorArrAfter)
+
+
+def ringLightUpdate(ringColor, bpm):
+    global playingCheck, pixels
+
+    interval = 60 / bpm  # Calculate the time interval between beats
+    half_interval = interval / 4
     
-# thread1 = threading.Thread(target=infiniteloop1)
-# #thread1 = threading.Thread(target=on_tap(channel))
-# thread1.start()
+    while playingCheck:
+        start_time = time.time()
+        
+        for i in range(144, 160):
+            pixels[i] = ringColor
+        pixels.show()
+        
+        time.sleep(half_interval)
+        
+        for i in range(144, 160):
+            pixels[i] = (0, 0, 0, 0)
+        pixels.show()
+        
+        elapsed_time = time.time() - start_time
+        sleep_time = interval - elapsed_time
+        
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+            if elapsed_time >= interval:
+                start_time = time.time()
+        
 
-# thread2 = threading.Thread(target=infiniteloop2)
-# thread2.start()
+def fadeToBlack():
+    global pixels # Make sure 'pixels' is a global variable
+    global colorArrBefore
 
-# thread3 = threading.Thread(target=infiniteloop3)
-# thread3.start()
+    # Define the maximum brightness value
+    max_brightness = 255
+    fade_duration = 0.05  # Adjust the fade duration as desired
 
-# # while state:
-# #     if keyboard.is_pressed("o"):
-# #         bpmCheck=False
-# #         setClientInactive()
-# #         sp.pause_playback(device_id=device_id)
-# #         print("Client is set Inactive")
-# #     elif keyboard.is_pressed("s"):
-# #         bpmCheck=True
-# #         setClientActive()
-# #         seekToPlay()
-# #         checkBPMAdded()
-# #         print("Client is set Active")
+    # Calculate the number of steps based 5on the fade duration and delay
+    num_steps = int(fade_duration / 0.01)
+
+    # Fade-out effect
+    #while not(pixels[0]==[0,0,0,0]):
+    for step in range(num_steps, -1, -1):
+        brightness = int(step * max_brightness / num_steps)
+
+        # Set the color for all pixels
+        for i in range(144):
+            pixels[i] = colorArrBefore[i]
+        
+        # Update the brightness for all pixels
+        pixels.brightness = brightness / max_brightness
+    
+
+        # Display the updated pixels
+        pixels.show()
+        print("in fade to black function")
+        
+        # Add a slightly longer delay for a slower fade-off
+        time.sleep(0.01)
+    pixels[0] = [0,0,0,0]
+
+# ----------------------------------------------------------
+# Section 4 : Timer Controls     
+
+def infiniteloop2():
+    global prevDuration, prevID, startTime ,totalTime, durationCheck, currSongID, seekCheck, seekedPlayer,seekedClient, currDuration, playback, currVol
+
+    try:
+        while True:
+            if playingCheck: 
+                if(durationCheck):
+                    print("Duration Checking")
+                    try:
+                        currSongItem = sp.currently_playing()['item']
+                    except requests.exceptions.ReadTimeout:
+                        print("Read timeout while checking for currently playing song")
+                        print("Disconnecting from server...")
+                        sio.disconnect()
+                        time.sleep(2)
+                        print("Reconnecting to server...")
+                        #sio.connect('https://qp-master-server.herokuapp.com/')
+                        socketConnection()
+                        
+                    if(currSongItem):
+                        durationCheck=False
+                        print("Duration set")
+                        currDuration=currSongItem['duration_ms']
+                        currSongID=currSongItem['id']
+                        if(seekCheck):
+                            print("Duration set by seeking")
+                            totalTime=currSongItem['duration_ms']-seekedPlayer
+                            seekCheck=False
+                        else:
+                            totalTime=currDuration
+                        startTime=time.time()
+
+                if(not durationCheck):
+                    elapsed_time=(time.time() - startTime) * 1000 
+                    seekedClient=int(elapsed_time)
+                    if prevDuration==currDuration or prevID==currSongID:
+                            print("Forcing to Continue")
+                            print("prevID", prevID)
+                            print("currID",currSongID)
+                            playSongsToContinue(currDuration, currSongID, "Immediate")
+                    if totalTime-seekedClient<=10000:
+                        print("Fading out")
+                        try:
+                            playback = sp.current_playback()
+                        except requests.exceptions.ReadTimeout:
+                            print("Read timeout while checking for current playback state")
+                            print("Disconnecting from server...")
+                            sio.disconnect()
+                            time.sleep(2)
+                            print("Reconnecting to server...")
+                            #sio.connect('https://qp-master-server.herokuapp.com/')
+                            socketConnection()
+                            
+                        if playback != None and playback['device'] != None:
+                            currVol = playback['device']['volume_percent']
+                        currVol=currVol*0.95
+                        sp.volume(int(currVol), device_id)  
+                        #else:
+                        #    currVolume = currVolume
+                    
+                    if totalTime-elapsed_time<=2000:
+                        print("Song has ended")
+                        seekedPlayer=0
+                        playSongsToContinue(currDuration,currSongID, "Normal")          
+            else:
+                rx=1
+    except KeyboardInterrupt:
+        print("Interrupted by Keyboard, script terminated")
+
+        sio.disconnect()
+
+        time.sleep(2)
+        #sio.connect('https://qp-master-server.herokuapp.com/')
+        socketConnection()
+        
+    except TimeoutError:
+        print("Timeout Error in infiniteloop2")
+        
+        print("Disconnecting from server...")
+        sio.disconnect()
+        time.sleep(2)
+        print("Reconnecting to server...")
+        #sio.connect('https://qp-master-server.herokuapp.com/')
+        socketConnection()
+# ----------------------------------------------------------
+
+def moving_average(values):
+    return sum(values) / len(values)
+    
+    
+
+def infiniteloop4():
+    global lights,lightCheck
+    
+    try:
+        while True:
+            if(lightCheck):
+                #print("color should be updating")
+                colorArrayBuilder(lights)
+                #showNewBPM(lights)
+                lightCheck=False
+    except TimeoutError:
+        print("Timeout Error in infiniteloop4")
+
+        print("Disconnecting from server...")
+        sio.disconnect()
+        time.sleep(2)
+        print("Reconnecting to server...")
+        #sio.connect('https://qp-master-server.herokuapp.com/')
+        socketConnection()
+
+def infiniteloop5():
+    global lights, ringLightCheck, playingCheck
+    
+    try:
+        while True:
+            if(ringLightCheck and playingCheck):
+                ringLightUpdate(lights["ring1"]["rlight"], lights["ring1"]["bpm"])
+                ringLightCheck=False
+    except TimeoutError:
+        print("Timeout Error in infiniteloop5")
+
+        print("Disconnecting from server...")
+        sio.disconnect()
+        time.sleep(2)
+        print("Reconnecting to server...")
+        #sio.connect('https://qp-master-server.herokuapp.com/')
+        socketConnection()
+        
+def infiniteloop6():
+    global clientStates
+    
+    try:
+        while True:
+            # if len(clientStates) > 0:
+            #     print("clientStates in infiniteloop6:", clientStates)  # Debug print
+            if(len(clientStates) > 0 and clientStates[0] == True): #Yellow QP
+                GPIO.output(23,GPIO.HIGH)
+            else:
+                GPIO.output(23,GPIO.LOW)
+                
+            if(len(clientStates) > 0 and clientStates[2] == True): #Violet QP
+                GPIO.output(24,GPIO.HIGH)
+            else:
+                GPIO.output(24,GPIO.LOW)
+
+            if(len(clientStates) > 0 and clientStates[3] == True): #Orange QP
+                GPIO.output(25,GPIO.HIGH)
+            else:
+                GPIO.output(25,GPIO.LOW)
+    except TimeoutError:
+        print("Timeout Error in infiniteloop6")
+
+        print("Disconnecting from server...")
+        sio.disconnect()
+        time.sleep(2)
+        print("Reconnecting to server...")
+        #sio.connect('https://qp-master-server.herokuapp.com/')
+        socketConnection()    
+
+def infiniteloop7():
+    global fadeToBlackCheck
+    
+    try:
+        while True:
+            if(fadeToBlackCheck):
+                print("fading to black")
+                fadeToBlack()
+                fadeToBlackCheck = False
+    except TimeoutError:
+        print("Timeout Error in infiniteloop7")
+
+        print("Disconnecting from server...")
+        sio.disconnect()
+        time.sleep(2)
+        print("Reconnecting to server...")
+        #sio.connect('https://qp-master-server.herokuapp.com/')
+        socketConnection()
 
 
 
+try:
+    
+    print("start of script")
+    thread1 = threading.Thread(target=infiniteloop1(channel))
+    thread1.start()
+    
+    # thread1 = threading.Thread(target=infiniteloop1)
+    # thread1.start()
+
+    thread2 = threading.Thread(target=infiniteloop2)
+    thread2.start()
+
+    thread3 = threading.Thread(target=infiniteloop3)
+    thread3.start()
+
+    thread4 = threading.Thread(target=infiniteloop4)
+    thread4.start()
+
+    thread5 = threading.Thread(target=infiniteloop5)
+    thread5.start()
+
+    thread6 = threading.Thread(target=infiniteloop6)
+    thread6.start()
+
+    thread7 = threading.Thread(target=infiniteloop7)
+    thread7.start()
+
+
+    # ----------------------------------------------------------
+    # Section 5 : Socket Controls   
+
+    sio = socketio.Client()
+    print("trying to connect")
+
+    @sio.event
+    def connect():
+        global serverConnCheck, clientID, device_id, sp
+        
+        serverConnCheck = True
+        print('Connected to server')
+        sio.emit('connect_user',{"userID":2})
+        
+        #Client essential variables
+        client_id='aeeefb7f628b41d0b7f5581b668c27f4'
+        client_secret='7a75e01c59f046888fa4b99fbafc4784'
+        spotify_username='x8eug7lj2opi0in1gnvr8lfsz'
+        device_id='651d47833f4c935fadd4a03e43cd5a4c3ec0d170' #raspberry pi ID
+        #device_id = '4cb43e627ebaf5bbd05e96c943da16e6fac0a2c5' #web player ID
+        spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing,user-read-playback-state'
+        spotify_redirect_uri = 'http://localhost:8000/callback'
+        sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
+
+        
+    @sio.event
+    def disconnect():
+        print('Disconnected from server')
+
+    @sio.event
+    def message(data):
+        global playingCheck, currSongID,seekCheck,seekedPlayer,lights,lightCheck, ringLightCheck, clientStates, cluster
+
+        json_data = json.loads(data) # incoming message is transformed into a JSON object
+        print("Server Sent the JSON:")
+        print(json.dumps(json_data, indent = 2))
+
+        if(json_data["msg"]!="Initial"):
+            clientStates = json_data["activeUsers"]
+        
+        print(json_data["activeUsers"][clientID-1])
+        if(json_data["activeUsers"][clientID-1]==True):
+            if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
+                #colorArrayBuilder(json_data["lights"])
+                lights=json_data["lights"]
+                lightCheck=True
+                ringLightCheck = True
+                clientStates = json_data["activeUsers"]
+
+                print(bpmCountCheck)
+                print(json_data["msg"])
+                if(json_data["msg"]=="Song" and bpmCountCheck):
+                    cluster = json_data["songdata"]["cluster_number"]
+                    print("playing song")
+                    try:
+                        playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+                    except Exception as e:
+                        print(f"An error occurred in the message thread: {str(e)}")
+            elif(json_data["msg"]=="Seeking"):
+                if playingCheck:
+                    print("Updating seek")
+                    try:
+                        currSeeker=sp.currently_playing()
+                    except requests.exceptions.ReadTimeout:
+                        print("Minor Setback, Continue Continue")
+                        print("Disconnecting from server...")
+                        sio.disconnect()
+                        time.sleep(2)
+                        print("Reconnecting to server...")
+                        #sio.connect('https://qp-master-server.herokuapp.com/')
+                        socketConnection()
+                        
+                    seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSeeker['progress_ms'], "song":currSeeker['item']['id'],"prompt":"Bro"})
+            elif(json_data["msg"]=="SeekSong"):
+                if not playingCheck and bpmCountCheck:
+                    cluster = json_data["songdata"]["cluster_number"]
+                    print("This is the new client")
+                    seekCheck=True
+                    clientStates = json_data["activeUsers"]
+                    seekedPlayer=json_data["songdata"]["timestamp"]
+                    print("json retrieved")
+                    playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+                    print("playsong")
+
+                    lights=json_data["lights"]
+                    lightCheck=True
+                    ringLightCheck = True
+        
+        print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
+
+    print("should be connected")
+    #sio.connect('https://qp-master-server.herokuapp.com/')
+    socketConnection()
+    sio.wait()
+except KeyboardInterrupt:
+    print("Interrupted by Keyboard, script terminated")
+    
+    print("Disconnecting from server...")
+    sio.disconnect()
+    # playingCheck=False
+    # bpmCountCheck=False
+    time.sleep(2)
+    print("Reconnecting to server...")
+    socketConnection()
+    #sio.connect('https://qp-master-server.herokuapp.com/')
+
+# ----------------------------------------------------------
 
