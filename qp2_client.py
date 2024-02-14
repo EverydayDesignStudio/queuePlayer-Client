@@ -68,45 +68,43 @@ clientID=2
 device_id=None
 sp=None
 
-#Global check variables 
-bpmTapCheck=False
-bpmCountCheck=False
-playingCheck=False
-seekCheck=False
-newCheck=False
-durationCheck=True
-lightCheck = False
+# Global check variables 
+# These flags indicate:
+bpmTapCheck=False        # whether a new BPM is tapped
+bpmCountCheck=False      # whether the number of BPM tapped is over the minimum threshold
+playingCheck=False       # whether a song is currently being played
+seekCheck=False          # whether this client is trying to join the existing queue, looking for the timestamp/duration
+# newCheck=False         
+durationCheck=True       # need to obtain the exact duration of the song that's currently being played (from the server)
+lightCheck = False       # is the light for the queue on?
 lights = None 
-rotation = None
-rotationCheck = False
-ringLightCheck = False
-fadeToBlackCheck = False
-serverConnCheck = False
-cluster = None
+# rotation = None
+# rotationCheck = False    
+ringLightCheck = False   # is the light for the ring on?
+fadeToBlackCheck = False # lights for the queue and the ring will go out when the power is off
+serverConnCheck = False  # check the server connection
+cluster = None           # the current song's cluster in the DB 
 
-clientStates = []
+clientStates = []        # shows the status of all four clients (e.g., [True, True, False, False])
 
-#BPM function variables
-bpmAdded=215
-tapCount=0
-msFirst=0
+# BPM function variables
+bpmAdded=215             # default base BPM to start with
+tapCount=0               # the number of taps detected
+msFirst=0                # time between each tap -- to calculate the entered BPM
 msPrev=0
 
-#Server Variable
+# Server Variable
 baseUrl="https://qp-master-server.herokuapp.com/"
 
-#Global volume variables 
-prevVal = 0 #previous value for volume
-currVol = 100 #current value for volume
+# Global volume variables 
+prevVal = 0              # previous value for volume
+currVol = 100            # current value for volume
 
-#Lights function variables
-colorArrBefore=[(0,0,0,0)]*144
-colorArrAfter=[0]*144
+# Lights function variables
+colorArrBefore=[(0,0,0,0)]*144    # indicates four queue colors for the 'current' state
+colorArrAfter=[0]*144             # indicates four queue colors for the 'next' state
 
-#Global seek variable
-seekedPlayer=0
-
-#Global idling fail-safe variable
+# Global idling fail-safe variable
 prevID=''
 prevDuration=0
 currSongID=''
@@ -115,12 +113,16 @@ currDuration=None
 # Local timer variables for song end check
 startTime=None
 totalTime=None
-seekedClient=0
+seekedClient=0                    # local elapsed time to seek for the song duration >> looking for the exact time in song
 
-#playback variable to keep a check
-playback=None
+# Global seek variable
+seekedPlayer=0                    # global(server's) timestamp for the song duration >> reference time of the current song on the server
 
-#Wrapper function for socket connection
+# A placeholder variable for the information about user’s current playback (song)
+# https://spotipy.readthedocs.io/en/2.12.0/?highlight=current_playback#spotipy.client.Spotify.current_playback
+playback=None                     
+
+# Wrapper function for socket connection
 def socketConnection():
     connected = False
     while not connected:
@@ -133,7 +135,7 @@ def socketConnection():
             time.sleep(2)
             
             
-# Function to restart spotifyd
+# Function to restart spotifyd -- checking the device connection
 def restart_spotifyd():
     device_is_found = False
     while not device_is_found:
@@ -154,7 +156,7 @@ def restart_script():
     os.execl(python, python, *sys.argv)
 
 # ----------------------------------------------------------
-# Section 1 : Client States Control
+# Section 1: Client State Control
 
 def setClientActive():
     global clientID
@@ -164,8 +166,9 @@ def setClientInactive():
     global clientID
     setClientInactive=requests.post(baseUrl+"setClientInactive", json={"clientID":clientID})
 
-def infiniteloop3():
-    global bpmCountCheck,prevVal,currVol,playingCheck, currSongID, seekedClient, durationCheck, fadeToBlackCheck
+# Controls the potentiometer for volume and active/inactive state
+def potController():
+    global bpmCountCheck, prevVal, currVol, playingCheck, currSongID, seekedClient, durationCheck, fadeToBlackCheck
     
     #Voltage variables
     window_size = 4
@@ -187,19 +190,34 @@ def infiniteloop3():
             filtered_voltage = current_voltage
             #print(filtered_voltage)
 
-            #if keyboard.is_pressed("o"):
+            # The voltage is lower than the 'active' threshold. The client is now 'inactive'.
+            #  (1) pause the playback for this client
+            #  (2) notify the server
+            #  (3) turn the queue lights off
+            #  (4) turn the ring light off
             if filtered_voltage < 0.03:
+
+                # only when the song is being played and the BPM is tapped,
                 if playingCheck and bpmCountCheck:
+                    # set the flags off so it's not playing the song or detecting any BPM taps
                     playingCheck=False
                     bpmCountCheck=False
+
+                    # request to pause the song 
                     sp.pause_playback(device_id=device_id) # will give the error for spotify command failed have to incorporate similar mechanism as volume
+                    
+                    # notify the server that this client is off
                     setClientInactive()
-                    seekData=requests.post(baseUrl+"updateSeek", json={"seek":seekedClient+seekedPlayer, "song":currSongID,"prompt":"Continue"})
                     print("Client is set Inactive")
+
+                    # TODO: ???
+                    seekData=requests.post(baseUrl+"updateSeek", json={"seek":seekedClient+seekedPlayer, "song":currSongID,"prompt":"Continue"})                
+                    
+                    # turn the queue and ring lights off
                     fadeToBlackCheck = True
                 
 
-            #elif keyboard.is_pressed("s"):
+            # The client is 'active', connected to the server but not being tapped
             elif filtered_voltage > 0.1 and not bpmCountCheck and serverConnCheck:
                 currVol = int (map_to_volume(chan_pot.voltage)) #set current volume to potentiometer value
                 #currVol = int(map_to_volume(filtered_voltage))
@@ -258,7 +276,7 @@ def infiniteloop3():
 # ----------------------------------------------------------
 
 # ----------------------------------------------------------
-# Section 2 : Client->Server + Client->Spotify Controls
+# Section 2: Client->Server + Client->Spotify Controls
 
 def pushBPMToPlay():
     songToBePlayed=requests.post(baseUrl+"getTrackToPlay", json={"bpm":bpmAdded, "clientID":clientID})
@@ -372,7 +390,7 @@ def playSongsToContinue(songDuration, songID, msg):
     continueSong=requests.get(baseUrl+"continuePlaying", json={"userID":clientID,"msg":msg, "cln":cluster})
 
 
-# def infiniteloop1():
+# def tapController():
     # while True:
         # try:
             # if bpmCountCheck:
@@ -386,8 +404,8 @@ def playSongsToContinue(songDuration, songID, msg):
             # time.sleep(2)
             # sio.connect('https://qp-master-server.herokuapp.com/')
 
-
-def infiniteloop1(channel):
+# A worker function to detect and update the tap signals
+def tapController(channel):
     if bpmCountCheck:
         try:
             if GPIO.input(channel):
@@ -401,7 +419,7 @@ def infiniteloop1(channel):
             socketConnection()
             
 GPIO.add_event_detect(channel, GPIO.BOTH, bouncetime=1)  # let us know when the pin goes HIGH or LOW
-GPIO.add_event_callback(channel, infiniteloop1)  # assign function to GPIO PIN, Run function on change
+GPIO.add_event_callback(channel, tapController)  # assign function to GPIO PIN, Run function on change
             
     
     # print("inside inifiniteloop1")
@@ -410,11 +428,11 @@ GPIO.add_event_callback(channel, infiniteloop1)  # assign function to GPIO PIN, 
 
     # try:
         # #if bpmCountCheck:
-        # if (current_time - infiniteloop1.last_time) > debounce_time:
+        # if (current_time - tapController.last_time) > debounce_time:
             # if GPIO.input(channel):
                 # TapBPM()
                 # print("Tap")
-            # infiniteloop1.last_time = current_time
+            # tapController.last_time = current_time
     # except KeyboardInterrupt:
         # print("Interrupted by Keyboard, script terminated")
 
@@ -422,7 +440,7 @@ GPIO.add_event_callback(channel, infiniteloop1)  # assign function to GPIO PIN, 
         # time.sleep(2)
         # sio.connect('https://qp-master-server.herokuapp.com/')
        
-# infiniteloop1.last_time = time.time()
+# tapController.last_time = time.time()
 
     # if GPIO.input(channel):
             # TapBPM()
@@ -448,7 +466,7 @@ def map_to_volume(input_value):
 # ----------------------------------------------------------
 
 # ----------------------------------------------------------
-# Section 3 : NeoPixel & Ring Light Control
+# Section 3: NeoPixel & Ring Light Control
 
 def interpolate_rgbw(start_rgbw, end_rgbw, steps):
     r1, g1, b1, w1 = start_rgbw
@@ -655,9 +673,9 @@ def fadeToBlack():
     pixels[0] = [0,0,0,0]
 
 # ----------------------------------------------------------
-# Section 4 : Timer Controls     
+# Section 4: Timer Controls     
 
-def infiniteloop2():
+def timerController():
     global prevDuration, prevID, startTime ,totalTime, durationCheck, currSongID, seekCheck, seekedPlayer,seekedClient, currDuration, playback, currVol
 
     try:
@@ -733,7 +751,7 @@ def infiniteloop2():
         socketConnection()
         
     except TimeoutError:
-        print("Timeout Error in infiniteloop2")
+        print("Timeout Error in timerController")
         
         print("Disconnecting from server...")
         sio.disconnect()
@@ -748,7 +766,7 @@ def moving_average(values):
     
     
 
-def infiniteloop4():
+def queueLightController():
     global lights,lightCheck
     
     try:
@@ -759,7 +777,7 @@ def infiniteloop4():
                 #showNewBPM(lights)
                 lightCheck=False
     except TimeoutError:
-        print("Timeout Error in infiniteloop4")
+        print("Timeout Error in queueLightController")
 
         print("Disconnecting from server...")
         sio.disconnect()
@@ -768,7 +786,7 @@ def infiniteloop4():
         #sio.connect('https://qp-master-server.herokuapp.com/')
         socketConnection()
 
-def infiniteloop5():
+def ringLightController():
     global lights, ringLightCheck, playingCheck
     
     try:
@@ -777,7 +795,7 @@ def infiniteloop5():
                 ringLightUpdate(lights["ring1"]["rlight"], lights["ring1"]["bpm"])
                 ringLightCheck=False
     except TimeoutError:
-        print("Timeout Error in infiniteloop5")
+        print("Timeout Error in ringLightController")
 
         print("Disconnecting from server...")
         sio.disconnect()
@@ -786,13 +804,13 @@ def infiniteloop5():
         #sio.connect('https://qp-master-server.herokuapp.com/')
         socketConnection()
         
-def infiniteloop6():
+def indicatorLightController():
     global clientStates
     
     try:
         while True:
             # if len(clientStates) > 0:
-            #     print("clientStates in infiniteloop6:", clientStates)  # Debug print
+            #     print("clientStates in indicatorLightController:", clientStates)  # Debug print
             if(len(clientStates) > 0 and clientStates[0] == True): #Yellow QP
                 GPIO.output(23,GPIO.HIGH)
             else:
@@ -808,7 +826,7 @@ def infiniteloop6():
             else:
                 GPIO.output(25,GPIO.LOW)
     except TimeoutError:
-        print("Timeout Error in infiniteloop6")
+        print("Timeout Error in indicatorLightController")
 
         print("Disconnecting from server...")
         sio.disconnect()
@@ -817,7 +835,7 @@ def infiniteloop6():
         #sio.connect('https://qp-master-server.herokuapp.com/')
         socketConnection()    
 
-def infiniteloop7():
+def fadeoutController():
     global fadeToBlackCheck
     
     try:
@@ -827,7 +845,7 @@ def infiniteloop7():
                 fadeToBlack()
                 fadeToBlackCheck = False
     except TimeoutError:
-        print("Timeout Error in infiniteloop7")
+        print("Timeout Error in fadeoutController")
 
         print("Disconnecting from server...")
         sio.disconnect()
@@ -841,33 +859,33 @@ def infiniteloop7():
 try:
     
     print("start of script")
-    thread1 = threading.Thread(target=infiniteloop1(channel))
-    thread1.start()
+    thread_Tap = threading.Thread(target=tapController(channel))
+    thread_Tap.start()
     
-    # thread1 = threading.Thread(target=infiniteloop1)
+    # thread1 = threading.Thread(target=tapController)
     # thread1.start()
 
-    thread2 = threading.Thread(target=infiniteloop2)
-    thread2.start()
+    thread_Timer = threading.Thread(target=timerController)
+    thread_Timer.start()
 
-    thread3 = threading.Thread(target=infiniteloop3)
-    thread3.start()
+    thread_Potentiometer = threading.Thread(target=potController)
+    thread_Potentiometer.start()
 
-    thread4 = threading.Thread(target=infiniteloop4)
-    thread4.start()
+    thread_QueueLight = threading.Thread(target=queueLightController)
+    thread_QueueLight.start()
 
-    thread5 = threading.Thread(target=infiniteloop5)
-    thread5.start()
+    thread_RingLight = threading.Thread(target=ringLightController)
+    thread_RingLight.start()
 
-    thread6 = threading.Thread(target=infiniteloop6)
-    thread6.start()
+    thread_IndicatorLight = threading.Thread(target=indicatorLightController)
+    thread_IndicatorLight.start()
 
-    thread7 = threading.Thread(target=infiniteloop7)
-    thread7.start()
+    thread_Fadeout = threading.Thread(target=fadeoutController)
+    thread_Fadeout.start()
 
 
     # ----------------------------------------------------------
-    # Section 5 : Socket Controls   
+    # Section 5: Socket Controls   
 
     sio = socketio.Client()
     print("trying to connect")
