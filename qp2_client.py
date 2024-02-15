@@ -75,7 +75,7 @@ bpmCountCheck=False      # a flag to indicate if the client is ready to read new
 playingCheck=False       # whether a song is currently being played
 seekCheck=False          # whether this client is trying to join the existing queue, looking for the timestamp/duration
 # newCheck=False         
-durationCheck=True       # need to obtain the exact duration of the song that's currently being played (from the server)
+durationCheck=True       # a flag to indicate if the exact duration needs to be figured out for the current song
 lightCheck = False       # is the light for the queue on?
 lights = None 
 # rotation = None
@@ -415,15 +415,14 @@ def playSong(trkArr, pos):
         # devices = sp.devices()
     # except:
         
-# A wrapper function to save informations for cross-checking if the next song coming in is a new song
-# This prevents from playing the same song again (repeating the same song over and over)
+# A wrapper function to save information for cross-checking if the next song coming in is a new song 
+# This prevents the same song from playing repeatedly
 def playSongsToContinue(songDuration, songID, msg): 
     global playingCheck, prevDuration, prevID, cluster
     playingCheck=False
     prevDuration=songDuration
     prevID=songID
-    continueSong=requests.get(baseUrl+"continuePlaying", json={"userID":clientID,"msg":msg, "cln":cluster})
-
+    continueSong=requests.get(baseUrl+"continuePlaying", json={"userID":clientID, "msg":msg, "cln":cluster})
 
 # def tapController():
     # while True:
@@ -480,8 +479,6 @@ GPIO.add_event_callback(channel, tapController)  # assign function to GPIO PIN, 
     # if GPIO.input(channel):
             # TapBPM()
             # print ("Tap")
-
-
 
 
 def map_to_volume(input_value):
@@ -710,15 +707,31 @@ def fadeToBlack():
 # ----------------------------------------------------------
 # Section 4: Timer Controls     
 
+# Start a local manual timer for the duration of the song to identify the end of the song 
+# This will avoid rate limit issues from SpotifyAPI
+# (1) Check if the client is playing any song, if not, continue checking
+# (2)⁠ Check whether a duration should be set for the currently playing song (True by default)
+# (3)⁠ ⁠⁠When checking the duration, fetch the duration of the song from the SpotifyAPI,
+#      set the durationCheck to false as for the song's duration is now figured out
+# (4)⁠ Update related variables 
+# (5)⁠ If the client is joining others, seekCheck is True -- modify the local timer with a simple calculation
+# (6)⁠ ⁠⁠Since now the duration has been set and the timer has started with durationCheck as False, continue
+# (7)⁠ Check if the song is being repeated by checking the song's ID
+# (8)⁠ Check if the timer is within 10 seconds of the song's end.
+#      If so, start the fade-out and the song ends 
+#      Then, request the server for the next song —> continuePlaying
 def playSongController():
     global prevDuration, prevID, startTime, totalTime, durationCheck, currSongID, seekCheck, seekedPlayer, seekedClient, currDuration, playback, currVol
 
     try:
         while True:
+            # if a song is being played,
             if playingCheck: 
+                # and if the song duration needs to be figured out,
                 if(durationCheck):
                     print("Duration Checking")
                     try:
+                        # request the current song's info and find the exact duration
                         currSongItem = sp.currently_playing()['item']
                     except requests.exceptions.ReadTimeout:
                         print("Read timeout while checking for currently playing song")
@@ -728,12 +741,14 @@ def playSongController():
                         print("Reconnecting to server...")
                         #sio.connect('https://qp-master-server.herokuapp.com/')
                         socketConnection()
-                        
+
                     if(currSongItem):
                         durationCheck=False
-                        print("Duration set")
+                        print("Duration is set")
                         currDuration=currSongItem['duration_ms']
                         currSongID=currSongItem['id']
+
+                        # if the client is joining the others, calculate the duration in respect to the 'seekedPlayer' timestamp
                         if(seekCheck):
                             print("Duration set by seeking")
                             totalTime=currSongItem['duration_ms']-seekedPlayer
@@ -749,8 +764,10 @@ def playSongController():
                             print("Forcing to Continue")
                             print("prevID", prevID)
                             print("currID",currSongID)
-                            # TODO: What does "Immediate" mean? What does it do? What are the other possible messages?
                             playSongsToContinue(currDuration, currSongID, "Immediate")
+
+                    # if the total time in the song is within the last 10s of the song,
+                    # prepare to move on to the next song
                     if totalTime-seekedClient<=10000:
                         print("Fading out")
                         try:
@@ -766,15 +783,16 @@ def playSongController():
                             
                         if playback != None and playback['device'] != None:
                             currVol = playback['device']['volume_percent']
+                        # volume fades out
                         currVol=currVol*0.95
                         sp.volume(int(currVol), device_id)  
                         #else:
                         #    currVolume = currVolume
-                    
+
+                    # if the song reaches the end (within the last 2s), end the song
                     if totalTime-elapsed_time<=2000:
                         print("Song has ended")
                         seekedPlayer=0
-                        # TODO: What does "Normal" mean? What does it do? What are the other possible messages?
                         playSongsToContinue(currDuration,currSongID, "Normal")          
             else:
                 rx=1
