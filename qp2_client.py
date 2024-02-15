@@ -70,7 +70,6 @@ sp=None
 
 # Global check variables 
 # These flags indicate:
-bpmTapCheck=False        # a flag to indicate a new bpm is ready to be picked up
 bpmCountCheck=False      # a flag to indicate if the client is ready to read new BPMs
 playingCheck=False       # whether a song is currently being played
 seekCheck=False          # whether this client is trying to join the existing queue, looking for the timestamp/duration
@@ -230,11 +229,6 @@ def potController():
                 setClientActive()
                 print("Client is set Active")
 
-                # TODO: ??? -- Why added checkBPMAdded under potController?
-                #              Could go under the tapController and only set the flag here.
-                checkBPMAdded()
-                print("Press enter for BPM")
-
             # If a song is being played and the pot value changes, this indicates the volume change.
             #     *** have this as a seperate thread maybe just to have better code modularity, no point being here anyways
             if bpmCountCheck and playingCheck:
@@ -299,13 +293,21 @@ def pushBPMToQueue():
 # read the tap once, record the timestamp
 # increase or reset the tap count, depending on the interval
 def TapBPM(): 
-    global tapCount, msFirst, msPrev, bpmAdded, bpmTapCheck
+    global playingCheck, tapCount, msFirst, msPrev, bpmAdded
 
     msCurr=int(time.time()*1000)
 
     # if the input interval is longer than 2 sec, reset the counter
     if(msCurr-msPrev > 1000*2):
         tapCount = 0
+        if(bpmAdded > 0):
+            print("new BPM calculated and added: {}".format(bpmAdded))
+            # notify the server accordingly,
+            if playingCheck:
+                pushBPMToQueue()
+            else:
+                pushBPMToPlay()
+            bpmAdded = 0
 
     # if there's another tap within 2 sec,
     if(tapCount == 0):
@@ -321,33 +323,7 @@ def TapBPM():
         tapCount+=1 
 
     msPrev=msCurr
-    bpmTapCheck=True
 
-# There is a new BPM that just came in, so notify the server to either play a song or add a song to the queue
-# TODO: this may be handled by the tapController, not by the potController
-def checkBPMAdded():    
-    global playingCheck, bpmTapCheck, bpmAdded, bpmCountCheck, bpmTimer
-
-    msCurr=int(time.time()*1000)
-
-    # if a new tap is detected and calculated,
-    if bpmTapCheck==True and msCurr-msPrev>1000*2:
-        # notify the server accordingly,
-        if playingCheck:
-            pushBPMToQueue()
-        else:
-            pushBPMToPlay()
-
-        # then turn off the flag
-        bpmTapCheck=False
-
-    # if the client is active and ready to read,
-    # keep calling this function every 2 seconds
-    if bpmCountCheck:
-        bpmTimer=Timer(2,checkBPMAdded)
-        bpmTimer.start()
-    else:
-        bpmTimer.cancel()
 
 # play a song with a certain timestamp
 # only called by when the server sends the message when,
