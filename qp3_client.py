@@ -936,14 +936,14 @@ try:
         sio.emit('connect_user',{"userID":2})
         
        #Client essential variables
-        #[OLO3 Credentials]
-        client_id = 'd460c59699a54e309617458dd596228d'
-        client_secret = '7655a37f76e54744ac55617e3e588358'
-        spotify_username='qjczeruw4padtyh69nxeqzohi'
-        device_id = '6b5d83a142591f256666bc28a3eccb56258c5dc7'
-        spotify_scope='user-library-read, user-modify-playback-state, user-read-currently-playing, user-read-playback-state'
-        spotify_redirect_uri = 'https://example.com/callback/'
-        sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=False))
+       #[OLO3 Credentials]
+       client_id = 'd460c59699a54e309617458dd596228d'
+       client_secret = '7655a37f76e54744ac55617e3e588358'
+       spotify_username='qjczeruw4padtyh69nxeqzohi'
+       device_id = '6b5d83a142591f256666bc28a3eccb56258c5dc7'
+       spotify_scope='user-library-read, user-modify-playback-state, user-read-currently-playing, user-read-playback-state'
+       spotify_redirect_uri = 'https://example.com/callback/'
+       sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=False))
 
         
     @sio.event
