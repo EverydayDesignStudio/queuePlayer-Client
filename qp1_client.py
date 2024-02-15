@@ -64,18 +64,17 @@ GPIO.setup(channel, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
 
 # ----------------------------------------------------------
 
-clientID=2
+clientID=1
 device_id=None
 sp=None
 
 # Global check variables 
 # These flags indicate:
-bpmTapCheck=False        # a flag to indicate a new bpm is ready to be picked up
 bpmCountCheck=False      # a flag to indicate if the client is ready to read new BPMs
 playingCheck=False       # whether a song is currently being played
 seekCheck=False          # whether this client is trying to join the existing queue, looking for the timestamp/duration
 # newCheck=False         
-durationCheck=True       # need to obtain the exact duration of the song that's currently being played (from the server)
+durationCheck=True       # a flag to indicate if the exact duration needs to be figured out for the current song
 lightCheck = False       # is the light for the queue on?
 lights = None 
 # rotation = None
@@ -230,11 +229,6 @@ def potController():
                 setClientActive()
                 print("Client is set Active")
 
-                # TODO: ??? -- Why added checkBPMAdded under potController?
-                #              Could go under the tapController and only set the flag here.
-                checkBPMAdded()
-                print("Press enter for BPM")
-
             # If a song is being played and the pot value changes, this indicates the volume change.
             #     *** have this as a seperate thread maybe just to have better code modularity, no point being here anyways
             if bpmCountCheck and playingCheck:
@@ -299,13 +293,21 @@ def pushBPMToQueue():
 # read the tap once, record the timestamp
 # increase or reset the tap count, depending on the interval
 def TapBPM(): 
-    global tapCount, msFirst, msPrev, bpmAdded, bpmTapCheck
+    global playingCheck, tapCount, msFirst, msPrev, bpmAdded
 
     msCurr=int(time.time()*1000)
 
     # if the input interval is longer than 2 sec, reset the counter
     if(msCurr-msPrev > 1000*2):
         tapCount = 0
+        if(bpmAdded > 0):
+            print("new BPM calculated and added: {}".format(bpmAdded))
+            # notify the server accordingly,
+            if playingCheck:
+                pushBPMToQueue()
+            else:
+                pushBPMToPlay()
+            bpmAdded = 0
 
     # if there's another tap within 2 sec,
     if(tapCount == 0):
@@ -321,33 +323,7 @@ def TapBPM():
         tapCount+=1 
 
     msPrev=msCurr
-    bpmTapCheck=True
 
-# There is a new BPM that just came in, so notify the server to either play a song or add a song to the queue
-# TODO: this may be handled by the tapController, not by the potController
-def checkBPMAdded():    
-    global playingCheck, bpmTapCheck, bpmAdded, bpmCountCheck, bpmTimer
-
-    msCurr=int(time.time()*1000)
-
-    # if a new tap is detected and calculated,
-    if bpmTapCheck==True and msCurr-msPrev>1000*2:
-        # notify the server accordingly,
-        if playingCheck:
-            pushBPMToQueue()
-        else:
-            pushBPMToPlay()
-
-        # then turn off the flag
-        bpmTapCheck=False
-
-    # if the client is active and ready to read,
-    # keep calling this function every 2 seconds
-    if bpmCountCheck:
-        bpmTimer=Timer(2,checkBPMAdded)
-        bpmTimer.start()
-    else:
-        bpmTimer.cancel()
 
 # play a song with a certain timestamp
 # only called by when the server sends the message when,
@@ -415,15 +391,14 @@ def playSong(trkArr, pos):
         # devices = sp.devices()
     # except:
         
-# A wrapper function to save informations for cross-checking if the next song coming in is a new song
-# This prevents from playing the same song again (repeating the same song over and over)
+# A wrapper function to save information for cross-checking if the next song coming in is a new song 
+# This prevents the same song from playing repeatedly
 def playSongsToContinue(songDuration, songID, msg): 
     global playingCheck, prevDuration, prevID, cluster
     playingCheck=False
     prevDuration=songDuration
     prevID=songID
-    continueSong=requests.get(baseUrl+"continuePlaying", json={"userID":clientID,"msg":msg, "cln":cluster})
-
+    continueSong=requests.get(baseUrl+"continuePlaying", json={"userID":clientID, "msg":msg, "cln":cluster})
 
 # def tapController():
     # while True:
@@ -480,8 +455,6 @@ GPIO.add_event_callback(channel, tapController)  # assign function to GPIO PIN, 
     # if GPIO.input(channel):
             # TapBPM()
             # print ("Tap")
-
-
 
 
 def map_to_volume(input_value):
@@ -710,15 +683,31 @@ def fadeToBlack():
 # ----------------------------------------------------------
 # Section 4: Timer Controls     
 
+# Start a local manual timer for the duration of the song to identify the end of the song 
+# This will avoid rate limit issues from SpotifyAPI
+# (1) Check if the client is playing any song, if not, continue checking
+# (2)⁠ Check whether a duration should be set for the currently playing song (True by default)
+# (3)⁠ ⁠⁠When checking the duration, fetch the duration of the song from the SpotifyAPI,
+#      set the durationCheck to false as for the song's duration is now figured out
+# (4)⁠ Update related variables 
+# (5)⁠ If the client is joining others, seekCheck is True -- modify the local timer with a simple calculation
+# (6)⁠ ⁠⁠Since now the duration has been set and the timer has started with durationCheck as False, continue
+# (7)⁠ Check if the song is being repeated by checking the song's ID
+# (8)⁠ Check if the timer is within 10 seconds of the song's end.
+#      If so, start the fade-out and the song ends 
+#      Then, request the server for the next song —> continuePlaying
 def playSongController():
     global prevDuration, prevID, startTime, totalTime, durationCheck, currSongID, seekCheck, seekedPlayer, seekedClient, currDuration, playback, currVol
 
     try:
         while True:
+            # if a song is being played,
             if playingCheck: 
+                # and if the song duration needs to be figured out,
                 if(durationCheck):
                     print("Duration Checking")
                     try:
+                        # request the current song's info and find the exact duration
                         currSongItem = sp.currently_playing()['item']
                     except requests.exceptions.ReadTimeout:
                         print("Read timeout while checking for currently playing song")
@@ -728,12 +717,14 @@ def playSongController():
                         print("Reconnecting to server...")
                         #sio.connect('https://qp-master-server.herokuapp.com/')
                         socketConnection()
-                        
+
                     if(currSongItem):
                         durationCheck=False
-                        print("Duration set")
+                        print("Duration is set")
                         currDuration=currSongItem['duration_ms']
                         currSongID=currSongItem['id']
+
+                        # if the client is joining the others, calculate the duration in respect to the 'seekedPlayer' timestamp
                         if(seekCheck):
                             print("Duration set by seeking")
                             totalTime=currSongItem['duration_ms']-seekedPlayer
@@ -749,8 +740,10 @@ def playSongController():
                             print("Forcing to Continue")
                             print("prevID", prevID)
                             print("currID",currSongID)
-                            # TODO: What does "Immediate" mean? What does it do? What are the other possible messages?
                             playSongsToContinue(currDuration, currSongID, "Immediate")
+
+                    # if the total time in the song is within the last 10s of the song,
+                    # prepare to move on to the next song
                     if totalTime-seekedClient<=10000:
                         print("Fading out")
                         try:
@@ -766,15 +759,16 @@ def playSongController():
                             
                         if playback != None and playback['device'] != None:
                             currVol = playback['device']['volume_percent']
+                        # volume fades out
                         currVol=currVol*0.95
                         sp.volume(int(currVol), device_id)  
                         #else:
                         #    currVolume = currVolume
-                    
+
+                    # if the song reaches the end (within the last 2s), end the song
                     if totalTime-elapsed_time<=2000:
                         print("Song has ended")
                         seekedPlayer=0
-                        # TODO: What does "Normal" mean? What does it do? What are the other possible messages?
                         playSongsToContinue(currDuration,currSongID, "Normal")          
             else:
                 rx=1
@@ -870,7 +864,7 @@ def indicatorLightController():
         time.sleep(2)
         print("Reconnecting to server...")
         #sio.connect('https://qp-master-server.herokuapp.com/')
-        socketConnection()     
+        socketConnection()      
 
 def fadeoutController():
     global fadeToBlackCheck
@@ -933,7 +927,7 @@ try:
         
         serverConnCheck = True
         print('Connected to server')
-        sio.emit('connect_user',{"userID":2})
+        sio.emit('connect_user',{"userID":1})
         
         #[OLO5 Credentials]
         client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
@@ -945,7 +939,6 @@ try:
         spotify_redirect_uri = 'https://example.com/callback/'
         sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=False))
         #sp.devices()
-
         
     @sio.event
     def disconnect():
@@ -1029,3 +1022,4 @@ except KeyboardInterrupt:
     #sio.connect('https://qp-master-server.herokuapp.com/')
 
 # ----------------------------------------------------------
+
