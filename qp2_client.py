@@ -70,8 +70,8 @@ sp=None
 
 # Global check variables 
 # These flags indicate:
-bpmTapCheck=False        # whether a new BPM is tapped
-bpmCountCheck=False      # whether the number of BPM tapped is over the minimum threshold
+bpmTapCheck=False        # a flag to indicate a new bpm is ready to be picked up
+bpmCountCheck=False      # a flag to indicate if the client is ready to read new BPMs
 playingCheck=False       # whether a song is currently being played
 seekCheck=False          # whether this client is trying to join the existing queue, looking for the timestamp/duration
 # newCheck=False         
@@ -80,7 +80,7 @@ lightCheck = False       # is the light for the queue on?
 lights = None 
 # rotation = None
 # rotationCheck = False    
-ringLightCheck = False   # is the light for the ring on?
+ringLightCheck = False   # is the light for the ring on? -- the ring light indicates the last person who tapped
 fadeToBlackCheck = False # lights for the queue and the ring will go out when the power is off
 serverConnCheck = False  # check the server connection
 cluster = None           # the current song's cluster in the DB 
@@ -196,8 +196,7 @@ def potController():
             #  (3) turn the queue lights off
             #  (4) turn the ring light off
             if filtered_voltage < 0.03:
-
-                # only when the song is being played and the BPM is tapped,
+                # double-check if the song is being played and the BPM is 'tappable'
                 if playingCheck and bpmCountCheck:
                     # set the flags off so it's not playing the song or detecting any BPM taps
                     playingCheck=False
@@ -217,21 +216,33 @@ def potController():
                     fadeToBlackCheck = True
                 
 
-            # The client is 'active', connected to the server but not being tapped
+            # The client becomes 'active',
+            # (1) should start listening to new bpm (set BPMCountCheck to True)
+            # (2) should be connected to the server
             elif filtered_voltage > 0.1 and not bpmCountCheck and serverConnCheck:
+                # set to a new volume (read the pot)
                 currVol = int (map_to_volume(chan_pot.voltage)) #set current volume to potentiometer value
                 #currVol = int(map_to_volume(filtered_voltage))
+                
                 bpmCountCheck=True
+                
+                # notify the server that this client is 'active'
                 setClientActive()
-                checkBPMAdded()
                 print("Client is set Active")
+
+                # TODO: ??? -- Why added checkBPMAdded under potController?
+                #              Could go under the tapController and only set the flag here.
+                checkBPMAdded()
                 print("Press enter for BPM")
 
-            # have this as a seperate thread maybe just to have better code modularity, no point being here anyways
+            # If a song is being played and the pot value changes, this indicates the volume change.
+            #     *** have this as a seperate thread maybe just to have better code modularity, no point being here anyways
             if bpmCountCheck and playingCheck:
-                currVol = int (map_to_volume(chan_pot.voltage)) 
+                currVol = int(map_to_volume(chan_pot.voltage)) 
                 #currVol = int(map_to_volume(filtered_voltage))
                 #print(currVol)
+
+                # only update the volume when the new voltage is moved more than a certain threshold
                 if(abs(prevVal-currVol) >= 5):
                     try:
                         sp.volume(currVol, device_id)
@@ -246,7 +257,8 @@ def potController():
                         
                     prevVal = currVol
                     print("changing volume")
-    
+
+    # this is only for testing
     except KeyboardInterrupt:
         print("Interrupted by Keyboard, script terminated")
 
@@ -284,17 +296,23 @@ def pushBPMToPlay():
 def pushBPMToQueue():
     songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "userID":clientID, "cln":cluster})
 
+# read the tap once, record the timestamp
+# increase or reset the tap count, depending on the interval
 def TapBPM(): 
-    global tapCount,msFirst,msPrev,bpmAdded,bpmTapCheck
+    global tapCount, msFirst, msPrev, bpmAdded, bpmTapCheck
 
     msCurr=int(time.time()*1000)
+
+    # if the input interval is longer than 2 sec, reset the counter
     if(msCurr-msPrev > 1000*2):
         tapCount = 0
 
+    # if there's another tap within 2 sec,
     if(tapCount == 0):
         msFirst = msCurr
         tapCount = 1
     else:
+        # take the running average of a series of taps
         if msCurr-msFirst > 0:
             #bpmAvg= 60000 * tapCount / (msCurr-msFirst)
             bpmAvg= 60000 * tapCount / (msCurr-msFirst)
@@ -305,31 +323,44 @@ def TapBPM():
     msPrev=msCurr
     bpmTapCheck=True
 
+# There is a new BPM that just came in, so notify the server to either play a song or add a song to the queue
+# TODO: this may be handled by the tapController, not by the potController
 def checkBPMAdded():    
-    global playingCheck,bpmTapCheck, bpmAdded, bpmCountCheck, bpmTimer
+    global playingCheck, bpmTapCheck, bpmAdded, bpmCountCheck, bpmTimer
 
     msCurr=int(time.time()*1000)
+
+    # if a new tap is detected and calculated,
     if bpmTapCheck==True and msCurr-msPrev>1000*2:
+        # notify the server accordingly,
         if playingCheck:
             pushBPMToQueue()
         else:
             pushBPMToPlay()
-        
+
+        # then turn off the flag
         bpmTapCheck=False
-    
+
+    # if the client is active and ready to read,
+    # keep calling this function every 2 seconds
     if bpmCountCheck:
         bpmTimer=Timer(2,checkBPMAdded)
         bpmTimer.start()
     else:
         bpmTimer.cancel()
 
+# play a song with a certain timestamp
+# only called by when the server sends the message when,
+#  (1) the client is just turned 'active' and acknowledged by the server
+#  (2) the song is finished and the server broadcasts (is done seeking) the next song to play
 def playSong(trkArr, pos):
     global playingCheck, durationCheck
+    
     try:
         sp.start_playback(device_id=device_id, uris=trkArr, position_ms=pos) 
+    
     except requests.exceptions.ConnectTimeout:
         print("Connection timeout while playing a song")
-        
         print("Disconnecting from server...")
         sio.disconnect()
         time.sleep(2)
@@ -352,7 +383,7 @@ def playSong(trkArr, pos):
         # print("Minor Setback. Restarting the script...")
         # restart_script()
 
-    #Restart spotifyd with credentials if device is not found
+    # Restart spotifyd with credentials if device is not found
     except spotipy.exceptions.SpotifyException as e:
         # Check for "device not found" error
         if e.http_status == 404 and "Device not found" in str(e):
@@ -371,9 +402,12 @@ def playSong(trkArr, pos):
             playSong(trkArr, pos)
         else:
             raise
-            
+    
     sp.volume(currVol, device_id)   
+
+    # indicate the song is now playing
     playingCheck=True
+    # TODO: why is this set to True here?
     durationCheck=True
 
 # def checkSpotifyConnection()
@@ -381,9 +415,10 @@ def playSong(trkArr, pos):
         # devices = sp.devices()
     # except:
         
-
+# A wrapper function to save informations for cross-checking if the next song coming in is a new song
+# This prevents from playing the same song again (repeating the same song over and over)
 def playSongsToContinue(songDuration, songID, msg): 
-    global playingCheck,prevDuration, prevID, cluster
+    global playingCheck, prevDuration, prevID, cluster
     playingCheck=False
     prevDuration=songDuration
     prevID=songID
@@ -675,8 +710,8 @@ def fadeToBlack():
 # ----------------------------------------------------------
 # Section 4: Timer Controls     
 
-def timerController():
-    global prevDuration, prevID, startTime ,totalTime, durationCheck, currSongID, seekCheck, seekedPlayer,seekedClient, currDuration, playback, currVol
+def playSongController():
+    global prevDuration, prevID, startTime, totalTime, durationCheck, currSongID, seekCheck, seekedPlayer, seekedClient, currDuration, playback, currVol
 
     try:
         while True:
@@ -714,6 +749,7 @@ def timerController():
                             print("Forcing to Continue")
                             print("prevID", prevID)
                             print("currID",currSongID)
+                            # TODO: What does "Immediate" mean? What does it do? What are the other possible messages?
                             playSongsToContinue(currDuration, currSongID, "Immediate")
                     if totalTime-seekedClient<=10000:
                         print("Fading out")
@@ -738,6 +774,7 @@ def timerController():
                     if totalTime-elapsed_time<=2000:
                         print("Song has ended")
                         seekedPlayer=0
+                        # TODO: What does "Normal" mean? What does it do? What are the other possible messages?
                         playSongsToContinue(currDuration,currSongID, "Normal")          
             else:
                 rx=1
@@ -751,7 +788,7 @@ def timerController():
         socketConnection()
         
     except TimeoutError:
-        print("Timeout Error in timerController")
+        print("Timeout Error in playSongController")
         
         print("Disconnecting from server...")
         sio.disconnect()
@@ -865,8 +902,8 @@ try:
     # thread1 = threading.Thread(target=tapController)
     # thread1.start()
 
-    thread_Timer = threading.Thread(target=timerController)
-    thread_Timer.start()
+    thread_PlaySong = threading.Thread(target=playSongController)
+    thread_PlaySong.start()
 
     thread_Potentiometer = threading.Thread(target=potController)
     thread_Potentiometer.start()
