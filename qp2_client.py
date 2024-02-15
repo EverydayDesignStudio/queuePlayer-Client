@@ -297,32 +297,40 @@ def TapBPM():
 
     msCurr=int(time.time()*1000)
 
+    if (msPrev == 0):
+        print ("  # First tap 1-1")
+        msPrev=msCurr
+
     # if the input interval is longer than 2 sec, reset the counter
     if(msCurr-msPrev > 1000*2):
+        print ("  # Tap DONE {}".format(tapCount))
         tapCount = 0
         if(bpmAdded > 0):
-            print("new BPM calculated and added: {}".format(bpmAdded))
+            print("  # New BPM calculated and added: {}".format(bpmAdded))
             # notify the server accordingly,
             if playingCheck:
                 pushBPMToQueue()
             else:
                 pushBPMToPlay()
             bpmAdded = 0
-
+            msPrev = 0
     # if there's another tap within 2 sec,
-    if(tapCount == 0):
-        msFirst = msCurr
-        tapCount = 1
     else:
-        # take the running average of a series of taps
-        if msCurr-msFirst > 0:
-            #bpmAvg= 60000 * tapCount / (msCurr-msFirst)
-            bpmAvg= 60000 * tapCount / (msCurr-msFirst)
-            bpmAdded=round(round(bpmAvg*100)/100)
-        # bpmAdded=137
-        tapCount+=1 
-
-    msPrev=msCurr
+        if(tapCount == 0):
+            print ("  # First tap 1-2")
+            msFirst = msCurr
+            tapCount = 1
+        else:
+            # take the running average of a series of taps
+            if msCurr-msFirst > 0:
+                #bpmAvg= 60000 * tapCount / (msCurr-msFirst)
+                bpmAvg= 60000 * tapCount / (msCurr-msFirst)
+                bpmAdded=round(round(bpmAvg*100)/100)
+            # bpmAdded=137
+            tapCount+=1 
+            print ("  # Next tap {}".format(tapCount))
+    
+        msPrev=msCurr
 
 
 # play a song with a certain timestamp
@@ -333,6 +341,8 @@ def playSong(trkArr, pos):
     global playingCheck, durationCheck
     
     try:
+        devices = sp.devices()['devices']
+        print(devices)
         sp.start_playback(device_id=device_id, uris=trkArr, position_ms=pos) 
     
     except requests.exceptions.ConnectTimeout:
@@ -419,8 +429,8 @@ def tapController(channel):
     if bpmCountCheck:
         try:
             if GPIO.input(channel):
-                TapBPM()
                 print ("Tap")
+                TapBPM()
         except KeyboardInterrupt:
             print("Interrupted by Keyboard, script terminated")
             sio.disconnect()
