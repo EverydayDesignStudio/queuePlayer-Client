@@ -314,35 +314,43 @@ def TapBPM():
 
 
 # There is a new BPM that just came in, so notify the server to either play a song or add a song to the queue
-def checkBPMAdded():    
-    global playingCheck, bpmTapCheck, bpmAdded, msLastTap, tapCount
+def tapController():    
+    global playingCheck, bpmAdded, msLastTap, tapCount
 
-    msCurr=int(time.time()*1000)
+    while True:
+            
+        msCurr = int(time.time()*1000)
 
-    # the last tap has happened more than 2 seconds ago -- finish recording
-    if msCurr-msLastTap>1000*2:
-        print("   # LastTap Detected. BPM: {}".format(bpmAdded))
-        # notify the server accordingly,
-        if playingCheck:
-            pushBPMToQueue(bpmAdded)
-        else:
-            pushBPMToPlay(bpmAdded)
-        
-        bpmAdded = 0
-        msLastTap = 0
-        tapCount = 0
+        try:
+            # the last tap has happened more than 2 seconds ago -- finish recording
+            if msCurr-msLastTap > 1000*2:
+                print("   # LastTap Detected. BPM: {}".format(bpmAdded))
+                # notify the server accordingly,
+                if playingCheck:
+                    pushBPMToQueue(bpmAdded)
+                else:
+                    pushBPMToPlay(bpmAdded)
+                
+                # reset the variables
+                bpmAdded = 0
+                msLastTap = 0
+                tapCount = 0
+                
+        except KeyboardInterrupt:
+            print("Interrupted by Keyboard, script terminated")
+            sio.disconnect()
+            time.sleep(2)
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+
+        time.sleep(2)
 
 # A worker function to detect and update the tap signals
-def tapController(channel):
+# This will only run once whenever the tap sensor receives a signal
+def tapSensor(channel):
     global bpmCountCheck, bpmTimer
-
-    # initialize the bpmTimer, watching for new BPMs every 2 seconds
-    if (bpmTimer is None):
-        bpmTimer=Timer(2, checkBPMAdded)
-    
+        
     if bpmCountCheck:
-        # if the client is active and ready to read, start the bpmTimer
-        bpmTimer.start()
         try:
             if GPIO.input(channel):
                 print ("Tap")
@@ -353,11 +361,9 @@ def tapController(channel):
             time.sleep(2)
             #sio.connect('https://qp-master-server.herokuapp.com/')
             socketConnection()
-    else:
-        bpmTimer.cancel()
-            
+                
 GPIO.add_event_detect(channel, GPIO.BOTH, bouncetime=1)  # let us know when the pin goes HIGH or LOW
-GPIO.add_event_callback(channel, tapController)  # assign function to GPIO PIN, Run function on change
+GPIO.add_event_callback(channel, tapSensor)  # assign function to GPIO PIN, Run function on change
 
 
 # play a song with a certain timestamp
@@ -922,6 +928,9 @@ try:
     thread_Potentiometer = threading.Thread(target=potController)
     thread_Potentiometer.start()
 
+    thread_TapController = threading.Thread(target=tapController)
+    thread_TapController.start()
+    
     thread_QueueLight = threading.Thread(target=queueLightController)
     thread_QueueLight.start()
 
