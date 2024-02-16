@@ -90,6 +90,7 @@ clientStates = []        # shows the status of all four clients (e.g., [True, Tr
 # BPM function variables
 bpmAdded=215             # default base BPM to start with
 tapCount=0               # the number of taps detected
+tapInterval=3            # if no more tap is detected within 3 seconds, stop recording and calculate a new BPM
 msFirstTap=0             # timestamp of the first detected tap
 msLastTap=0              # timestamp of the last entered tap
 
@@ -315,7 +316,7 @@ def TapBPM():
 
 # There is a new BPM that just came in, so notify the server to either play a song or add a song to the queue
 def tapController():    
-    global playingCheck, bpmAdded, msLastTap, tapCount
+    global playingCheck, bpmAdded, msLastTap, tapCount, tapInterval
 
     while True:
             
@@ -323,7 +324,7 @@ def tapController():
 
         try:
             # the last tap has happened more than 2 seconds ago -- finish recording
-            if msCurr-msLastTap > 1000*2:
+            if msCurr-msLastTap > 1000*tapInterval and bpmAdded > 0:
                 print("   # LastTap Detected. BPM: {}".format(bpmAdded))
                 # notify the server accordingly,
                 if playingCheck:
@@ -916,8 +917,8 @@ def fadeoutController():
 try:
     
     print("start of script")
-    thread_Tap = threading.Thread(target=tapController(channel))
-    thread_Tap.start()
+    thread_TapSensor = threading.Thread(target=tapSensor(channel))
+    thread_TapSensor.start()
     
     # thread1 = threading.Thread(target=tapController)
     # thread1.start()
