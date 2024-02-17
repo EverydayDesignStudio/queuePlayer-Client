@@ -1011,7 +1011,7 @@ try:
 
     @sio.event
     def message(data):
-        global playingCheck, currSongID,seekCheck,seekedPlayer,lights,lightCheck, ringLightCheck, clientStates, cluster
+        global playingCheck, currSongID, seekCheck, seekedPlayer, lights, lightCheck, ringLightCheck, clientStates, cluster, bpmAdded, bpmCountCheck
 
         json_data = json.loads(data) # incoming message is transformed into a JSON object
         print("Server Sent the JSON:")
@@ -1028,16 +1028,20 @@ try:
                 lightCheck=True
                 ringLightCheck = True
                 clientStates = json_data["activeUsers"]
+                cluster = json_data["songdata"]["cluster_number"]
 
                 print(bpmCountCheck)
                 print(json_data["msg"])
                 if(json_data["msg"]=="Song" and bpmCountCheck):
-                    cluster = json_data["songdata"]["cluster_number"]
                     print("playing song")
                     try:
                         playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
                     except Exception as e:
                         print(f"An error occurred in the message thread: {str(e)}")
+                # This is when the client is turned 'active' with non-zero volume.
+                elif(json_data["msg"]=="Active" and bpmCountCheck):
+                    bpmAdded = json_data["songdata"]["bpm"]
+                    pushBPMToPlay(bpmAdded)
             elif(json_data["msg"]=="Seeking"):
                 if playingCheck:
                     print("Updating seek")
