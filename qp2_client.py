@@ -123,6 +123,9 @@ seekedPlayer=0                    # global(server's) timestamp for the song dura
 # https://spotipy.readthedocs.io/en/2.12.0/?highlight=current_playback#spotipy.client.Spotify.current_playback
 playback=None                     
 
+#fail-safe recovery
+retry = 0
+
 # Wrapper function for socket connection
 def socketConnection():
     connected = False
@@ -262,22 +265,22 @@ def potController():
         time.sleep(2)
         #sio.connect('https://qp-master-server.herokuapp.com/')
         socketConnection()
-    except spotipy.exceptions.SpotifyException as e:
-        # Check for "device not found" error
-        if e.http_status == 404 and "Device not found" in str(e):
-            print("Device not found. Restarting spotifyd...")
-            restart_spotifyd()
-            time.sleep(5)  # Wait for Spotifyd to restart
+    # except spotipy.exceptions.SpotifyException as e:
+    #     # Check for "device not found" error
+    #     if e.http_status == 404 and "Device not found" in str(e):
+    #         print("Device not found. Restarting spotifyd...")
+    #         restart_spotifyd()
+    #         time.sleep(5)  # Wait for Spotifyd to restart
             
-            print("Disconnecting from server...")
-            sio.disconnect()
-            time.sleep(2)
-            print("Reconnecting to server...")
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
+    #         print("Disconnecting from server...")
+    #         sio.disconnect()
+    #         time.sleep(2)
+    #         print("Reconnecting to server...")
+    #         #sio.connect('https://qp-master-server.herokuapp.com/')
+    #         socketConnection()
             
-            print("Attempting to play song again...")
-            playSong(trkArr, pos)
+    #         print("Attempting to play song again...")
+    #         playSong(trkArr, pos)
         else:
             raise
         
@@ -372,7 +375,7 @@ GPIO.add_event_callback(channel, tapSensor)  # assign function to GPIO PIN, Run 
 #  (1) the client is just turned 'active' and acknowledged by the server
 #  (2) the song is finished and the server broadcasts (is done seeking) the next song to play
 def playSong(trkArr, pos):
-    global playingCheck, durationCheck
+    global playingCheck, durationCheck, retry
     
     try:
         devices = sp.devices()['devices']
@@ -407,7 +410,7 @@ def playSong(trkArr, pos):
     except spotipy.exceptions.SpotifyException as e:
         # Check for "device not found" error
         if e.http_status == 404 and "Device not found" in str(e):
-            print("Device not found. Restarting spotifyd...")
+            print("Device not found. [in PLAYSONG] Restarting spotifyd...")
             restart_spotifyd()
             time.sleep(5)  # Wait for Spotifyd to restart
             
@@ -419,7 +422,10 @@ def playSong(trkArr, pos):
             socketConnection()
             
             print("Attempting to play song again...")
-            playSong(trkArr, pos)
+            while retry < 5:
+                print("$$ retrying.. {}".format(retry))
+                playSong(trkArr, pos)
+                retry += 1
         else:
             raise
     
