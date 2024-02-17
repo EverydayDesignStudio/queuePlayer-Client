@@ -1,3 +1,4 @@
+
 # Python libraries for Queue Player Software
 #import keyboard
 #from pynput.keyboard import Key
@@ -1002,7 +1003,7 @@ try:
         #device_id = '4cb43e627ebaf5bbd05e96c943da16e6fac0a2c5' #web player ID
         spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing,user-read-playback-state'
         spotify_redirect_uri = 'http://localhost:8000/callback'
-        sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
+        sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=False))
 
         
     @sio.event
