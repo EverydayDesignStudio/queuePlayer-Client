@@ -315,24 +315,7 @@ def potController():
         time.sleep(2)
         #sio.connect('https://qp-master-server.herokuapp.com/')
         socketConnection()
-    # except spotipy.exceptions.SpotifyException as e:
-    #     # Check for "device not found" error
-    #     if e.http_status == 404 and "Device not found" in str(e):
-    #         print("Device not found. Restarting spotifyd...")
-    #         restart_spotifyd()
-    #         time.sleep(5)  # Wait for Spotifyd to restart
-            
-    #         print("Disconnecting from server...")
-    #         sio.disconnect()
-    #         time.sleep(2)
-    #         print("Reconnecting to server...")
-    #         #sio.connect('https://qp-master-server.herokuapp.com/')
-    #         socketConnection()
-            
-    #         print("Attempting to play song again...")
-    #         playSong(trkArr, pos)
-        else:
-            raise
+
         
 # ----------------------------------------------------------
 
