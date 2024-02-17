@@ -694,28 +694,21 @@ def ringLightUpdate(ringColor, bpm):
     global playingCheck, pixels
 
     interval = 60 / bpm  # Calculate the time interval between beats
-    half_interval = interval / 4
+    beat_interval = 60 / (bpm * 2.5)
     
     while playingCheck:
-        start_time = time.time()
-        
+
+        # ring lights on
         for i in range(144, 160):
             pixels[i] = ringColor
         pixels.show()
-        
-        time.sleep(half_interval)
-        
+        time.sleep(beat_interval)
+
+        # ring lights off
         for i in range(144, 160):
             pixels[i] = (0, 0, 0, 0)
         pixels.show()
-        
-        elapsed_time = time.time() - start_time
-        sleep_time = interval - elapsed_time
-        
-        if sleep_time > 0:
-            time.sleep(sleep_time)
-            if elapsed_time >= interval:
-                start_time = time.time()
+        time.sleep(beat_interval)
         
 
 def fadeToBlack():
