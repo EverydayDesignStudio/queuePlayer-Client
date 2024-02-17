@@ -202,7 +202,7 @@ def setClientInactive():
 
 # Controls the potentiometer for volume and active/inactive state
 def potController():
-    global bpmCountCheck, prevVal, currVol, playingCheck, currSongID, seekedClient, durationCheck, fadeToBlackCheck
+    global bpmCountCheck, prevVal, currVol, playingCheck, currSongID, seekedClient, durationCheck, fadeToBlackCheck, device_id
     
     #Voltage variables
     window_size = 4
@@ -275,7 +275,8 @@ def potController():
                 if(abs(prevVal-currVol) >= 5):
                     try:
                         devices = sp.devices()['devices']
-                        print("potController, " + devices)
+                        print("potController Changing Volume")
+                        print(devices)
                         sp.volume(currVol, device_id)
                     # Restart spotifyd with credentials if device is not found
                     except spotipy.exceptions.SpotifyException as e:
@@ -294,15 +295,29 @@ def potController():
                         
                         else:
                             raise
-                            
-                    except:
-                        print("Timeout while changing volume")
+
+                    except requests.exceptions.ConnectTimeout:
+                        print("Connection timeout while changing volume")
                         print("Disconnecting from server...")
                         sio.disconnect()
                         time.sleep(2)
                         print("Reconnecting to server...")
                         #sio.connect('https://qp-master-server.herokuapp.com/')
                         socketConnection()
+                        
+                    except requests.exceptions.ReadTimeout:
+                        print("Read timeout while changing volume")
+                
+                        print("Disconnecting from server...")
+                        sio.disconnect()
+                        time.sleep(2)
+                        print("Reconnecting to server...")
+                        #sio.connect('https://qp-master-server.herokuapp.com/')
+                        socketConnection()
+                        
+                    except Exception as e:
+                        print(f"An error occurred while changing volume: {str(e)}")
+                        time.sleep(2)
                         
                     prevVal = currVol
                     print("changing volume")
