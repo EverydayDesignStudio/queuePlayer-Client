@@ -125,6 +125,7 @@ playback=None
 
 #fail-safe recovery
 retry = 0
+RETRY_MAX = 5
 
 # Wrapper function for socket connection
 def socketConnection():
@@ -137,20 +138,49 @@ def socketConnection():
         except Exception as ex:
             print("Failed to establish initial connnection to server:", type(ex).__name__)
             time.sleep(2)
-            
-            
+
+
+def compareDeviceID()
+    global device_id
+    try:
+        device = sp.devices()
+        print(devices)
+        device_id_tmp = devices['devices']['id']
+    except Exception as e:
+        print(f"An error occurred while looking up the active devices: {str(e)}")
+        time.sleep(2)
+
+    return device_id_tmp == device_id
+
+
 # Function to restart spotifyd -- checking the device connection
 def restart_spotifyd():
-    device_is_found = False
-    while not device_is_found:
+    global retry, RETRY_MAX
+    
+    while True:
         try:
             print("Device not found. Reconnecting to Spotify...")
             subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
             subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
-            device_is_found = True
+            time.sleep(5)  # Wait for Spotifyd to restart
+            
+            deviceCheck = compareDeviceID()
+        
         except Exception as e:
             print(f"An error occurred while restarting Spotifyd: {str(e)}")
             time.sleep(2)
+
+        if (not deviceCheck):
+            print("$$ retrying.. {}".format(retry))
+            retry += 1
+        
+        else:
+            break
+        
+        if (retry >= RETRY_MAX):
+            print("!! retry max reached..")
+            break
+            # restart_script()
 
 def restart_script():
     # Add any cleanup or state reset logic here
@@ -244,7 +274,27 @@ def potController():
                 # only update the volume when the new voltage is moved more than a certain threshold
                 if(abs(prevVal-currVol) >= 5):
                     try:
+                        devices = sp.devices()['devices']
+                        print("potController, " + devices)
                         sp.volume(currVol, device_id)
+                    # Restart spotifyd with credentials if device is not found
+                    except spotipy.exceptions.SpotifyException as e:
+                        # Check for "device not found" error
+                        if e.http_status == 404 and "Device not found" in str(e):
+                            print("Device not found. [in PotController] Restarting spotifyd...")
+                            
+                            restart_spotifyd()
+                            
+                            print("Disconnecting from server...")
+                            sio.disconnect()
+                            time.sleep(2)
+                            print("Reconnecting to server...")
+                            #sio.connect('https://qp-master-server.herokuapp.com/')
+                            socketConnection()
+                        
+                        else:
+                            raise
+                            
                     except:
                         print("Timeout while changing volume")
                         print("Disconnecting from server...")
@@ -375,12 +425,13 @@ GPIO.add_event_callback(channel, tapSensor)  # assign function to GPIO PIN, Run 
 #  (1) the client is just turned 'active' and acknowledged by the server
 #  (2) the song is finished and the server broadcasts (is done seeking) the next song to play
 def playSong(trkArr, pos):
-    global playingCheck, durationCheck, retry
+    global playingCheck, durationCheck
     
     try:
         devices = sp.devices()['devices']
         print(devices)
         sp.start_playback(device_id=device_id, uris=trkArr, position_ms=pos) 
+        sp.volume(currVol, device_id)
     
     except requests.exceptions.ConnectTimeout:
         print("Connection timeout while playing a song")
@@ -410,36 +461,24 @@ def playSong(trkArr, pos):
     except spotipy.exceptions.SpotifyException as e:
         # Check for "device not found" error
         if e.http_status == 404 and "Device not found" in str(e):
-            print("Device not found. [in PLAYSONG] Restarting spotifyd...")
-            restart_spotifyd()
-            time.sleep(5)  # Wait for Spotifyd to restart
+            print("Device not found. [in PlaySong] Restarting spotifyd...")
             
+            restart_spotifyd()
+        
             print("Disconnecting from server...")
             sio.disconnect()
             time.sleep(2)
             print("Reconnecting to server...")
             #sio.connect('https://qp-master-server.herokuapp.com/')
             socketConnection()
-            
-            print("Attempting to play song again...")
-            while retry < 5:
-                print("$$ retrying.. {}".format(retry))
-                playSong(trkArr, pos)
-                retry += 1
+
         else:
             raise
     
-    sp.volume(currVol, device_id)   
-
     # indicate the song is now playing
     playingCheck=True
     # TODO: why is this set to True here?
     durationCheck=True
-
-# def checkSpotifyConnection()
-    # try:
-        # devices = sp.devices()
-    # except:
         
 # A wrapper function to save information for cross-checking if the next song coming in is a new song 
 # This prevents the same song from playing repeatedly
@@ -781,6 +820,13 @@ def playSongController():
                         print("Fading out")
                         try:
                             playback = sp.current_playback()
+                            
+                            if playback != None and playback['device'] != None:
+                                currVol = playback['device']['volume_percent']
+                                # volume fades out
+                                currVol=currVol*0.95
+                                sp.volume(int(currVol), device_id)  
+                            
                         except requests.exceptions.ReadTimeout:
                             print("Read timeout while checking for current playback state")
                             print("Disconnecting from server...")
@@ -789,15 +835,7 @@ def playSongController():
                             print("Reconnecting to server...")
                             #sio.connect('https://qp-master-server.herokuapp.com/')
                             socketConnection()
-                            
-                        if playback != None and playback['device'] != None:
-                            currVol = playback['device']['volume_percent']
-                        # volume fades out
-                        currVol=currVol*0.95
-                        sp.volume(int(currVol), device_id)  
-                        #else:
-                        #    currVolume = currVolume
-
+                    
                     # if the song reaches the end (within the last 2s), end the song
                     if totalTime-elapsed_time<=2000:
                         print("Song has ended")
