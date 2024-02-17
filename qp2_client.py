@@ -140,7 +140,7 @@ def socketConnection():
             time.sleep(2)
 
 
-def compareDeviceID()
+def compareDeviceID():
     global device_id
     try:
         device = sp.devices()
