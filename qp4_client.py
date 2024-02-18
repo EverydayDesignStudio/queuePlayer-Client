@@ -864,7 +864,8 @@ def indicatorLightController():
         time.sleep(2)
         print("Reconnecting to server...")
         #sio.connect('https://qp-master-server.herokuapp.com/')
-        socketConnection()    
+        socketConnection()   
+ 
 
 def fadeoutController():
     global fadeToBlackCheck
@@ -929,6 +930,7 @@ try:
         print('Connected to server')
         sio.emit('connect_user',{"userID":4})
         
+        ##############[QP4 Credentials]##############
         #[OLO2 Credentials]
         client_id='bdfdc0993dcc4b9fbff8aac081cad246'
         client_secret='969f0ef8c11d49429e985aab6dd6ff0c'
@@ -938,8 +940,7 @@ try:
         device_id = '3946ec2b810ec4e30489b4704e9a695b1a64da26'
         spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing, user-read-playback-state'
         spotify_redirect_uri = 'http://localhost:8000'
-        sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=True))
-        #sp.devices()
+        sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=False))
 
         
     @sio.event
