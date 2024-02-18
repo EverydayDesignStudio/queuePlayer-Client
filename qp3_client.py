@@ -900,17 +900,17 @@ def ringLightController():
         
 def indicatorLightController():
     global clientStates
-    
+
     try:
         while True:
             # if len(clientStates) > 0:
-            #     print("clientStates in indicatorLightController:", clientStates)  # Debug print
+            #     print("clientStates in infiniteloop6:", clientStates)  # Debug print
             if(len(clientStates) > 0 and clientStates[0] == True): #Yellow QP
                 GPIO.output(23,GPIO.HIGH)
             else:
                 GPIO.output(23,GPIO.LOW)
                 
-            if(len(clientStates) > 0 and clientStates[2] == True): #Violet QP
+            if(len(clientStates) > 0 and clientStates[1] == True): #Green QP
                 GPIO.output(24,GPIO.HIGH)
             else:
                 GPIO.output(24,GPIO.LOW)
@@ -920,14 +920,14 @@ def indicatorLightController():
             else:
                 GPIO.output(25,GPIO.LOW)
     except TimeoutError:
-        print("Timeout Error in indicatorLightController")
+        print("Timeout Error in infiniteloop6")
 
         print("Disconnecting from server...")
         sio.disconnect()
         time.sleep(2)
         print("Reconnecting to server...")
         #sio.connect('https://qp-master-server.herokuapp.com/')
-        socketConnection()    
+        socketConnection()  
 
 def fadeoutController():
     global fadeToBlackCheck
