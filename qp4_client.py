@@ -958,7 +958,7 @@ try:
         if(json_data["msg"]!="Initial"):
             clientStates = json_data["activeUsers"]
         
-        print(json_data["activeUsers"][clientID-1])
+        print("JSON_DATA - ActiveUsers: ", json_data["activeUsers"][clientID-1])
         if(json_data["activeUsers"][clientID-1]==True):
             if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
                 #colorArrayBuilder(json_data["lights"])
@@ -967,7 +967,7 @@ try:
                 ringLightCheck = True
                 clientStates = json_data["activeUsers"]
 
-                print(bpmCountCheck)
+                print("bpmCountCheck: ", bpmCountCheck)
                 print(json_data["msg"])
                 if(json_data["msg"]=="Song" and bpmCountCheck):
                     cluster = json_data["songdata"]["cluster_number"]
@@ -999,8 +999,26 @@ try:
                     clientStates = json_data["activeUsers"]
                     seekedPlayer=json_data["songdata"]["timestamp"]
                     print("json retrieved")
-                    playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
-                    print("playsong")
+                    try:
+                        print("playsong")
+                        playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+                    
+                    except spotipy.exceptions.SpotifyException as e:
+                        # Check for "device not found" error
+                        if e.http_status == 404 and "Device not found" in str(e):
+                            print("Device not found. [in PotController] Restarting spotifyd...")
+                            
+                            restart_spotifyd()
+                            
+                            print("Disconnecting from server...")
+                            sio.disconnect()
+                            time.sleep(2)
+                            print("Reconnecting to server...")
+                            #sio.connect('https://qp-master-server.herokuapp.com/')
+                            socketConnection()
+                        
+                    except Exception as e:
+                        print(f"An error occurred in the message thread: {str(e)}")
 
                     lights=json_data["lights"]
                     lightCheck=True
