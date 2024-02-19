@@ -1085,8 +1085,8 @@ try:
                             #sio.connect('https://qp-master-server.herokuapp.com/')
                             socketConnection()
                         
-                        except Exception as e:
-                            print(f"An error occurred in the message thread: {str(e)}")
+                    except Exception as e:
+                        print(f"An error occurred in the message thread: {str(e)}")
 
                     lights=json_data["lights"]
                     lightCheck=True
