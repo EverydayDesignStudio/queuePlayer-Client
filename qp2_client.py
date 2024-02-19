@@ -1021,7 +1021,7 @@ try:
         if(json_data["msg"]!="Initial"):
             clientStates = json_data["activeUsers"]
         
-        print(json_data["activeUsers"][clientID-1])
+        print("JSON_DATA - ActiveUsers: ", json_data["activeUsers"][clientID-1])
         if(json_data["activeUsers"][clientID-1]==True):
             if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
                 #colorArrayBuilder(json_data["lights"])
@@ -1031,7 +1031,7 @@ try:
                 clientStates = json_data["activeUsers"]
                 cluster = json_data["songdata"]["cluster_number"]
 
-                print(bpmCountCheck)
+                print("bpmCountCheck: ", bpmCountCheck)
                 print(json_data["msg"])
                 if(json_data["msg"]=="Song" and bpmCountCheck):
                     print("playing song")
