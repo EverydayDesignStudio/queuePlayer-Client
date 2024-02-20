@@ -1037,15 +1037,31 @@ try:
                     print("playing song")
                     try:
                         playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+                    except spotipy.exceptions.SpotifyException as e:
+                        # Check for "device not found" error
+                        if e.http_status == 404 and "Device not found" in str(e):
+                            print("Device not found. [in PotController] Restarting spotifyd...")
+                            
+                            restart_spotifyd()
+                            
+                            print("Disconnecting from server...")
+                            sio.disconnect()
+                            time.sleep(2)
+                            print("Reconnecting to server...")
+                            #sio.connect('https://qp-master-server.herokuapp.com/')
+                            socketConnection()
                     except Exception as e:
                         print(f"An error occurred in the message thread: {str(e)}")
+                        
                 # This is when the client is turned 'active' with non-zero volume.
                 elif(json_data["msg"]=="Active" and bpmCountCheck):
                     bpmAdded = json_data["songdata"]["bpm"]
                     pushBPMToPlay(bpmAdded)
+                    
             elif(json_data["msg"]=="Seeking"):
                 if playingCheck:
                     print("Updating seek")
+                    
                     try:
                         currSeeker=sp.currently_playing()
                     except requests.exceptions.ReadTimeout:
@@ -1056,21 +1072,6 @@ try:
                         print("Reconnecting to server...")
                         #sio.connect('https://qp-master-server.herokuapp.com/')
                         socketConnection()
-                        
-                    seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSeeker['progress_ms'], "song":currSeeker['item']['id'],"prompt":"Bro"})
-            elif(json_data["msg"]=="SeekSong"):
-                if not playingCheck and bpmCountCheck:
-                    cluster = json_data["songdata"]["cluster_number"]
-                    print("This is the new client")
-                    seekCheck=True
-                    clientStates = json_data["activeUsers"]
-                    seekedPlayer=json_data["songdata"]["timestamp"]
-                    print("json retrieved")
-
-                    try:
-                        print("playsong")
-                        playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
-    
                     except spotipy.exceptions.SpotifyException as e:
                         # Check for "device not found" error
                         if e.http_status == 404 and "Device not found" in str(e):
@@ -1085,6 +1086,33 @@ try:
                             #sio.connect('https://qp-master-server.herokuapp.com/')
                             socketConnection()
                         
+                    seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSeeker['progress_ms'], "song":currSeeker['item']['id'],"prompt":"Bro"})
+            
+            elif(json_data["msg"]=="SeekSong"):
+                if not playingCheck and bpmCountCheck:
+                    cluster = json_data["songdata"]["cluster_number"]
+                    print("This is the new client")
+                    seekCheck=True
+                    clientStates = json_data["activeUsers"]
+                    seekedPlayer=json_data["songdata"]["timestamp"]
+                    print("json retrieved")
+
+                    try:
+                        print("playsong")
+                        playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+                    except spotipy.exceptions.SpotifyException as e:
+                        # Check for "device not found" error
+                        if e.http_status == 404 and "Device not found" in str(e):
+                            print("Device not found. [in PotController] Restarting spotifyd...")
+                            
+                            restart_spotifyd()
+                            
+                            print("Disconnecting from server...")
+                            sio.disconnect()
+                            time.sleep(2)
+                            print("Reconnecting to server...")
+                            #sio.connect('https://qp-master-server.herokuapp.com/')
+                            socketConnection()
                     except Exception as e:
                         print(f"An error occurred in the message thread: {str(e)}")
 
