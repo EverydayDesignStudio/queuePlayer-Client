@@ -1036,6 +1036,19 @@ try:
                     print("playing song")
                     try:
                         playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+                    except spotipy.exceptions.SpotifyException as e:
+                        # Check for "device not found" error
+                        if e.http_status == 404 and "Device not found" in str(e):
+                            print("Device not found. [in PotController] Restarting spotifyd...")
+                            
+                            restart_spotifyd()
+                            
+                            print("Disconnecting from server...")
+                            sio.disconnect()
+                            time.sleep(2)
+                            print("Reconnecting to server...")
+                            #sio.connect('https://qp-master-server.herokuapp.com/')
+                            socketConnection()
                     except Exception as e:
                         print(f"An error occurred in the message thread: {str(e)}")
                 # This is when the client is turned 'active' with non-zero volume.
@@ -1047,6 +1060,19 @@ try:
                     print("Updating seek")
                     try:
                         currSeeker=sp.currently_playing()
+                    except spotipy.exceptions.SpotifyException as e:
+                        # Check for "device not found" error
+                        if e.http_status == 404 and "Device not found" in str(e):
+                            print("Device not found. [in PotController] Restarting spotifyd...")
+                            
+                            restart_spotifyd()
+                            
+                            print("Disconnecting from server...")
+                            sio.disconnect()
+                            time.sleep(2)
+                            print("Reconnecting to server...")
+                            #sio.connect('https://qp-master-server.herokuapp.com/')
+                            socketConnection()
                     except requests.exceptions.ReadTimeout:
                         print("Minor Setback, Continue Continue")
                         print("Disconnecting from server...")
