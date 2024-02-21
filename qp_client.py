@@ -65,9 +65,10 @@ GPIO.setup(channel, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
 
 # ----------------------------------------------------------
 
-#### Edit the ClientID accordingly
+###########################################
+###### Edit the ClientID accordingly ######
+###########################################
 clientID=1
-
 
 device_id=None
 sp=None
@@ -92,7 +93,7 @@ cluster = None           # the current song's cluster in the DB
 clientStates = []        # shows the status of all four clients (e.g., [True, True, False, False])
 
 # BPM function variables
-bpmAdded=0             # default base BPM to start with
+bpmAdded=0               # default base BPM to start with
 tapCount=0               # the number of taps detected
 tapInterval=3            # if no more tap is detected within 3 seconds, stop recording and calculate a new BPM
 msFirstTap=0             # timestamp of the first detected tap
@@ -241,7 +242,25 @@ def potController():
                     bpmCountCheck=False
 
                     # request to pause the song 
-                    sp.pause_playback(device_id=device_id) # will give the error for spotify command failed have to incorporate similar mechanism as volume
+                    try:
+                        sp.pause_playback(device_id=device_id)
+                    # will give the error for spotify command failed have to incorporate similar mechanism as volume
+                    except spotipy.exceptions.SpotifyException as e:
+                        # Check for "device not found" error
+                        if e.http_status == 404 and "Device not found" in str(e):
+                            print("Device not found. [in PotController when turning the pot off] Restarting spotifyd...")
+                            
+                            restart_spotifyd()
+                            
+                            print("Disconnecting from server...")
+                            sio.disconnect()
+                            time.sleep(2)
+                            print("Reconnecting to server...")
+                            #sio.connect('https://qp-master-server.herokuapp.com/')
+                            socketConnection()
+                        
+                        else:
+                            raise
                     
                     # notify the server that this client is off
                     setClientInactive()
@@ -286,7 +305,7 @@ def potController():
                     except spotipy.exceptions.SpotifyException as e:
                         # Check for "device not found" error
                         if e.http_status == 404 and "Device not found" in str(e):
-                            print("Device not found. [in PotController] Restarting spotifyd...")
+                            print("Device not found. [in PotController when changing volume] Restarting spotifyd...")
                             
                             restart_spotifyd()
                             
@@ -777,6 +796,22 @@ def playSongController():
                     try:
                         # request the current song's info and find the exact duration
                         currSongItem = sp.currently_playing()['item']
+                    except spotipy.exceptions.SpotifyException as e:
+                        # Check for "device not found" error
+                        if e.http_status == 404 and "Device not found" in str(e):
+                            print("Device not found. [in PlaySongController when loading the currently playing song] Restarting spotifyd...")
+                            
+                            restart_spotifyd()
+                            
+                            print("Disconnecting from server...")
+                            sio.disconnect()
+                            time.sleep(2)
+                            print("Reconnecting to server...")
+                            #sio.connect('https://qp-master-server.herokuapp.com/')
+                            socketConnection()
+                        
+                        else:
+                            raise
                     except requests.exceptions.ReadTimeout:
                         print("Read timeout while checking for currently playing song")
                         print("Disconnecting from server...")
@@ -822,6 +857,23 @@ def playSongController():
                                 # volume fades out
                                 currVol=currVol*0.95
                                 sp.volume(int(currVol), device_id)  
+                                
+                        except spotipy.exceptions.SpotifyException as e:
+                        # Check for "device not found" error
+                        if e.http_status == 404 and "Device not found" in str(e):
+                            print("Device not found. [in PlaySongController when getting the current playback] Restarting spotifyd...")
+                            
+                            restart_spotifyd()
+                            
+                            print("Disconnecting from server...")
+                            sio.disconnect()
+                            time.sleep(2)
+                            print("Reconnecting to server...")
+                            #sio.connect('https://qp-master-server.herokuapp.com/')
+                            socketConnection()
+                        
+                        else:
+                            raise 
                             
                         except requests.exceptions.ReadTimeout:
                             print("Read timeout while checking for current playback state")
@@ -1139,7 +1191,7 @@ try:
                     except spotipy.exceptions.SpotifyException as e:
                         # Check for "device not found" error
                         if e.http_status == 404 and "Device not found" in str(e):
-                            print("Device not found. [in PotController] Restarting spotifyd...")
+                            print("Device not found. [in 'Seeking' Callback] Restarting spotifyd...")
 
                             restart_spotifyd()
 
