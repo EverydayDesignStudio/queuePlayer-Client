@@ -89,7 +89,7 @@ cluster = None           # the current song's cluster in the DB
 clientStates = []        # shows the status of all four clients (e.g., [True, True, False, False])
 
 # BPM function variables
-bpm5             # default base BPM to start with
+bpmAdded=0             # default base BPM to start with
 tapCount=0               # the number of taps detected
 tapInterval=3            # if no more tap is detected within 3 seconds, stop recording and calculate a new BPM
 msFirstTap=0             # timestamp of the first detected tap
@@ -349,36 +349,20 @@ def pushBPMToQueue(bpmAdded):
 def TapBPM(): 
     global tapCount, msFirstTap, msLastTap, bpmAdded
 
-    # msCurr=int(time.time()*1000)
-
-    # if (msLastTap == 0 and tapCount == 0):
-        # print ("  # First tap")
-        # msLastTap=msCurr
-        # msFirstTap = msCurr
-        # tapCount = 1
-    # else:
-        # # take the running average of a series of taps
-        # if msCurr-msFirstTap > 0:
-            # bpmAvg= 60000 * tapCount / (msCurr-msFirstTap)
-            # bpmAdded=round(round(bpmAvg*100)/100)
-            # tapCount+=1 
-            # msLastTap=msCurr
-            # print ("  # Next tap {}".format(tapCount))
-
     msCurr=int(time.time()*1000)
     if(msCurr-msLastTap > 1000*2):
         tapCount = 0
 
     if(tapCount == 0):
+        print ("  # First tap")
         msFirstTap = msCurr
         tapCount = 1
     else:
         if msCurr-msFirstTap > 0:
-            #bpmAvg= 60000 * tapCount / (msCurr-msFirst)
             bpmAvg= 60000 * tapCount / (msCurr-msFirstTap)
             bpmAdded=round(round(bpmAvg*100)/100)
-        # bpmAdded=137
         tapCount+=1 
+        print ("  # Next tap {}".format(tapCount))
 
     msLastTap=msCurr
     bpmTapCheck=True
@@ -1071,6 +1055,22 @@ try:
                     print("Updating seek")
                     try:
                         currSeeker=sp.currently_playing()
+                        
+                    ### I would keep this exception block here because it's making a direct call to the Spotify object,
+                    ### and if there's device not found error, there is no way to recover/restart.
+                    except spotipy.exceptions.SpotifyException as e:
+                        # Check for "device not found" error
+                        if e.http_status == 404 and "Device not found" in str(e):
+                            print("Device not found. [in PotController] Restarting spotifyd...")
+
+                            restart_spotifyd()
+
+                            print("Disconnecting from server...")
+                            sio.disconnect()
+                            time.sleep(2)
+                            print("Reconnecting to server...")
+                            #sio.connect('https://qp-master-server.herokuapp.com/')
+                            socketConnection()
                     except requests.exceptions.ReadTimeout:
                         print("Minor Setback, Continue Continue")
                         print("Disconnecting from server...")
