@@ -863,19 +863,18 @@ def playSongController():
                                 sp.volume(int(currVol), device_id)  
                                 
                         except spotipy.exceptions.SpotifyException as e:
-                        # Check for "device not found" error
-                        if e.http_status == 404 and "Device not found" in str(e):
-                            print("Device not found. [in PlaySongController when getting the current playback] Restarting spotifyd...")
-                            
-                            restart_spotifyd()
-                            
-                            print("Disconnecting from server...")
-                            sio.disconnect()
-                            time.sleep(2)
-                            print("Reconnecting to server...")
-                            #sio.connect('https://qp-master-server.herokuapp.com/')
-                            socketConnection()
-                        
+                            # Check for "device not found" error
+                            if e.http_status == 404 and "Device not found" in str(e):
+                                print("Device not found. [in PlaySongController when getting the current playback] Restarting spotifyd...")
+                                
+                                restart_spotifyd()
+                                
+                                print("Disconnecting from server...")
+                                sio.disconnect()
+                                time.sleep(2)
+                                print("Reconnecting to server...")
+                                #sio.connect('https://qp-master-server.herokuapp.com/')
+                                socketConnection()
                         else:
                             raise 
                             
