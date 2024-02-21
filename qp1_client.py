@@ -89,7 +89,7 @@ cluster = None           # the current song's cluster in the DB
 clientStates = []        # shows the status of all four clients (e.g., [True, True, False, False])
 
 # BPM function variables
-bpmAdded=215             # default base BPM to start with
+bpm5             # default base BPM to start with
 tapCount=0               # the number of taps detected
 tapInterval=3            # if no more tap is detected within 3 seconds, stop recording and calculate a new BPM
 msFirstTap=0             # timestamp of the first detected tap
@@ -349,22 +349,39 @@ def pushBPMToQueue(bpmAdded):
 def TapBPM(): 
     global tapCount, msFirstTap, msLastTap, bpmAdded
 
-    msCurr=int(time.time()*1000)
+    # msCurr=int(time.time()*1000)
 
-    if (msLastTap == 0 and tapCount == 0):
-        print ("  # First tap")
-        msLastTap=msCurr
+    # if (msLastTap == 0 and tapCount == 0):
+        # print ("  # First tap")
+        # msLastTap=msCurr
+        # msFirstTap = msCurr
+        # tapCount = 1
+    # else:
+        # # take the running average of a series of taps
+        # if msCurr-msFirstTap > 0:
+            # bpmAvg= 60000 * tapCount / (msCurr-msFirstTap)
+            # bpmAdded=round(round(bpmAvg*100)/100)
+            # tapCount+=1 
+            # msLastTap=msCurr
+            # print ("  # Next tap {}".format(tapCount))
+
+    msCurr=int(time.time()*1000)
+    if(msCurr-msLastTap > 1000*2):
+        tapCount = 0
+
+    if(tapCount == 0):
         msFirstTap = msCurr
         tapCount = 1
     else:
-        # take the running average of a series of taps
-        #if msCurr-msFirstTap > 0:
-        bpmAvg= 60000 * tapCount / (msCurr-msFirstTap)
-        bpmAdded=round(round(bpmAvg*100)/100)
+        if msCurr-msFirstTap > 0:
+            #bpmAvg= 60000 * tapCount / (msCurr-msFirst)
+            bpmAvg= 60000 * tapCount / (msCurr-msFirstTap)
+            bpmAdded=round(round(bpmAvg*100)/100)
+        # bpmAdded=137
         tapCount+=1 
-        msLastTap=msCurr
-        print ("  # Next tap {}".format(tapCount))
 
+    msLastTap=msCurr
+    bpmTapCheck=True
 
 # There is a new BPM that just came in, so notify the server to either play a song or add a song to the queue
 def tapController():    
@@ -886,6 +903,7 @@ def ringLightController():
     try:
         while True:
             if(ringLightCheck and playingCheck):
+                print("inside ringLightController if block")
                 ringLightUpdate(lights["ring1"]["rlight"], lights["ring1"]["bpm"])
                 ringLightCheck=False
     except TimeoutError:
@@ -1009,6 +1027,10 @@ try:
         
     @sio.event
     def disconnect():
+        global serverConnCheck, bpmCountCheck
+        
+        serverConnCheck = False
+        bpmCountCheck = False
         print('Disconnected from server')
 
     @sio.event
@@ -1022,7 +1044,7 @@ try:
         if(json_data["msg"]!="Initial"):
             clientStates = json_data["activeUsers"]
         
-        print("JSON_DATA - ActiveUsers: ", json_data["activeUsers"][clientID-1])
+        print("jason_data_activeUsers", json_data["activeUsers"][clientID-1])
         if(json_data["activeUsers"][clientID-1]==True):
             if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
                 #colorArrayBuilder(json_data["lights"])
@@ -1032,49 +1054,23 @@ try:
                 clientStates = json_data["activeUsers"]
                 cluster = json_data["songdata"]["cluster_number"]
 
-                print("bpmCountCheck: ", bpmCountCheck)
+                print("bpmCountCheck", bpmCountCheck)
                 print(json_data["msg"])
                 if(json_data["msg"]=="Song" and bpmCountCheck):
                     print("playing song")
                     try:
                         playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
-                    except spotipy.exceptions.SpotifyException as e:
-                        # Check for "device not found" error
-                        if e.http_status == 404 and "Device not found" in str(e):
-                            print("Device not found. [in PotController] Restarting spotifyd...")
-                            
-                            restart_spotifyd()
-                            
-                            print("Disconnecting from server...")
-                            sio.disconnect()
-                            time.sleep(2)
-                            print("Reconnecting to server...")
-                            #sio.connect('https://qp-master-server.herokuapp.com/')
-                            socketConnection()
                     except Exception as e:
                         print(f"An error occurred in the message thread: {str(e)}")
                 # This is when the client is turned 'active' with non-zero volume.
-                elif(json_data["msg"]=="Active" and bpmCountCheck):
-                    bpmAdded = json_data["songdata"]["bpm"]
-                    pushBPMToPlay(bpmAdded)
+                # elif(json_data["msg"]=="Active" and bpmCountCheck):
+                    # bpmAdded = json_data["songdata"]["bpm"]
+                    # pushBPMToPlay(bpmAdded)
             elif(json_data["msg"]=="Seeking"):
                 if playingCheck:
                     print("Updating seek")
                     try:
                         currSeeker=sp.currently_playing()
-                    except spotipy.exceptions.SpotifyException as e:
-                        # Check for "device not found" error
-                        if e.http_status == 404 and "Device not found" in str(e):
-                            print("Device not found. [in PotController] Restarting spotifyd...")
-                            
-                            restart_spotifyd()
-                            
-                            print("Disconnecting from server...")
-                            sio.disconnect()
-                            time.sleep(2)
-                            print("Reconnecting to server...")
-                            #sio.connect('https://qp-master-server.herokuapp.com/')
-                            socketConnection()
                     except requests.exceptions.ReadTimeout:
                         print("Minor Setback, Continue Continue")
                         print("Disconnecting from server...")
@@ -1093,27 +1089,8 @@ try:
                     clientStates = json_data["activeUsers"]
                     seekedPlayer=json_data["songdata"]["timestamp"]
                     print("json retrieved")
-                    
-                    try:
-                        print("playsong")
-                        playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
-                    
-                    except spotipy.exceptions.SpotifyException as e:
-                        # Check for "device not found" error
-                        if e.http_status == 404 and "Device not found" in str(e):
-                            print("Device not found. [in PotController] Restarting spotifyd...")
-                            
-                            restart_spotifyd()
-                            
-                            print("Disconnecting from server...")
-                            sio.disconnect()
-                            time.sleep(2)
-                            print("Reconnecting to server...")
-                            #sio.connect('https://qp-master-server.herokuapp.com/')
-                            socketConnection()
-                        
-                    except Exception as e:
-                        print(f"An error occurred in the message thread: {str(e)}")
+                    playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+                    print("playsong")
 
                     lights=json_data["lights"]
                     lightCheck=True
