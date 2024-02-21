@@ -1107,7 +1107,7 @@ try:
         
         serverConnCheck = True
         print('Connected to server')
-        sio.emit('connect_user',{"userID":1})
+        sio.emit('connect_user',{"userID":clientID})
 
         client_id = ''
         client_secret = ''
