@@ -147,8 +147,12 @@ def socketConnection():
 
 def compareDeviceID():
     global device_id
+    
+    devices = None
+    device_id_tmp = ''
+    
     try:
-        device = sp.devices()
+        devices = sp.devices()
         print(devices)
         device_id_tmp = devices['devices']['id']
     except Exception as e:
