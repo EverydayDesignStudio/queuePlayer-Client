@@ -1192,7 +1192,7 @@ try:
                     try:
                         playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
                     except Exception as e:
-                        f"An error occurred in the message thread: {str(e)}")
+                        print(f"An error occurred in the message thread: {str(e)}")
 
             elif(json_data["msg"]=="Seeking"):
                 if playingCheck:
@@ -1220,7 +1220,7 @@ try:
                         print("Disconnecting from server...")
                         sio.disconnect()
                         time.sleep(2)
-                        "Reconnecting to server...")
+                        print("Reconnecting to server...")
                         #sio.connect('https://qp-master-server.herokuapp.com/')
                         socketConnection()
                         
@@ -1243,7 +1243,7 @@ try:
         
         "///////////////////////////////////////////////////////////////////////////////////////////////////////////")
 
-    "should be connected")
+    print("should be connected")
     #sio.connect('https://qp-master-server.herokuapp.com/')
     socketConnection()
     sio.wait()
