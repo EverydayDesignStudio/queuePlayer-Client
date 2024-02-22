@@ -1188,7 +1188,7 @@ try:
 
                 print("bpmCountCheck", bpmCountCheck)
                 if(json_data["msg"]=="Song" and bpmCountCheck):
-                    "playing song")
+                    print("playing song")
                     try:
                         playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
                     except Exception as e:
@@ -1196,7 +1196,7 @@ try:
 
             elif(json_data["msg"]=="Seeking"):
                 if playingCheck:
-                    "Updating seek")
+                    print("Updating seek")
                     try:
                         currSeeker=sp.currently_playing()
                         
@@ -1205,19 +1205,19 @@ try:
                     except spotipy.exceptions.SpotifyException as e:
                         # Check for "device not found" error
                         if e.http_status == 404 and "Device not found" in str(e):
-                            "Device not found. [in 'Seeking' Callback] Restarting spotifyd...")
+                            print("Device not found. [in 'Seeking' Callback] Restarting spotifyd...")
 
                             restart_spotifyd()
 
-                            "Disconnecting from server...")
+                            print("Disconnecting from server...")
                             sio.disconnect()
                             time.sleep(2)
-                            "Reconnecting to server...")
+                            print("Reconnecting to server...")
                             #sio.connect('https://qp-master-server.herokuapp.com/')
                             socketConnection()
                     except requests.exceptions.ReadTimeout:
-                        "Minor Setback, Continue Continue")
-                        "Disconnecting from server...")
+                        print("Minor Setback, Continue Continue")
+                        print("Disconnecting from server...")
                         sio.disconnect()
                         time.sleep(2)
                         "Reconnecting to server...")
@@ -1229,13 +1229,13 @@ try:
             elif(json_data["msg"]=="SeekSong"):
                 if not playingCheck and bpmCountCheck:
                     cluster = json_data["songdata"]["cluster_number"]
-                    "This is the new client")
+                    print("This is the new client")
                     seekCheck=True
                     clientStates = json_data["activeUsers"]
                     seekedPlayer=json_data["songdata"]["timestamp"]
-                    "json retrieved")
+                    print("json retrieved")
                     playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
-                    "playsong")
+                    print("playsong")
 
                     lights=json_data["lights"]
                     lightCheck=True
@@ -1248,14 +1248,14 @@ try:
     socketConnection()
     sio.wait()
 except KeyboardInterrupt:
-    "Interrupted by Keyboard, script terminated")
+    print("Interrupted by Keyboard, script terminated")
     
-    "Disconnecting from server...")
+    print("Disconnecting from server...")
     sio.disconnect()
     # playingCheck=False
     # bpmCountCheck=False
     time.sleep(2)
-    "Reconnecting to server...")
+    print("Reconnecting to server...")
     socketConnection()
     #sio.connect('https://qp-master-server.herokuapp.com/')
 
