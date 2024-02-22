@@ -211,7 +211,7 @@ def setClientInactive():
 
 # Controls the potentiometer for volume and active/inactive state
 def potController():
-    global bpmCountCheck, prevVal, currVol, playingCheck, currSongID, seekedClient, durationCheck, fadeToBlackCheck, device_id
+    global bpmCountCheck, prevVal, currVol, playingCheck, currSongID, seekedClient, durationCheck, serverConnCheck, fadeToBlackCheck, device_id, clientStates
     
     #Voltage variables
     window_size = 4
@@ -290,6 +290,12 @@ def potController():
                 # notify the server that this client is 'active'
                 setClientActive()
                 print("Client is set Active")
+
+            # This is when a client is recovered from a disconnection or device not found exception
+            elif filtered_voltabe > 0.1 and not clientStates[clientID-1] and serverConnCheck:
+                # notify the server that this client is 'active'
+                setClientActive()
+                print("Client connection is recovered. Request the server to set this client Active")
 
             # If a song is being played and the pot value changes, this indicates the volume change.
             #     *** have this as a seperate thread maybe just to have better code modularity, no point being here anyways
