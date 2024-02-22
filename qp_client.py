@@ -292,7 +292,7 @@ def potController():
                 print("Client is set Active")
 
             # This is when a client is recovered from a disconnection or device not found exception
-            elif filtered_voltabe > 0.1 and not clientStates[clientID-1] and serverConnCheck:
+            elif filtered_voltage > 0.1 and not clientStates[clientID-1] and serverConnCheck:
                 # notify the server that this client is 'active'
                 setClientActive()
                 print("Client connection is recovered. Request the server to set this client Active")
