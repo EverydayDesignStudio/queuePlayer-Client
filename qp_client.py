@@ -147,12 +147,14 @@ def socketConnection():
 
 def compareDeviceID():
     global device_id
-    
+
+    print("  Comparing device IDs.")
     devices = None
     device_id_tmp = ''
     
     try:
         devices = sp.devices()
+        print("@@ devices: ")
         print(devices)
         if (len(devices['devices']) > 0):
             device_id_tmp = devices['devices'][0]['id']
@@ -299,7 +301,7 @@ def potController():
             elif filtered_voltage > 0.1 and serverConnCheck and len(clientStates) == 4 and not clientStates[clientID-1]:
                 # notify the server that this client is 'active'
                 setClientActive()
-                print(clientStates)
+                print("Current client states: ", clientStates)
                 print("Client connection is recovered. Request the server to set this client Active")
 
             # If a song is being played and the pot value changes, this indicates the volume change.
@@ -314,7 +316,7 @@ def potController():
                     try:
                         devices = sp.devices()['devices']
                         print("potController Changing Volume")
-                        print(devices)
+                        print("Current devices: ", devices)
                         sp.volume(currVol, device_id)
                     # Restart spotifyd with credentials if device is not found
                     except spotipy.exceptions.SpotifyException as e:
@@ -466,7 +468,8 @@ def playSong(trkArr, pos):
     
     try:
         devices = sp.devices()['devices']
-        print(devices)
+        print("PlaySong.")
+        print("Current devices: ", devices)
         sp.start_playback(device_id=device_id, uris=trkArr, position_ms=pos) 
         sp.volume(currVol, device_id)
     
@@ -1172,7 +1175,8 @@ try:
         if(json_data["msg"]!="Initial"):
             clientStates = json_data["activeUsers"]
         
-        print("jason_data_activeUsers", json_data["activeUsers"][clientID-1])
+        print("json_data_activeUsers: ", json_data["activeUsers"][clientID-1])
+        print("json_data_msg: ", json_data["msg"])
         if(json_data["activeUsers"][clientID-1]==True):
             if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
                 #colorArrayBuilder(json_data["lights"])
@@ -1183,17 +1187,16 @@ try:
                 cluster = json_data["songdata"]["cluster_number"]
 
                 print("bpmCountCheck", bpmCountCheck)
-                print(json_data["msg"])
                 if(json_data["msg"]=="Song" and bpmCountCheck):
-                    print("playing song")
+                    "playing song")
                     try:
                         playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
                     except Exception as e:
-                        print(f"An error occurred in the message thread: {str(e)}")
+                        f"An error occurred in the message thread: {str(e)}")
 
             elif(json_data["msg"]=="Seeking"):
                 if playingCheck:
-                    print("Updating seek")
+                    "Updating seek")
                     try:
                         currSeeker=sp.currently_playing()
                         
@@ -1202,22 +1205,22 @@ try:
                     except spotipy.exceptions.SpotifyException as e:
                         # Check for "device not found" error
                         if e.http_status == 404 and "Device not found" in str(e):
-                            print("Device not found. [in 'Seeking' Callback] Restarting spotifyd...")
+                            "Device not found. [in 'Seeking' Callback] Restarting spotifyd...")
 
                             restart_spotifyd()
 
-                            print("Disconnecting from server...")
+                            "Disconnecting from server...")
                             sio.disconnect()
                             time.sleep(2)
-                            print("Reconnecting to server...")
+                            "Reconnecting to server...")
                             #sio.connect('https://qp-master-server.herokuapp.com/')
                             socketConnection()
                     except requests.exceptions.ReadTimeout:
-                        print("Minor Setback, Continue Continue")
-                        print("Disconnecting from server...")
+                        "Minor Setback, Continue Continue")
+                        "Disconnecting from server...")
                         sio.disconnect()
                         time.sleep(2)
-                        print("Reconnecting to server...")
+                        "Reconnecting to server...")
                         #sio.connect('https://qp-master-server.herokuapp.com/')
                         socketConnection()
                         
@@ -1226,33 +1229,33 @@ try:
             elif(json_data["msg"]=="SeekSong"):
                 if not playingCheck and bpmCountCheck:
                     cluster = json_data["songdata"]["cluster_number"]
-                    print("This is the new client")
+                    "This is the new client")
                     seekCheck=True
                     clientStates = json_data["activeUsers"]
                     seekedPlayer=json_data["songdata"]["timestamp"]
-                    print("json retrieved")
+                    "json retrieved")
                     playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
-                    print("playsong")
+                    "playsong")
 
                     lights=json_data["lights"]
                     lightCheck=True
                     ringLightCheck = True
         
-        print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
+        "///////////////////////////////////////////////////////////////////////////////////////////////////////////")
 
-    print("should be connected")
+    "should be connected")
     #sio.connect('https://qp-master-server.herokuapp.com/')
     socketConnection()
     sio.wait()
 except KeyboardInterrupt:
-    print("Interrupted by Keyboard, script terminated")
+    "Interrupted by Keyboard, script terminated")
     
-    print("Disconnecting from server...")
+    "Disconnecting from server...")
     sio.disconnect()
     # playingCheck=False
     # bpmCountCheck=False
     time.sleep(2)
-    print("Reconnecting to server...")
+    "Reconnecting to server...")
     socketConnection()
     #sio.connect('https://qp-master-server.herokuapp.com/')
 
