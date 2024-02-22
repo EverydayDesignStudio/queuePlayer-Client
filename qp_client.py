@@ -154,7 +154,10 @@ def compareDeviceID():
     try:
         devices = sp.devices()
         print(devices)
-        device_id_tmp = devices['devices']['id']
+        if (len(devices['devices']) > 0):
+            device_id_tmp = devices['devices'][0]['id']
+        else:
+            raise
     except Exception as e:
         print(f"An error occurred while looking up the active devices: {str(e)}")
         time.sleep(2)
