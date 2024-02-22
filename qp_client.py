@@ -268,6 +268,7 @@ def potController():
                     
                     # notify the server that this client is off
                     setClientInactive()
+                    print("Potentiometer is turned OFF.")
                     print("Client is set Inactive")
 
                     # TODO: ???
@@ -289,12 +290,14 @@ def potController():
                 
                 # notify the server that this client is 'active'
                 setClientActive()
+                print("Potentiometer is turned ON.")
                 print("Client is set Active")
 
             # This is when a client is recovered from a disconnection or device not found exception
-            elif filtered_voltage > 0.1 and not clientStates[clientID-1] and serverConnCheck:
+            elif filtered_voltage > 0.1 and serverConnCheck and len(clientStates) == 4 and not clientStates[clientID-1]:
                 # notify the server that this client is 'active'
                 setClientActive()
+                print(clientStates)
                 print("Client connection is recovered. Request the server to set this client Active")
 
             # If a song is being played and the pot value changes, this indicates the volume change.
@@ -1185,10 +1188,7 @@ try:
                         playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
                     except Exception as e:
                         print(f"An error occurred in the message thread: {str(e)}")
-                # This is when the client is turned 'active' with non-zero volume.
-                # elif(json_data["msg"]=="Active" and bpmCountCheck):
-                    # bpmAdded = json_data["songdata"]["bpm"]
-                    # pushBPMToPlay(bpmAdded)
+
             elif(json_data["msg"]=="Seeking"):
                 if playingCheck:
                     print("Updating seek")
@@ -1220,6 +1220,7 @@ try:
                         socketConnection()
                         
                     seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSeeker['progress_ms'], "song":currSeeker['item']['id'],"prompt":"Bro"})
+            
             elif(json_data["msg"]=="SeekSong"):
                 if not playingCheck and bpmCountCheck:
                     cluster = json_data["songdata"]["cluster_number"]
