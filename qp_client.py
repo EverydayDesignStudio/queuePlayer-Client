@@ -262,7 +262,6 @@ def potController():
                             print("Reconnecting to server...")
                             #sio.connect('https://qp-master-server.herokuapp.com/')
                             socketConnection()
-                        
                         else:
                             raise
                     
@@ -884,8 +883,8 @@ def playSongController():
                                 print("Reconnecting to server...")
                                 #sio.connect('https://qp-master-server.herokuapp.com/')
                                 socketConnection()
-                        else:
-                            raise 
+                            else:
+                                raise 
                             
                         except requests.exceptions.ReadTimeout:
                             print("Read timeout while checking for current playback state")
