@@ -1233,7 +1233,9 @@ try:
                 #colorArrayBuilder(json_data["lights"])
                 lights=json_data["lights"]
                 lightCheck=True
-                ringLightCheck = True
+                # trying to turn the right light ON when 'active' will make the client hangs, waiting for any song to be played
+                if (json_data["msg"]!="Active"):
+                    ringLightCheck = True
                 clientStates = json_data["activeUsers"]
                 cluster = json_data["songdata"]["cluster_number"]
 
