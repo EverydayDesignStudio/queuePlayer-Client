@@ -11,10 +11,13 @@ import requests
 import requests.exceptions
 import socketio
 import json 
-import spotipy
 import subprocess
-from spotipy.oauth2 import SpotifyOAuth
+
+import spotipy
+import spotipy.util as util
+import spotipy.oauth2 as oauth2
 from spotipy.exceptions import SpotifyException
+
 import sys
 import os
 
@@ -70,8 +73,17 @@ GPIO.setup(channel, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
 ###########################################
 clientID=1
 
-device_id=None
-sp=None
+### Spotify Objects
+sp = None                  # Spotipy Object
+spToken = None             # Spotify Authentication Token
+client_id = None
+client_secret = None
+spotify_username = None
+device_id = None           # raspberry pi's device ID that is linked to the Spotify account
+spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing, user-read-playback-state'
+# spotify_redirect_uri = 'http://localhost:8000/callback'
+spotify_redirect_uri = 'https://example.com/callback/'
+
 
 # Global check variables 
 # These flags indicate:
@@ -202,6 +214,20 @@ def restart_script():
     print("Restarting the script...")
     python = sys.executable
     os.execl(python, python, *sys.argv)
+
+# acquires an authenticated spotify token
+def getSpotifyAuthToken():
+    global spotify_username, client_id, client_secret, spotify_redirect_uri, spotify_scope, spToken
+    spToken = util.prompt_for_user_token(username=spotify_username, scope=spotify_scope, client_id = client_id, client_secret = client_secret, redirect_uri = spotify_redirect_uri)
+
+# returns a fresh token
+def refreshSpotifyAuthToken():
+    global spotify_username, client_id, client_secret, spotify_redirect_uri, spotify_scope, spToken
+    cache_path = ".cache-" + spotify_username
+    sp_oauth = oauth2.SpotifyOAuth(client_id, client_secret, spotify_redirect_uri, scope=spotify_scope, cache_path=cache_path)
+    token_info = sp_oauth.get_cached_token()
+    spToken = token_info['access_token']
+
 
 # ----------------------------------------------------------
 # Section 1: Client State Control
@@ -351,6 +377,11 @@ def potController():
                         print("Disconnecting from server...")
                         sio.disconnect()
                         time.sleep(2)
+
+                        print("Refreshing Spotify Token..")
+                        refreshSpotifyAuthToken()
+                        sp = spotipy.Spotify(auth=token)
+                        
                         print("Reconnecting to server...")
                         #sio.connect('https://qp-master-server.herokuapp.com/')
                         socketConnection()
@@ -488,6 +519,11 @@ def playSong(trkArr, pos):
         print("Disconnecting from server...")
         sio.disconnect()
         time.sleep(2)
+
+        print("Refreshing Spotify Token..")
+        refreshSpotifyAuthToken()
+        sp = spotipy.Spotify(auth=token)
+        
         print("Reconnecting to server...")
         #sio.connect('https://qp-master-server.herokuapp.com/')
         socketConnection()
@@ -835,6 +871,11 @@ def playSongController():
                         print("Disconnecting from server...")
                         sio.disconnect()
                         time.sleep(2)
+
+                        print("Refreshing Spotify Token..")
+                        refreshSpotifyAuthToken()
+                        sp = spotipy.Spotify(auth=token)
+                        
                         print("Reconnecting to server...")
                         #sio.connect('https://qp-master-server.herokuapp.com/')
                         socketConnection()
@@ -897,6 +938,11 @@ def playSongController():
                             print("Disconnecting from server...")
                             sio.disconnect()
                             time.sleep(2)
+
+                            print("Refreshing Spotify Token..")
+                            refreshSpotifyAuthToken()
+                            sp = spotipy.Spotify(auth=token)
+                            
                             print("Reconnecting to server...")
                             #sio.connect('https://qp-master-server.herokuapp.com/')
                             socketConnection()
@@ -1116,45 +1162,49 @@ try:
 
     @sio.event
     def connect():
-        global serverConnCheck, clientID, device_id, sp
+        global serverConnCheck, clientID, sp, spToken
+        global client_id, client_secret, spotify_username, device_id, spotify_scope, spotify_redirect_uri
         
         serverConnCheck = True
         print('Connected to server')
         sio.emit('connect_user',{"userID":clientID})
 
-        client_id = ''
-        client_secret = ''
-        spotify_username = ''
-        device_id = ''
-        spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing, user-read-playback-state'
-        # spotify_redirect_uri = 'http://localhost:8000/callback'
-        spotify_redirect_uri = 'https://example.com/callback/'
-
         if (clientID == 1):
+            ### OLO5
             client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
             client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
             spotify_username='n39su59fav4b7fmcm0cuwyv2w'
             device_id='fc0b6be2a96214b9a63fbf6d9584c2cde0a0cf8b'
         elif (clientID == 2):
+            ### OLO4
             client_id='aeeefb7f628b41d0b7f5581b668c27f4'
             client_secret='7a75e01c59f046888fa4b99fbafc4784'
             spotify_username='x8eug7lj2opi0in1gnvr8lfsz'
             device_id='651d47833f4c935fadd4a03e43cd5a4c3ec0d170' #raspberry pi ID
             #device_id = '4cb43e627ebaf5bbd05e96c943da16e6fac0a2c5' #web player ID
         elif (clientID == 3):
+            ### OLO3
             client_id = 'd460c59699a54e309617458dd596228d'
             client_secret = '7655a37f76e54744ac55617e3e588358'
             spotify_username='qjczeruw4padtyh69nxeqzohi'
             device_id = '6b5d83a142591f256666bc28a3eccb56258c5dc7'
         elif (clientID == 4):
+            ### OLO2
             client_id='bdfdc0993dcc4b9fbff8aac081cad246'
             client_secret='969f0ef8c11d49429e985aab6dd6ff0c'
             spotify_username='7w8j8bkw92mlnz5mwr3lou55g'
             #device_id='651d47833f4c935fadd4a03e43cd5a4c3ec0d170'
             #device_id = '217a37cc1f6f9c7937afbfa6f50424b7d937620f'
             device_id = '3946ec2b810ec4e30489b4704e9a695b1a64da26'
-        
-        sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=False))
+
+        # sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=False))
+
+        ### SPOTIFY AUTH
+        try:
+            refreshSpotifyAuthToken()
+        except:
+            getSpotifyAuthToken()
+        sp = spotipy.Spotify(auth=spToken)
         
     @sio.event
     def disconnect():
@@ -1166,7 +1216,8 @@ try:
 
     @sio.event
     def message(data):
-        global playingCheck, currSongID, seekCheck, seekedPlayer, lights, lightCheck, ringLightCheck, clientStates, cluster, bpmAdded, bpmCountCheck
+        global playingCheck, seekCheck, lightCheck, ringLightCheck, bpmCountCheck
+        global sp, spToken, currSongID, seekedPlayer, lights, clientStates, cluster, bpmAdded
 
         json_data = json.loads(data) # incoming message is transformed into a JSON object
         print("Server Sent the JSON:")
@@ -1216,10 +1267,15 @@ try:
                             #sio.connect('https://qp-master-server.herokuapp.com/')
                             socketConnection()
                     except requests.exceptions.ReadTimeout:
-                        print("Minor Setback, Continue Continue")
+                        print("!! Read Timeout")
                         print("Disconnecting from server...")
                         sio.disconnect()
                         time.sleep(2)
+
+                        print("Refreshing Spotify Token..")
+                        refreshSpotifyAuthToken()
+                        sp = spotipy.Spotify(auth=token)
+                        
                         print("Reconnecting to server...")
                         #sio.connect('https://qp-master-server.herokuapp.com/')
                         socketConnection()
