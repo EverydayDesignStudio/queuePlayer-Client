@@ -158,7 +158,7 @@ def socketConnection():
 
 
 def compareDeviceID():
-    global device_id
+    global sp, device_id
 
     print("  Comparing device IDs.")
     devices = None
@@ -242,7 +242,7 @@ def setClientInactive():
 
 # Controls the potentiometer for volume and active/inactive state
 def potController():
-    global bpmCountCheck, prevVal, currVol, playingCheck, currSongID, seekedClient, durationCheck, serverConnCheck, fadeToBlackCheck, device_id, clientStates
+    global sp, bpmCountCheck, prevVal, currVol, playingCheck, currSongID, seekedClient, durationCheck, serverConnCheck, fadeToBlackCheck, device_id, clientStates
     
     #Voltage variables
     window_size = 4
@@ -495,7 +495,7 @@ GPIO.add_event_callback(channel, tapSensor)  # assign function to GPIO PIN, Run 
 #  (1) the client is just turned 'active' and acknowledged by the server
 #  (2) the song is finished and the server broadcasts (is done seeking) the next song to play
 def playSong(trkArr, pos):
-    global playingCheck, durationCheck
+    global sp, playingCheck, durationCheck
     
     try:
         devices = sp.devices()['devices']
@@ -838,7 +838,7 @@ def fadeToBlack():
 #      If so, start the fade-out and the song ends 
 #      Then, request the server for the next song —> continuePlaying
 def playSongController():
-    global prevDuration, prevID, startTime, totalTime, durationCheck, currSongID, seekCheck, seekedPlayer, seekedClient, currDuration, playback, currVol
+    global sp, prevDuration, prevID, startTime, totalTime, durationCheck, currSongID, seekCheck, seekedPlayer, seekedClient, currDuration, playback, currVol
 
     try:
         while True:
