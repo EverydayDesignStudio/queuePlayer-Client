@@ -941,7 +941,7 @@ def playSongController():
 
                             print("Refreshing Spotify Token..")
                             refreshSpotifyAuthToken()
-                            sp = spotipy.Spotify(auth=token)
+                            sp = spotipy.Spotify(auth=spToken)
                             
                             print("Reconnecting to server...")
                             #sio.connect('https://qp-master-server.herokuapp.com/')
@@ -1276,7 +1276,7 @@ try:
 
                         print("Refreshing Spotify Token..")
                         refreshSpotifyAuthToken()
-                        sp = spotipy.Spotify(auth=token)
+                        sp = spotipy.Spotify(auth=spToken)
                         
                         print("Reconnecting to server...")
                         #sio.connect('https://qp-master-server.herokuapp.com/')
