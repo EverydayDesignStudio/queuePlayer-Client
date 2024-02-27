@@ -68,10 +68,16 @@ GPIO.setup(channel, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
 
 # ----------------------------------------------------------
 
+YELLOW = {150, 75, 0, 0}
+GREEN = {190, 210, 5, 5}
+VIOLET = {150, 40, 215, 0}
+ORANGE = {200, 45, 0, 0}
+
 ###########################################
 ###### Edit the ClientID accordingly ######
 ###########################################
-clientID=1
+clientID = 1
+clientColor = None
 
 ### Spotify Objects
 sp = None                  # Spotipy Object
@@ -94,9 +100,8 @@ seekCheck=False          # whether this client is trying to join the existing qu
 # newCheck=False         
 durationCheck=True       # a flag to indicate if the exact duration needs to be figured out for the current song
 lightCheck = False       # is the light for the queue on?
-lights = None 
-# rotation = None
-# rotationCheck = False    
+lights = None
+readyState = False       # Upon "Initial", is the client waiting for a user to tap?
 ringLightCheck = False   # is the light for the ring on? -- the ring light indicates the last person who tapped
 fadeToBlackCheck = False # lights for the queue and the ring will go out when the power is off
 serverConnCheck = False  # check the server connection
@@ -822,29 +827,28 @@ def fadeToBlack():
     pixels[0] = [0,0,0,0]
     
 #Called when server restarts to prompt user to tap a BPM
-def readyState(userColor): #Should be color values in masterSever script
-    global pixels, num_pixels
+def readyState(): #Should be color values in masterSever script
+    global clientColor, pixels, num_pixels
 
-    fade_duration = 2 #2 seconds
+    fade_duration = 0.25 #2 seconds
     fade_steps = 100
 
     fade_interval = fade_duration/fade_steps #smoothly fade brightness up/down 100 steps in 2 seconds
 
-    #Fade in 
-    for brightness in range(fade_steps):
-        for i in range (num_pixels):
-            for j in range (4): #4  = RGBW
-                pixels[i][j] = int(userColor[j] * brightness/fade_steps)
-        pixels.show()
-        time.sleep(fade_interval)
+    while True:
+        #Fade in 
+        for brightness in range(fade_steps):
+            for i in range (num_pixels):
+                pixels[i] = tuple(int(clientColor[j] * brightness/fade_steps) for j in range(4)) #4 = RGBW pixels
+            pixels.show()
+            time.sleep(fade_interval)
 
-    #Fade out 
-    for brightness in range(fade_steps, -1, -1): #fade brightness down to -1, by 1 each iteration
-        for i in range (num_pixels):
-            for j in range (4): #4  = RGBW
-                pixels[i][j] = int(userColor[j] * brightness/fade_steps)
-        pixels.show()
-        time.sleep(fade_interval)
+        #Fade out 
+        for brightness in range(fade_steps, -1, -1): #fade brightness down to -1, by 1 each iteration
+            for i in range (num_pixels):
+                pixels[i] = tuple(int(clientColor[j] * brightness/fade_steps) for j in range(4))
+            pixels.show()
+            time.sleep(fade_interval)
 
 # ----------------------------------------------------------
 # Section 4: Timer Controls     
@@ -1147,6 +1151,23 @@ def fadeoutController():
         socketConnection()
 
 
+def readyStateController():
+    global readyState
+    
+    try:
+        while True:
+            if(readyState):
+                readyState()
+    except TimeoutError:
+        print("Timeout Error in ringLightController")
+
+        print("Disconnecting from server...")
+        sio.disconnect()
+        time.sleep(2)
+        print("Reconnecting to server...")
+        #sio.connect('https://qp-master-server.herokuapp.com/')
+        socketConnection()
+
 
 try:
     
@@ -1178,6 +1199,9 @@ try:
     thread_Fadeout = threading.Thread(target=fadeoutController)
     thread_Fadeout.start()
 
+    thread_readyState = threading.Thread(target=readtStateController)
+    thread_readyState.start()
+
 
     # ----------------------------------------------------------
     # Section 5: Socket Controls   
@@ -1187,7 +1211,7 @@ try:
 
     @sio.event
     def connect():
-        global serverConnCheck, clientID, sp, spToken
+        global serverConnCheck, clientID, clientColor, sp, spToken
         global client_id, client_secret, spotify_username, device_id, spotify_scope, spotify_redirect_uri
         
         serverConnCheck = True
@@ -1196,12 +1220,14 @@ try:
 
         if (clientID == 1):
             ### OLO5
+            clientColor = YELLOW
             client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
             client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
             spotify_username='n39su59fav4b7fmcm0cuwyv2w'
             device_id='fc0b6be2a96214b9a63fbf6d9584c2cde0a0cf8b'
         elif (clientID == 2):
             ### OLO4
+            clientColor = GREEN
             client_id='aeeefb7f628b41d0b7f5581b668c27f4'
             client_secret='7a75e01c59f046888fa4b99fbafc4784'
             spotify_username='x8eug7lj2opi0in1gnvr8lfsz'
@@ -1209,12 +1235,14 @@ try:
             #device_id = '4cb43e627ebaf5bbd05e96c943da16e6fac0a2c5' #web player ID
         elif (clientID == 3):
             ### OLO3
+            clientColor = VIOLET
             client_id = 'd460c59699a54e309617458dd596228d'
             client_secret = '7655a37f76e54744ac55617e3e588358'
             spotify_username='qjczeruw4padtyh69nxeqzohi'
             device_id = '6b5d83a142591f256666bc28a3eccb56258c5dc7'
         elif (clientID == 4):
             ### OLO2
+            clientColor = ORANGE
             client_id='bdfdc0993dcc4b9fbff8aac081cad246'
             client_secret='969f0ef8c11d49429e985aab6dd6ff0c'
             spotify_username='7w8j8bkw92mlnz5mwr3lou55g'
@@ -1241,20 +1269,23 @@ try:
 
     @sio.event
     def message(data):
-        global playingCheck, seekCheck, lightCheck, ringLightCheck, bpmCountCheck
+        global playingCheck, seekCheck, lightCheck, ringLightCheck, bpmCountCheck, readyState
         global sp, spToken, currSongID, seekedPlayer, lights, clientStates, cluster, bpmAdded
 
         json_data = json.loads(data) # incoming message is transformed into a JSON object
         print("Server Sent the JSON:")
         print(json.dumps(json_data, indent = 2))
 
-        if(json_data["msg"]!="Initial"):
+        if(json_data["msg"] == "Initial"):
+            readyState = True
+        else:
             clientStates = json_data["activeUsers"]
         
         print("json_data_activeUsers: ", json_data["activeUsers"][clientID-1])
         print("json_data_msg: ", json_data["msg"])
         if(json_data["activeUsers"][clientID-1]==True):
             if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
+                readyState = False
                 #colorArrayBuilder(json_data["lights"])
                 lights=json_data["lights"]
                 lightCheck=True
