@@ -1199,7 +1199,7 @@ try:
     thread_Fadeout = threading.Thread(target=fadeoutController)
     thread_Fadeout.start()
 
-    thread_readyState = threading.Thread(target=readtStateController)
+    thread_readyState = threading.Thread(target=readyStateController)
     thread_readyState.start()
 
 
