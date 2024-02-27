@@ -820,6 +820,31 @@ def fadeToBlack():
         # Add a slightly longer delay for a slower fade-off
         time.sleep(0.01)
     pixels[0] = [0,0,0,0]
+    
+#Called when server restarts to prompt user to tap a BPM
+def readyState(userColor): #Should be color values in masterSever script
+    global pixels, num_pixels
+
+    fade_duration = 2 #2 seconds
+    fade_steps = 100
+
+    fade_interval = fade_duration/fade_steps #smoothly fade brightness up/down 100 steps in 2 seconds
+
+    #Fade in 
+    for brightness in range(fade_steps):
+        for i in range (num_pixels):
+            for j in range (4): #4  = RGBW
+                pixels[i][j] = int(userColor[j] * brightness/fade_steps)
+        pixels.show()
+        time.sleep(fade_interval)
+
+    #Fade out 
+    for brightness in range(fade_steps, -1, -1): #fade brightness down to -1, by 1 each iteration
+        for i in range (num_pixels):
+            for j in range (4): #4  = RGBW
+                pixels[i][j] = int(userColor[j] * brightness/fade_steps)
+        pixels.show()
+        time.sleep(fade_interval)
 
 # ----------------------------------------------------------
 # Section 4: Timer Controls     
