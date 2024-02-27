@@ -1159,7 +1159,7 @@ def readyStateController():
             if(readyState):
                 readyState()
     except TimeoutError:
-        print("Timeout Error in ringLightController")
+        print("Timeout Error in readyStateController")
 
         print("Disconnecting from server...")
         sio.disconnect()
@@ -1277,6 +1277,7 @@ try:
         print(json.dumps(json_data, indent = 2))
 
         if(json_data["msg"] == "Initial"):
+            print("Initial state!")
             readyState = True
         else:
             clientStates = json_data["activeUsers"]
