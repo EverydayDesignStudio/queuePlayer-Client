@@ -101,7 +101,7 @@ seekCheck=False          # whether this client is trying to join the existing qu
 durationCheck=True       # a flag to indicate if the exact duration needs to be figured out for the current song
 lightCheck = False       # is the light for the queue on?
 lights = None
-readyState = False       # Upon "Initial", is the client waiting for a user to tap?
+readyStateCheck = False  # Upon "Initial", is the client waiting for a user to tap?
 ringLightCheck = False   # is the light for the ring on? -- the ring light indicates the last person who tapped
 fadeToBlackCheck = False # lights for the queue and the ring will go out when the power is off
 serverConnCheck = False  # check the server connection
@@ -1152,11 +1152,11 @@ def fadeoutController():
 
 
 def readyStateController():
-    global readyState
+    global readyStateCheck
     
     try:
         while True:
-            if(readyState):
+            if(readyStateCheck):
                 readyState()
     except TimeoutError:
         print("Timeout Error in readyStateController")
@@ -1269,7 +1269,7 @@ try:
 
     @sio.event
     def message(data):
-        global playingCheck, seekCheck, lightCheck, ringLightCheck, bpmCountCheck, readyState
+        global playingCheck, seekCheck, lightCheck, ringLightCheck, bpmCountCheck, readyStateCheck
         global sp, spToken, currSongID, seekedPlayer, lights, clientStates, cluster, bpmAdded
 
         json_data = json.loads(data) # incoming message is transformed into a JSON object
@@ -1278,7 +1278,7 @@ try:
 
         if(json_data["msg"] == "Initial"):
             print("Initial state!")
-            readyState = True
+            readyStateCheck = True
         else:
             clientStates = json_data["activeUsers"]
         
@@ -1286,7 +1286,7 @@ try:
         print("json_data_msg: ", json_data["msg"])
         if(json_data["activeUsers"][clientID-1]==True):
             if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
-                readyState = False
+                readyStateCheck = False
                 #colorArrayBuilder(json_data["lights"])
                 lights=json_data["lights"]
                 lightCheck=True
