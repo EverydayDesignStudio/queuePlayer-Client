@@ -1152,11 +1152,11 @@ def fadeoutController():
 
 
 def readyStateController():
-    global readyStateCheck
+    global readyStateCheck, bpmCountCheck, serverConnCheck
     
     try:
         while True:
-            if(readyStateCheck):
+            if(readyStateCheck and bpmCountCheck and serverConnCheck):
                 readyState()
     except TimeoutError:
         print("Timeout Error in readyStateController")
