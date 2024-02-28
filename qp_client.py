@@ -222,16 +222,22 @@ def restart_script():
 
 # acquires an authenticated spotify token
 def getSpotifyAuthToken():
-    global spotify_username, client_id, client_secret, spotify_redirect_uri, spotify_scope, spToken
+    global sp, spotify_username, client_id, client_secret, spotify_redirect_uri, spotify_scope, spToken
+    
+    print("Acquiring a Spotify Token..")
     spToken = util.prompt_for_user_token(username=spotify_username, scope=spotify_scope, client_id = client_id, client_secret = client_secret, redirect_uri = spotify_redirect_uri)
+    sp = spotipy.Spotify(auth=spToken)
 
 # returns a fresh token
 def refreshSpotifyAuthToken():
-    global spotify_username, client_id, client_secret, spotify_redirect_uri, spotify_scope, spToken
+    global sp, spotify_username, client_id, client_secret, spotify_redirect_uri, spotify_scope, spToken
+
+    print("Refreshing a Spotify Token..")
     cache_path = ".cache-" + spotify_username
     sp_oauth = oauth2.SpotifyOAuth(client_id, client_secret, spotify_redirect_uri, scope=spotify_scope, cache_path=cache_path)
     token_info = sp_oauth.get_cached_token()
     spToken = token_info['access_token']
+    sp = spotipy.Spotify(auth=spToken)
 
 
 # ----------------------------------------------------------
@@ -298,6 +304,9 @@ def potController():
                             print("Reconnecting to server...")
                             #sio.connect('https://qp-master-server.herokuapp.com/')
                             socketConnection()
+                        elif e.http_status == 401:
+                            print("Spotify Token Expired in potController when turning the pot off")
+                            refreshSpotifyAuthToken()
                         else:
                             raise
                     
@@ -363,7 +372,9 @@ def potController():
                             print("Reconnecting to server...")
                             #sio.connect('https://qp-master-server.herokuapp.com/')
                             socketConnection()
-                        
+                        elif e.http_status == 401:
+                            print("Spotify Token Expired in potController when changing volume")
+                            refreshSpotifyAuthToken()
                         else:
                             raise
 
@@ -383,9 +394,7 @@ def potController():
                         sio.disconnect()
                         time.sleep(2)
 
-                        print("Refreshing Spotify Token..")
                         refreshSpotifyAuthToken()
-                        sp = spotipy.Spotify(auth=token)
                         
                         print("Reconnecting to server...")
                         #sio.connect('https://qp-master-server.herokuapp.com/')
@@ -526,9 +535,7 @@ def playSong(trkArr, pos):
         sio.disconnect()
         time.sleep(2)
 
-        print("Refreshing Spotify Token..")
         refreshSpotifyAuthToken()
-        sp = spotipy.Spotify(auth=token)
         
         print("Reconnecting to server...")
         #sio.connect('https://qp-master-server.herokuapp.com/')
@@ -553,7 +560,9 @@ def playSong(trkArr, pos):
             print("Reconnecting to server...")
             #sio.connect('https://qp-master-server.herokuapp.com/')
             socketConnection()
-
+        elif e.http_status == 401:
+            print("Spotify Token Expired in playsong method")
+            refreshSpotifyAuthToken()
         else:
             raise
     
@@ -926,7 +935,9 @@ def playSongController():
                             print("Reconnecting to server...")
                             #sio.connect('https://qp-master-server.herokuapp.com/')
                             socketConnection()
-                        
+                        elif e.http_status == 401:
+                            print("Spotify Token Expired in PlaySongController when loading the current song")
+                            refreshSpotifyAuthToken()
                         else:
                             raise
                     except requests.exceptions.ReadTimeout:
@@ -935,9 +946,7 @@ def playSongController():
                         sio.disconnect()
                         time.sleep(2)
 
-                        print("Refreshing Spotify Token..")
                         refreshSpotifyAuthToken()
-                        sp = spotipy.Spotify(auth=token)
                         
                         print("Reconnecting to server...")
                         #sio.connect('https://qp-master-server.herokuapp.com/')
@@ -993,6 +1002,9 @@ def playSongController():
                                 print("Reconnecting to server...")
                                 #sio.connect('https://qp-master-server.herokuapp.com/')
                                 socketConnection()
+                            elif e.http_status == 401:
+                                print("Spotify Token Expired in PlaySongController when getting the current playback")
+                                refreshSpotifyAuthToken()
                             else:
                                 raise 
                             
@@ -1002,9 +1014,7 @@ def playSongController():
                             sio.disconnect()
                             time.sleep(2)
 
-                            print("Refreshing Spotify Token..")
                             refreshSpotifyAuthToken()
-                            sp = spotipy.Spotify(auth=spToken)
                             
                             print("Reconnecting to server...")
                             #sio.connect('https://qp-master-server.herokuapp.com/')
@@ -1296,7 +1306,6 @@ try:
             refreshSpotifyAuthToken()
         except:
             getSpotifyAuthToken()
-        sp = spotipy.Spotify(auth=spToken)
         
     @sio.event
     def disconnect():
@@ -1356,7 +1365,7 @@ try:
                     except spotipy.exceptions.SpotifyException as e:
                         # Check for "device not found" error
                         if e.http_status == 404 and "Device not found" in str(e):
-                            print("Device not found. [in 'Seeking' Callback] Restarting spotifyd...")
+                            print("Device not found. [in 'Seeking' callback] Restarting spotifyd...")
 
                             restart_spotifyd()
 
@@ -1366,15 +1375,18 @@ try:
                             print("Reconnecting to server...")
                             #sio.connect('https://qp-master-server.herokuapp.com/')
                             socketConnection()
+                        elif e.http_status == 401:
+                            print("Spotify Token Expired in 'Seeking' callback")
+                            refreshSpotifyAuthToken()
+                        else:
+                            raise
                     except requests.exceptions.ReadTimeout:
                         print("!! Read Timeout")
                         print("Disconnecting from server...")
                         sio.disconnect()
                         time.sleep(2)
 
-                        print("Refreshing Spotify Token..")
                         refreshSpotifyAuthToken()
-                        sp = spotipy.Spotify(auth=spToken)
                         
                         print("Reconnecting to server...")
                         #sio.connect('https://qp-master-server.herokuapp.com/')
