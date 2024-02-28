@@ -52,7 +52,7 @@ ledSegment = 36 # number of LEDs in a single segment
 ledArray = [[[0 for i in range(4)] for j in range(ledSegment)] for z in range(4)] #the array which stores the pixel information
 
 # #Create and initiate neopixel objects
-pixels = neopixel.NeoPixel(pixel_pin1, num_pixels, brightness=10, auto_write=False, pixel_order=ORDER)
+pixels = neopixel.NeoPixel(pixel_pin1, num_pixels, brightness=255, auto_write=False, pixel_order=ORDER)
 ring_pixels = neopixel.NeoPixel(pixel_pin2, num_ring_pixels, brightness = 10, auto_write = False, pixel_order=ORDER)
 
 #Indicator Light Setup
@@ -68,16 +68,16 @@ GPIO.setup(channel, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
 
 # ----------------------------------------------------------
 
-YELLOW = {150, 75, 0, 0}
-GREEN = {190, 210, 5, 5}
-VIOLET = {150, 40, 215, 0}
-ORANGE = {200, 45, 0, 0}
+YELLOW = (150, 75, 0, 0)
+GREEN = (190, 210, 5, 5)
+VIOLET = (150, 40, 215, 0)
+ORANGE = (200, 45, 0, 0)
 
 ###########################################
 ###### Edit the ClientID accordingly ######
 ###########################################
-clientID = 1
-clientColor = None
+clientID = 2
+clientColor = (0, 0, 0, 0)
 
 ### Spotify Objects
 sp = None                  # Spotipy Object
@@ -101,7 +101,7 @@ seekCheck=False          # whether this client is trying to join the existing qu
 durationCheck=True       # a flag to indicate if the exact duration needs to be figured out for the current song
 lightCheck = False       # is the light for the queue on?
 lights = None
-readyStateCheck = False  # Upon "Initial", is the client waiting for a user to tap?
+readyStateCheck = False       # Upon "Initial", is the client waiting for a user to tap?
 ringLightCheck = False   # is the light for the ring on? -- the ring light indicates the last person who tapped
 fadeToBlackCheck = False # lights for the queue and the ring will go out when the power is off
 serverConnCheck = False  # check the server connection
@@ -444,7 +444,7 @@ def TapBPM():
 
 # There is a new BPM that just came in, so notify the server to either play a song or add a song to the queue
 def tapController():    
-    global playingCheck, bpmAdded, msLastTap, tapCount, tapInterval
+    global playingCheck, bpmAdded, msLastTap, tapCount, tapInterval, readyStateCheck
 
     while True:
             
@@ -454,6 +454,7 @@ def tapController():
             # the last tap has happened more than 2 seconds ago -- finish recording
             if msCurr-msLastTap > 1000*tapInterval and bpmAdded > 0:
                 print("   # LastTap Detected. BPM: {}".format(bpmAdded))
+                #readyStateCheck = False
                 # notify the server accordingly,
                 if playingCheck:
                     pushBPMToQueue(bpmAdded)
@@ -829,9 +830,42 @@ def fadeToBlack():
 #Called when server restarts to prompt user to tap a BPM
 def readyState(): #Should be color values in masterSever script
     global clientColor, pixels, num_pixels
+    
+    # max_brightness = 255
+    # fade_duration = 0.25 #2 seconds
+    # fade_steps = 100
 
-    fade_duration = 0.25 #2 seconds
-    fade_steps = 100
+    # fade_interval = fade_duration/fade_steps #smoothly fade brightness up/down 100 steps in 2 seconds
+
+    # while True:
+        # #Fade in 
+        # for brightness in range(fade_steps, 255, 5):
+            # for i in range (num_pixels):
+                # color_rs_fi = (0,0,0,0)
+                # for j in range (4):
+                    # color_rs_fi[j] = clientColor[j] * brightness/fade_steps
+                    # if (color_rs_fi[j] > 255):
+                        # print("   color_rs_fi [", i, ",", j, "] > 255")
+                # pixels[i] = color_rs_fi
+                # # pixels[i] = tuple(int(clientColor[j] * brightness/fade_steps) for j in range(4)) #4 = RGBW pixels
+            # pixels.show()
+            # time.sleep(fade_interval)
+
+        # #Fade out 
+        # for brightness in range(fade_steps, 0, -5): #fade brightness down to -1, by 1 each iteration
+            # for i in range (num_pixels):
+                # color_rs_fo = (0,0,0,0)
+                # for j in range (4):
+                    # color_rs_fo[j] = clientColor[j] * brightness/fade_steps
+                    # if (color_rs_fo[j] < 0):
+                        # print("   color_rs_fo [", i, ",", j, "] < 0")
+                # pixels[i] = color_rs_fo
+                # #pixels[i] = tuple(int(clientColor[j] * brightness/fade_steps) for j in range(4))
+            # pixels.show()
+            # time.sleep(fade_interval)
+            
+    fade_duration = 2 #2 seconds
+    fade_steps = 30
 
     fade_interval = fade_duration/fade_steps #smoothly fade brightness up/down 100 steps in 2 seconds
 
@@ -839,17 +873,17 @@ def readyState(): #Should be color values in masterSever script
         #Fade in 
         for brightness in range(fade_steps):
             for i in range (num_pixels):
-                pixels[i] = tuple(int(clientColor[j] * brightness/fade_steps) for j in range(4)) #4 = RGBW pixels
+                pixels[i] = tuple(max(0, min(255, int(clientColor[j] * brightness/fade_steps))) for j in range(4)) #4 = RGBW pixels
             pixels.show()
             time.sleep(fade_interval)
 
         #Fade out 
-        for brightness in range(fade_steps, -1, -1): #fade brightness down to -1, by 1 each iteration
+        for brightness in range(fade_steps, -1, -3): #fade brightness down to -1, by 1 each iteration
             for i in range (num_pixels):
-                pixels[i] = tuple(int(clientColor[j] * brightness/fade_steps) for j in range(4))
+                pixels[i] = tuple(max(0, min(255, int(clientColor[j] * brightness/fade_steps))) for j in range(4))
             pixels.show()
             time.sleep(fade_interval)
-
+        
 # ----------------------------------------------------------
 # Section 4: Timer Controls     
 
@@ -1009,11 +1043,12 @@ def moving_average(values):
     
 
 def queueLightController():
-    global lights,lightCheck
+    global lights,lightCheck, readyStateCheck
     
     try:
         while True:
-            if(lightCheck):
+            if (lightCheck):
+            #if(lightCheck and not readyStateCheck):
                 #print("color should be updating")
                 colorArrayBuilder(lights)
                 #showNewBPM(lights)
@@ -1029,10 +1064,11 @@ def queueLightController():
         socketConnection()
 
 def ringLightController():
-    global lights, ringLightCheck, playingCheck
+    global lights, ringLightCheck, playingCheck, readyStateCheck
     
     try:
         while True:
+            #if(ringLightCheck and playingCheck and not readyStateCheck):
             if(ringLightCheck and playingCheck):
                 print("inside ringLightController if block")
                 ringLightUpdate(lights["ring1"]["rlight"], lights["ring1"]["bpm"])
@@ -1151,22 +1187,25 @@ def fadeoutController():
         socketConnection()
 
 
-def readyStateController():
-    global readyStateCheck, bpmCountCheck, serverConnCheck
+# def readyStateController():
+    # global readyStateCheck, bpmCountCheck, serverConnCheck
     
-    try:
-        while True:
-            if(readyStateCheck and bpmCountCheck and serverConnCheck):
-                readyState()
-    except TimeoutError:
-        print("Timeout Error in readyStateController")
+    # try:
+        # while True:
+            # if(readyStateCheck and bpmCountCheck and serverConnCheck):
+                # #print("inside readyStateController")
+    
+                # print("readyState: ", readyStateCheck)
+                # #readyState()
+    # except TimeoutError:
+        # print("Timeout Error in ringLightController")
 
-        print("Disconnecting from server...")
-        sio.disconnect()
-        time.sleep(2)
-        print("Reconnecting to server...")
-        #sio.connect('https://qp-master-server.herokuapp.com/')
-        socketConnection()
+        # print("Disconnecting from server...")
+        # sio.disconnect()
+        # time.sleep(2)
+        # print("Reconnecting to server...")
+        # #sio.connect('https://qp-master-server.herokuapp.com/')
+        # socketConnection()
 
 
 try:
@@ -1199,8 +1238,8 @@ try:
     thread_Fadeout = threading.Thread(target=fadeoutController)
     thread_Fadeout.start()
 
-    thread_readyState = threading.Thread(target=readyStateController)
-    thread_readyState.start()
+    # thread_readyState = threading.Thread(target=readyStateController)
+    # thread_readyState.start()
 
 
     # ----------------------------------------------------------
@@ -1277,8 +1316,8 @@ try:
         print(json.dumps(json_data, indent = 2))
 
         if(json_data["msg"] == "Initial"):
-            print("Initial state!")
-            readyStateCheck = True
+            print("Initial!")
+            #readyStateCheck = True
         else:
             clientStates = json_data["activeUsers"]
         
@@ -1286,7 +1325,9 @@ try:
         print("json_data_msg: ", json_data["msg"])
         if(json_data["activeUsers"][clientID-1]==True):
             if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
-                readyStateCheck = False
+                
+                print("Message is not initial")
+                #readyStateCheck = False
                 #colorArrayBuilder(json_data["lights"])
                 lights=json_data["lights"]
                 lightCheck=True
