@@ -426,7 +426,7 @@ def pushBPMToPlay(bpmAdded):
     songToBePlayed=requests.post(baseUrl+"getTrackToPlay", json={"bpm":bpmAdded, "clientID":clientID})
 
 def pushBPMToQueue(bpmAdded):
-    songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "userID":clientID, "cln":cluster})
+    songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "clientID":clientID, "cln":cluster})
 
 # read the tap once, record the timestamp
 # increase or reset the tap count, depending on the interval
@@ -578,7 +578,7 @@ def playSongsToContinue(songDuration, songID, msg):
     playingCheck=False
     prevDuration=songDuration
     prevID=songID
-    continueSong=requests.get(baseUrl+"continuePlaying", json={"userID":clientID, "msg":msg, "cln":cluster})
+    continueSong=requests.get(baseUrl+"continuePlaying", json={"clientID":clientID, "msg":msg, "cln":cluster})
 
 # def tapController():
     # while True:
@@ -1265,7 +1265,7 @@ try:
         
         serverConnCheck = True
         print('Connected to server')
-        sio.emit('connect_user',{"userID":clientID})
+        sio.emit('connect_user',{"clientID":clientID})
 
         if (clientID == 1):
             ### OLO5
