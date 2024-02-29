@@ -657,66 +657,6 @@ def interpolate_rgbw(start_rgbw, end_rgbw, steps):
         results.append((r, g, b, w))
 
     return results
-    
-
-# def colorArrayBuilder(lights):
-    # global colorArrBefore, colorArrAfter, pixels
-    # n = 0
-    # print("inside colorArrayBuilder")
-    # print(pixels[0])
-
-    # for ring in lights:
-        # print("for loop enters")
-        # colors = lights[ring]["colors"]
-        # newBPM = lights[ring]["rotate"]
-
-        # divs = int(36 / len(colors))
-        # rgb_vals = []
-        # for i in colors:
-            # rgb_vals.append((colors[i]["r"], colors[i]["g"], colors[i]["b"], colors[i]["w"]))
-        
-        # rotation_speed = 1  # Adjust the rotation speed as desired
-        # offset = int(time.time() * 100 * rotation_speed) % 36  # Create a rotating offset based on time
-
-        # for i in range(len(rgb_vals)):
-            # colorArrAfter[n:n+divs] = interpolate_rgbw(rgb_vals[i], rgb_vals[(i+1) % len(rgb_vals)], divs)
-            
-            # for j in range(n, n + divs):
-                # rotated_index = (j + offset) % 36
-                # colorArrAfter[j] = colorArrAfter[rotated_index]
-
-            # n += divs
-
-    # # Check if color array is different to trigger fade in and out
-    # if colorArrBefore != colorArrAfter:
-        # print("if enters")
-        # # Define the maximum brightness value
-        # max_brightness = 255
-        # fade_duration = 0.15  # Adjust the fade duration as desired
-
-        # # Calculate the number of steps based on the fade duration and delay
-        # num_steps = int(fade_duration / 0.01)
-
-        # # Fade-out effect
-        # if not (pixels[0] == [0,0,0,0]):
-            # print("fade out")
-            # for step in range(num_steps, -1, -1):
-                # brightness = int(step * max_brightness / num_steps)
-                # for i in range(144):
-                    # pixels[i] = tuple(int(val * brightness / max_brightness) for val in colorArrBefore[i])
-                # pixels.show()
-                # time.sleep(0.01)
-
-        # # Fade-in effect
-        # print("fade in")
-        # for step in range(num_steps + 1):
-            # brightness = int(step * max_brightness / num_steps)
-            # for i in range(144):
-                # pixels[i] = tuple(int(val * brightness / max_brightness) for val in colorArrAfter[i])
-            # pixels.show()
-            # time.sleep(0.01)
-
-        # colorArrBefore = copy.deepcopy(colorArrAfter)
 
 
 def colorArrayBuilder(lights):
@@ -725,13 +665,13 @@ def colorArrayBuilder(lights):
     print("inside colorArrayBuilder")
     print(pixels[0])
 
-    for ring in lights:
+    for queueLight in lights:
         print("for loop enters")
-        colors = lights[ring]["colors"]
-        newBPM = lights[ring]["rotate"]
+        colors = lights[queueLight]["colors"]
+        isNewBPM = lights[queueLight]["isNewBPM"]
         
         # Check if "rotate" is True for the current ring
-        if newBPM:
+        if isNewBPM:
             dim_brightness = 50  # Adjust the dim brightness as needed
         else:
             dim_brightness = 255  # Full brightness for non-rotating rings
@@ -743,7 +683,7 @@ def colorArrayBuilder(lights):
         for i in range(len(rgb_vals)):
             colorArrAfter[n:n+divs] = interpolate_rgbw(rgb_vals[i], rgb_vals[(i+1) % len(rgb_vals)], divs)
             
-            if newBPM:
+            if isNewBPM:
                 for j in range(n, n + divs):
                     colorArrAfter[j] = tuple(int(val * dim_brightness / 255) for val in colorArrAfter[j])
 
@@ -1081,7 +1021,7 @@ def ringLightController():
             #if(ringLightCheck and playingCheck and not readyStateCheck):
             if(ringLightCheck and playingCheck):
                 print("inside ringLightController if block")
-                ringLightUpdate(lights["ring1"]["rlight"], lights["ring1"]["bpm"])
+                ringLightUpdate(lights["queueLight1"]["ringLight"], lights["queueLight1"]["bpm"])
                 ringLightCheck=False
     except TimeoutError:
         print("Timeout Error in ringLightController")
