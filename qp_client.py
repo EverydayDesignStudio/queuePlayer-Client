@@ -120,15 +120,15 @@ msLastTap=0              # timestamp of the last entered tap
 baseUrl="https://qp-master-server.herokuapp.com/"
 
 # Global volume variables 
-prevVal = 0              # previous value for volume
-currVol = 100            # current value for volume
+prevVolumeVal = 0              # previous value for volume
+currVolumeValumeVal = 100            # current value for volume
 
 # Lights function variables
 colorArrBefore=[(0,0,0,0)]*144    # indicates four queue colors for the 'current' state
 colorArrAfter=[0]*144             # indicates four queue colors for the 'next' state
 
 # Global idling fail-safe variable
-prevID=''
+prevSongID=''
 prevDuration=0
 currSongID=''
 currDuration=None
@@ -253,7 +253,7 @@ def setClientInactive():
 
 # Controls the potentiometer for volume and active/inactive state
 def potController():
-    global sp, bpmCountCheck, prevVal, currVol, playingCheck, currSongID, seekedClient, durationCheck, serverConnCheck, fadeToBlackCheck, device_id, clientStates
+    global sp, bpmCountCheck, prevVolumeVal, currVolumeVal, playingCheck, currSongID, seekedClient, durationCheck, serverConnCheck, fadeToBlackCheck, device_id, clientStates
     
     #Voltage variables
     window_size = 4
@@ -327,8 +327,8 @@ def potController():
             # (2) should be connected to the server
             elif filtered_voltage > 0.1 and not bpmCountCheck and serverConnCheck:
                 # set to a new volume (read the pot)
-                currVol = int (map_to_volume(chan_pot.voltage)) #set current volume to potentiometer value
-                #currVol = int(map_to_volume(filtered_voltage))
+                currVolumeVal = int (map_to_volume(chan_pot.voltage)) #set current volume to potentiometer value
+                #currVolumeVal = int(map_to_volume(filtered_voltage))
                 
                 bpmCountCheck=True
                 
@@ -347,17 +347,17 @@ def potController():
             # If a song is being played and the pot value changes, this indicates the volume change.
             #     *** have this as a seperate thread maybe just to have better code modularity, no point being here anyways
             if bpmCountCheck and playingCheck:
-                currVol = int(map_to_volume(chan_pot.voltage)) 
-                #currVol = int(map_to_volume(filtered_voltage))
-                #print(currVol)
+                currVolumeVal = int(map_to_volume(chan_pot.voltage)) 
+                #currVolumeVal = int(map_to_volume(filtered_voltage))
+                #print(currVolumeVal)
 
                 # only update the volume when the new voltage is moved more than a certain threshold
-                if(abs(prevVal-currVol) >= 5):
+                if(abs(prevVolumeVal-currVolumeVal) >= 5):
                     try:
                         devices = sp.devices()['devices']
                         print("potController Changing Volume")
                         print("Current devices: ", devices)
-                        sp.volume(currVol, device_id)
+                        sp.volume(currVolumeVal, device_id)
                     # Restart spotifyd with credentials if device is not found
                     except spotipy.exceptions.SpotifyException as e:
                         # Check for "device not found" error
@@ -404,7 +404,7 @@ def potController():
                         print(f"An error occurred while changing volume: {str(e)}")
                         time.sleep(2)
                         
-                    prevVal = currVol
+                    prevVolumeVal = currVolumeVal
                     print("changing volume")
 
     # this is only for testing
@@ -517,7 +517,7 @@ def playSong(trkArr, pos):
         print("PlaySong.")
         print("Current devices: ", devices)
         sp.start_playback(device_id=device_id, uris=trkArr, position_ms=pos) 
-        sp.volume(currVol, device_id)
+        sp.volume(currVolumeVal, device_id)
     
     except requests.exceptions.ConnectTimeout:
         print("Connection timeout while playing a song")
@@ -574,10 +574,10 @@ def playSong(trkArr, pos):
 # A wrapper function to save information for cross-checking if the next song coming in is a new song 
 # This prevents the same song from playing repeatedly
 def playSongsToContinue(songDuration, songID, msg): 
-    global playingCheck, prevDuration, prevID, cluster
+    global playingCheck, prevDuration, prevSongID, cluster
     playingCheck=False
     prevDuration=songDuration
-    prevID=songID
+    prevSongID=songID
     continueSong=requests.get(baseUrl+"continuePlaying", json={"clientID":clientID, "msg":msg, "cln":cluster})
 
 # def tapController():
@@ -850,7 +850,7 @@ def readyState(): #Should be color values in masterSever script
 #      If so, start the fade-out and the song ends 
 #      Then, request the server for the next song —> continuePlaying
 def playSongController():
-    global sp, prevDuration, prevID, startTime, totalTime, durationCheck, currSongID, seekCheck, seekedPlayer, seekedClient, currDuration, playback, currVol
+    global sp, prevDuration, prevSongID, startTime, totalTime, durationCheck, currSongID, seekCheck, seekedPlayer, seekedClient, currDuration, playback, currVolumeVal
 
     try:
         while True:
@@ -910,9 +910,9 @@ def playSongController():
                 if(not durationCheck):
                     elapsed_time=(time.time() - startTime) * 1000 
                     seekedClient=int(elapsed_time)
-                    if prevDuration==currDuration or prevID==currSongID:
+                    if prevDuration==currDuration or prevSongID==currSongID:
                             print("Forcing to Continue")
-                            print("prevID", prevID)
+                            print("prevSongID", prevSongID)
                             print("currID",currSongID)
                             playSongsToContinue(currDuration, currSongID, "Immediate")
 
@@ -924,10 +924,10 @@ def playSongController():
                             playback = sp.current_playback()
                             
                             if playback != None and playback['device'] != None:
-                                currVol = playback['device']['volume_percent']
+                                currVolumeVal = playback['device']['volume_percent']
                                 # volume fades out
-                                currVol=currVol*0.95
-                                sp.volume(int(currVol), device_id)  
+                                currVolumeVal=currVolumeVal*0.95
+                                sp.volume(int(currVolumeVal), device_id)  
                                 
                         except spotipy.exceptions.SpotifyException as e:
                             # Check for "device not found" error
