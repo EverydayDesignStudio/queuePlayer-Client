@@ -128,9 +128,9 @@ colorArrBefore=[(0,0,0,0)]*144    # indicates four queue colors for the 'current
 colorArrAfter=[0]*144             # indicates four queue colors for the 'next' state
 
 # Global idling fail-safe variable
-prevSongID=''
+prevtrackID=''
 prevDuration=0
-currSongID=''
+currtrackID=''
 currDuration=None
 
 # Local timer variables for song end check
@@ -253,7 +253,7 @@ def setClientInactive():
 
 # Controls the potentiometer for volume and active/inactive state
 def potController():
-    global sp, bpmCountCheck, prevVolumeVal, currVolumeVal, playingCheck, currSongID, seekedClient, durationCheck, serverConnCheck, fadeToBlackCheck, device_id, clientStates
+    global sp, bpmCountCheck, prevVolumeVal, currVolumeVal, playingCheck, currtrackID, seekedClient, durationCheck, serverConnCheck, fadeToBlackCheck, device_id, clientStates
     
     #Voltage variables
     window_size = 4
@@ -316,7 +316,7 @@ def potController():
                     print("Client is set Inactive")
 
                     # TODO: ???
-                    seekData=requests.post(baseUrl+"updateSeek", json={"seek":seekedClient+seekedPlayer, "song":currSongID,"prompt":"Continue"})                
+                    seekData=requests.post(baseUrl+"updateSeek", json={"seek":seekedClient+seekedPlayer, "song":currtrackID,"prompt":"Continue"})                
                     
                     # turn the queue and ring lights off
                     fadeToBlackCheck = True
@@ -573,11 +573,11 @@ def playSong(trkArr, pos):
         
 # A wrapper function to save information for cross-checking if the next song coming in is a new song 
 # This prevents the same song from playing repeatedly
-def playSongsToContinue(songDuration, songID, msg): 
-    global playingCheck, prevDuration, prevSongID, cluster
+def playSongsToContinue(songDuration, trackID, msg): 
+    global playingCheck, prevDuration, prevtrackID, cluster
     playingCheck=False
     prevDuration=songDuration
-    prevSongID=songID
+    prevtrackID=trackID
     continueSong=requests.get(baseUrl+"continuePlaying", json={"clientID":clientID, "msg":msg, "cln":cluster})
 
 # def tapController():
@@ -850,7 +850,7 @@ def readyState(): #Should be color values in masterSever script
 #      If so, start the fade-out and the song ends 
 #      Then, request the server for the next song —> continuePlaying
 def playSongController():
-    global sp, prevDuration, prevSongID, startTime, totalTime, durationCheck, currSongID, seekCheck, seekedPlayer, seekedClient, currDuration, playback, currVolumeVal
+    global sp, prevDuration, prevtrackID, startTime, totalTime, durationCheck, currtrackID, seekCheck, seekedPlayer, seekedClient, currDuration, playback, currVolumeVal
 
     try:
         while True:
@@ -896,7 +896,7 @@ def playSongController():
                         durationCheck=False
                         print("Duration is set")
                         currDuration=currSongItem['duration_ms']
-                        currSongID=currSongItem['id']
+                        currtrackID=currSongItem['id']
 
                         # if the client is joining the others, calculate the duration in respect to the 'seekedPlayer' timestamp
                         if(seekCheck):
@@ -910,11 +910,11 @@ def playSongController():
                 if(not durationCheck):
                     elapsed_time=(time.time() - startTime) * 1000 
                     seekedClient=int(elapsed_time)
-                    if prevDuration==currDuration or prevSongID==currSongID:
+                    if prevDuration==currDuration or prevtrackID==currtrackID:
                             print("Forcing to Continue")
-                            print("prevSongID", prevSongID)
-                            print("currID",currSongID)
-                            playSongsToContinue(currDuration, currSongID, "Immediate")
+                            print("prevtrackID", prevtrackID)
+                            print("currID",currtrackID)
+                            playSongsToContinue(currDuration, currtrackID, "Immediate")
 
                     # if the total time in the song is within the last 10s of the song,
                     # prepare to move on to the next song
@@ -964,7 +964,7 @@ def playSongController():
                     if totalTime-elapsed_time<=2000:
                         print("Song has ended")
                         seekedPlayer=0
-                        playSongsToContinue(currDuration,currSongID, "Normal")          
+                        playSongsToContinue(currDuration,currtrackID, "Normal")          
             else:
                 rx=1
     except KeyboardInterrupt:
@@ -1258,7 +1258,7 @@ try:
     @sio.event
     def message(data):
         global playingCheck, seekCheck, lightCheck, ringLightCheck, bpmCountCheck, readyStateCheck
-        global sp, spToken, currSongID, seekedPlayer, lights, clientStates, cluster, bpmAdded
+        global sp, spToken, currtrackID, seekedPlayer, lights, clientStates, cluster, bpmAdded
 
         json_data = json.loads(data) # incoming message is transformed into a JSON object
         print("Server Sent the JSON:")
@@ -1290,7 +1290,7 @@ try:
                 if(json_data["msg"]=="Song" and bpmCountCheck):
                     print("playing song")
                     try:
-                        playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+                        playSong(["spotify:track:"+json_data["songdata"]["trackID"]],json_data["songdata"]["timestamp"])
                     except Exception as e:
                         print(f"An error occurred in the message thread: {str(e)}")
 
@@ -1342,7 +1342,7 @@ try:
                     clientStates = json_data["activeUsers"]
                     seekedPlayer=json_data["songdata"]["timestamp"]
                     print("json retrieved")
-                    playSong(["spotify:track:"+json_data["songdata"]["songID"]],json_data["songdata"]["timestamp"])
+                    playSong(["spotify:track:"+json_data["songdata"]["trackID"]],json_data["songdata"]["timestamp"])
                     print("playsong")
 
                     lights=json_data["lights"]
