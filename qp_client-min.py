@@ -578,7 +578,7 @@ def playSongsToContinue(songDuration, trackID, msg):
     playingCheck=False
     prevDuration=songDuration
     prevtrackID=trackID
-    continueSong=requests.get(baseUrl+"trackFinished", json={"clientID":clientID, "msg":msg, "cln":cluster})
+    continueSong=requests.get(baseUrl+"trackFinished", json={"clientID":clientID, "trackID":trackID, "cln":cluster})
 
 # def tapController():
     # while True:
