@@ -578,7 +578,7 @@ def playSongsToContinue(songDuration, trackID, msg):
     playingCheck=False
     prevDuration=songDuration
     prevtrackID=trackID
-    continueSong=requests.get(baseUrl+"continuePlaying", json={"clientID":clientID, "msg":msg, "cln":cluster})
+    continueSong=requests.get(baseUrl+"trackFinished", json={"clientID":clientID, "msg":msg, "cln":cluster})
 
 # def tapController():
     # while True:
@@ -848,7 +848,7 @@ def readyState(): #Should be color values in masterSever script
 # (7)⁠ Check if the song is being repeated by checking the song's ID
 # (8)⁠ Check if the timer is within 10 seconds of the song's end.
 #      If so, start the fade-out and the song ends
-#      Then, request the server for the next song —> continuePlaying
+#      Then, request the server for the next song —> trackFinished
 def playSongController():
     global sp, prevDuration, prevtrackID, startTime, totalTime, durationCheck, currtrackID, seekCheck, seekedPlayer, seekedClient, currDuration, playback, currVolumeVal
 
