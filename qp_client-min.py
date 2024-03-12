@@ -90,21 +90,18 @@ spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-
 # spotify_redirect_uri = 'http://localhost:8000/callback'
 spotify_redirect_uri = 'https://example.com/callback/'
 
-
 # Global check variables
 # These flags indicate:
 bpmTimer = None          # a timer to keep checking for new incoming BPMs for every n seconds (by default, n=2)
 bpmCountCheck=False      # a flag to indicate if the client is ready to read new BPMs
 playingCheck=False       # whether a song is currently being played
 seekCheck=False          # whether this client is trying to join the existing queue, looking for the timestamp/duration
-# newCheck=False
 durationCheck=True       # a flag to indicate if the exact duration needs to be figured out for the current song
 lightCheck = False       # is the light for the queue on?
 lights = None
 ringLightCheck = False   # is the light for the ring on? -- the ring light indicates the last person who tapped
 fadeToBlackCheck = False # lights for the queue and the ring will go out when the power is off
 serverConnCheck = False  # check the server connection
-cluster = None           # the current song's cluster in the DB
 
 clientStates = []        # shows the status of all four clients (e.g., [True, True, False, False])
 
@@ -131,6 +128,7 @@ prevtrackID=''
 prevDuration=0
 currtrackID=''
 currDuration=None
+currCluster = None       # the current song's cluster in the DB
 
 # Local timer variables for song end check
 startTime=None
@@ -314,9 +312,6 @@ def potController():
                     print("Potentiometer is turned OFF.")
                     print("Client is set Inactive")
 
-                    # TODO: ???
-                    seekData=requests.post(baseUrl+"updateSeek", json={"seek":seekedClient+seekedPlayer, "song":currtrackID,"prompt":"Continue"})
-
                     # turn the queue and ring lights off
                     fadeToBlackCheck = True
 
@@ -421,11 +416,8 @@ def potController():
 # ----------------------------------------------------------
 # Section 2: Client->Server + Client->Spotify Controls
 
-def pushBPMToPlay(bpmAdded):
-    songToBePlayed=requests.post(baseUrl+"getTrackToPlay", json={"bpm":bpmAdded, "clientID":clientID})
-
 def pushBPMToQueue(bpmAdded):
-    songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "clientID":clientID, "cln":cluster})
+    songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "clientID":clientID, "cln":currCluster})
 
 # read the tap once, record the timestamp
 # increase or reset the tap count, depending on the interval
@@ -465,8 +457,6 @@ def tapController():
                 # notify the server accordingly,
                 if playingCheck:
                     pushBPMToQueue(bpmAdded)
-                else:
-                    pushBPMToPlay(bpmAdded)
 
                 # reset the variables
                 bpmAdded = 0
@@ -572,50 +562,11 @@ def playSong(trkArr, pos):
 # A wrapper function to save information for cross-checking if the next song coming in is a new song
 # This prevents the same song from playing repeatedly
 def playSongsToContinue(songDuration, trackID, msg):
-    global playingCheck, prevDuration, prevtrackID, cluster
+    global playingCheck, prevDuration, prevtrackID, currCluster
     playingCheck=False
     prevDuration=songDuration
     prevtrackID=trackID
-    continueSong=requests.get(baseUrl+"trackFinished", json={"clientID":clientID, "trackID":trackID, "cln":cluster})
-
-# def tapController():
-    # while True:
-        # try:
-            # if bpmCountCheck:
-                # value = input()
-                # if(value==""):
-                    # TapBPM()
-        # except KeyboardInterrupt:
-            # print("Interrupted by Keyboard, script terminated")
-
-            # sio.disconnect()
-            # time.sleep(2)
-            # sio.connect('https://qp-master-server.herokuapp.com/')
-
-
-    # print("inside inifiniteloop1")
-    # debounce_time = 0.05
-    # current_time = time.time()
-
-    # try:
-        # #if bpmCountCheck:
-        # if (current_time - tapController.last_time) > debounce_time:
-            # if GPIO.input(channel):
-                # TapBPM()
-                # print("Tap")
-            # tapController.last_time = current_time
-    # except KeyboardInterrupt:
-        # print("Interrupted by Keyboard, script terminated")
-
-        # sio.disconnect()
-        # time.sleep(2)
-        # sio.connect('https://qp-master-server.herokuapp.com/')
-
-# tapController.last_time = time.time()
-
-    # if GPIO.input(channel):
-            # TapBPM()
-            # print ("Tap")
+    continueSong=requests.get(baseUrl+"trackFinished", json={"clientID":clientID, "trackID":trackID, "cln":currCluster})
 
 
 def map_to_volume(input_value):
@@ -932,7 +883,6 @@ def moving_average(values):
     return sum(values) / len(values)
 
 
-
 def queueLightController():
     global lights,lightCheck
 
@@ -1171,101 +1121,40 @@ try:
     def stateChange(data):
         global clientStates
 
+        print("## State change message received.")
         json_data = json.loads(data) # incoming message is transformed into a JSON object
+        print("    Previous client states: ", clientStates)
         clientStates = json_data["activeUsers"]
+        print("    Current client states: ", clientStates)
 
 
     @sio.event
     def broadcast(data):
         global playingCheck, seekCheck, lightCheck, ringLightCheck, bpmCountCheck
-        global sp, spToken, currtrackID, seekedPlayer, lights, clientStates, cluster, bpmAdded
+        global sp, spToken, currtrackID, seekedPlayer, lights, clientStates, currCluster, bpmAdded
 
         json_data = json.loads(data) # incoming message is transformed into a JSON object
         print("Server Sent the JSON:")
         print(json.dumps(json_data, indent = 2))
 
-        if(json_data["msg"] == "Initial"):
-            print("Initial!")
-        else:
-            clientStates = json_data["activeUsers"]
+        clientStates = json_data["activeUsers"]
+        print("    Current client states: ", clientStates)
 
-        print("json_data_activeUsers: ", json_data["activeUsers"][clientID-1])
-        print("json_data_msg: ", json_data["msg"])
         if(json_data["activeUsers"][clientID-1]==True):
-            if(json_data["msg"]=="Active" or json_data["msg"]=="Queue" or json_data["msg"]=="Song" or json_data["msg"]=="Backup"):
+            #colorArrayBuilder(json_data["lights"])
+            lights=json_data["lights"]
+            lightCheck=True
+                # TODO: check the condition
+                # ringLightCheck = True
 
-                print("Message is not initial")
-                #colorArrayBuilder(json_data["lights"])
-                lights=json_data["lights"]
-                lightCheck=True
-                # trying to turn the right light ON when 'active' will make the client hangs, waiting for any song to be played
-                if (json_data["msg"]!="Active"):
-                    ringLightCheck = True
-                clientStates = json_data["activeUsers"]
-                cluster = json_data["songdata"]["cluster_number"]
+            currCluster = json_data["songdata"]["cluster_number"]
 
-                print("bpmCountCheck", bpmCountCheck)
-                if(json_data["msg"]=="Song" and bpmCountCheck):
-                    print("playing song")
-                    try:
-                        playSong(["spotify:track:"+json_data["songdata"]["trackID"]],json_data["songdata"]["timestamp"])
-                    except Exception as e:
-                        print(f"An error occurred in the message thread: {str(e)}")
+            print("bpmCountCheck", bpmCountCheck)
 
-            elif(json_data["msg"]=="Seeking"):
-                if playingCheck:
-                    print("Updating seek")
-                    try:
-                        currSeeker=sp.currently_playing()
-
-                    ### I would keep this exception block here because it's making a direct call to the Spotify object,
-                    ### and if there's device not found error, there is no way to recover/restart.
-                    except spotipy.exceptions.SpotifyException as e:
-                        # Check for "device not found" error
-                        if e.http_status == 404 and "Device not found" in str(e):
-                            print("Device not found. [in 'Seeking' callback] Restarting spotifyd...")
-
-                            restart_spotifyd()
-
-                            print("Disconnecting from server...")
-                            sio.disconnect()
-                            time.sleep(2)
-                            print("Reconnecting to server...")
-                            #sio.connect('https://qp-master-server.herokuapp.com/')
-                            socketConnection()
-                        elif e.http_status == 401:
-                            print("Spotify Token Expired in 'Seeking' callback")
-                            refreshSpotifyAuthToken()
-                        else:
-                            raise
-                    except requests.exceptions.ReadTimeout:
-                        print("!! Read Timeout")
-                        print("Disconnecting from server...")
-                        sio.disconnect()
-                        time.sleep(2)
-
-                        refreshSpotifyAuthToken()
-
-                        print("Reconnecting to server...")
-                        #sio.connect('https://qp-master-server.herokuapp.com/')
-                        socketConnection()
-
-                    seekData=requests.post(baseUrl+"updateSeek", json={"seek":currSeeker['progress_ms'], "song":currSeeker['item']['id'],"prompt":"Bro"})
-
-            elif(json_data["msg"]=="SeekSong"):
-                if not playingCheck and bpmCountCheck:
-                    cluster = json_data["songdata"]["cluster_number"]
-                    print("This is the new client")
-                    seekCheck=True
-                    clientStates = json_data["activeUsers"]
-                    seekedPlayer=json_data["songdata"]["timestamp"]
-                    print("json retrieved")
-                    playSong(["spotify:track:"+json_data["songdata"]["trackID"]],json_data["songdata"]["timestamp"])
-                    print("playsong")
-
-                    lights=json_data["lights"]
-                    lightCheck=True
-                    ringLightCheck = True
+            try:
+                playSong(["spotify:track:"+json_data["songdata"]["trackID"]],json_data["songdata"]["timestamp"])
+            except Exception as e:
+                print(f"An error occurred in the message thread: {str(e)}")
 
         print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
 
