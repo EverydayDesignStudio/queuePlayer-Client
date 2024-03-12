@@ -93,16 +93,15 @@ spotify_redirect_uri = 'https://example.com/callback/'
 # Global check variables
 # These flags indicate:
 bpmTimer = None          # a timer to keep checking for new incoming BPMs for every n seconds (by default, n=2)
-bpmCountCheck=False      # a flag to indicate if the client is ready to read new BPMs
-playingCheck=False       # whether a song is currently being played
-seekCheck=False          # whether this client is trying to join the existing queue, looking for the timestamp/duration
+isActive = False         # a flag to indicate if the client is active (ready to read new tap and play music)
+isMusicPlaying = False   # whether a song is currently being played
 durationCheck=True       # a flag to indicate if the exact duration needs to be figured out for the current song
-lightCheck = False       # is the light for the queue on?
-lights = None
-ringLightCheck = False   # is the light for the ring on? -- the ring light indicates the last person who tapped
-fadeToBlackCheck = False # lights for the queue and the ring will go out when the power is off
+isQueueLightON = False   # is the light for the queue on?
+isRingLightON = False    # is the light for the ring on? -- the ring light indicates the last person who tapped
+isFadingToBlack = False  # lights for the queue and the ring will go out when the power is off
 serverConnCheck = False  # check the server connection
 
+lightInfo = None
 clientStates = []        # shows the status of all four clients (e.g., [True, True, False, False])
 
 # BPM function variables
@@ -126,13 +125,14 @@ colorArrAfter=[0]*144             # indicates four queue colors for the 'next' s
 # Global idling fail-safe variable
 prevtrackID=''
 prevDuration=0
-currtrackID=''
-currDuration=None
+currTrackID=''
+currTrackInfo = None
+currDuration = None
 currCluster = None       # the current song's cluster in the DB
 
 # Local timer variables for song end check
-startTime=None
-totalTime=None
+startTrackTime=None
+totalTrackTime=None
 seekedClient=0                    # local elapsed time to seek for the song duration >> looking for the exact time in song
 
 # Global seek variable
@@ -250,7 +250,7 @@ def setClientInactive():
 
 # Controls the potentiometer for volume and active/inactive state
 def potController():
-    global sp, bpmCountCheck, prevVolumeVal, currVolumeVal, playingCheck, currtrackID, seekedClient, durationCheck, serverConnCheck, fadeToBlackCheck, device_id, clientStates
+    global sp, isActive, prevVolumeVal, currVolumeVal, isMusicPlaying, currTrackID, seekedClient, serverConnCheck, isFadingToBlack, device_id, clientStates
 
     #Voltage variables
     window_size = 4
@@ -279,10 +279,10 @@ def potController():
             #  (4) turn the ring light off
             if filtered_voltage < 0.03:
                 # double-check if the song is being played and the BPM is 'tappable'
-                if playingCheck and bpmCountCheck:
+                if isMusicPlaying and isActive:
                     # set the flags off so it's not playing the song or detecting any BPM taps
-                    playingCheck=False
-                    bpmCountCheck=False
+                    isMusicPlaying=False
+                    isActive=False
 
                     # request to pause the song
                     try:
@@ -313,18 +313,18 @@ def potController():
                     print("Client is set Inactive")
 
                     # turn the queue and ring lights off
-                    fadeToBlackCheck = True
+                    isFadingToBlack = True
 
 
             # The client becomes 'active',
-            # (1) should start listening to new bpm (set BPMCountCheck to True)
+            # (1) should start listening to new bpm (set isActive to True)
             # (2) should be connected to the server
-            elif filtered_voltage > 0.1 and not bpmCountCheck and serverConnCheck:
+            elif filtered_voltage > 0.1 and not isActive and serverConnCheck:
                 # set to a new volume (read the pot)
                 currVolumeVal = int (map_to_volume(chan_pot.voltage)) #set current volume to potentiometer value
                 #currVolumeVal = int(map_to_volume(filtered_voltage))
 
-                bpmCountCheck=True
+                isActive=True
 
                 # notify the server that this client is 'active'
                 setClientActive()
@@ -340,7 +340,7 @@ def potController():
 
             # If a song is being played and the pot value changes, this indicates the volume change.
             #     *** have this as a seperate thread maybe just to have better code modularity, no point being here anyways
-            if bpmCountCheck and playingCheck:
+            if isActive and isMusicPlaying:
                 currVolumeVal = int(map_to_volume(chan_pot.voltage))
                 #currVolumeVal = int(map_to_volume(filtered_voltage))
                 #print(currVolumeVal)
@@ -444,7 +444,7 @@ def TapBPM():
 
 # There is a new BPM that just came in, so notify the server to either play a song or add a song to the queue
 def tapController():
-    global playingCheck, bpmAdded, msLastTap, tapCount, tapInterval
+    global isMusicPlaying, bpmAdded, msLastTap, tapCount, tapInterval
 
     while True:
 
@@ -455,7 +455,7 @@ def tapController():
             if msCurr-msLastTap > 1000*tapInterval and bpmAdded > 0:
                 print("   # LastTap Detected. BPM: {}".format(bpmAdded))
                 # notify the server accordingly,
-                if playingCheck:
+                if isMusicPlaying:
                     pushBPMToQueue(bpmAdded)
 
                 # reset the variables
@@ -475,9 +475,9 @@ def tapController():
 # A worker function to detect and update the tap signals
 # This will only run once whenever the tap sensor receives a signal
 def tapSensor(channel):
-    global bpmCountCheck, bpmTimer
+    global isActive, bpmTimer
 
-    if bpmCountCheck:
+    if isActive:
         try:
             if GPIO.input(channel):
                 print ("Tap")
@@ -498,7 +498,7 @@ GPIO.add_event_callback(channel, tapSensor)  # assign function to GPIO PIN, Run 
 #  (1) the client is just turned 'active' and acknowledged by the server
 #  (2) the song is finished and the server broadcasts (is done seeking) the next song to play
 def playSong(trkArr, pos):
-    global sp, playingCheck, durationCheck
+    global sp, isMusicPlaying, durationCheck
 
     try:
         devices = sp.devices()['devices']
@@ -555,15 +555,15 @@ def playSong(trkArr, pos):
             raise
 
     # indicate the song is now playing
-    playingCheck=True
+    isMusicPlaying=True
     # TODO: why is this set to True here?
     durationCheck=True
 
 # A wrapper function to save information for cross-checking if the next song coming in is a new song
 # This prevents the same song from playing repeatedly
 def playSongsToContinue(songDuration, trackID, msg):
-    global playingCheck, prevDuration, prevtrackID, currCluster
-    playingCheck=False
+    global isMusicPlaying, prevDuration, prevtrackID, currCluster
+    isMusicPlaying=False
     prevDuration=songDuration
     prevtrackID=trackID
     continueSong=requests.get(baseUrl+"trackFinished", json={"clientID":clientID, "trackID":trackID, "cln":currCluster})
@@ -608,16 +608,16 @@ def interpolate_rgbw(start_rgbw, end_rgbw, steps):
     return results
 
 
-def colorArrayBuilder(lights):
+def colorArrayBuilder(lightInfo):
     global colorArrBefore, colorArrAfter, pixels
     n = 0
     print("inside colorArrayBuilder")
     print(pixels[0])
 
-    for queueLight in lights:
+    for queueLight in lightInfo:
         print("for loop enters")
-        colors = lights[queueLight]["colors"]
-        isNewBPM = lights[queueLight]["isNewBPM"]
+        colors = lightInfo[queueLight]["colors"]
+        isNewBPM = lightInfo[queueLight]["isNewBPM"]
 
         # Check if "rotate" is True for the current ring
         if isNewBPM:
@@ -673,12 +673,12 @@ def colorArrayBuilder(lights):
 
 
 def ringLightUpdate(ringColor, bpm):
-    global playingCheck, pixels
+    global isMusicPlaying, pixels
 
     interval = 60 / bpm  # Calculate the time interval between beats
     beat_interval = 60 / (bpm * 2.5)
 
-    while playingCheck:
+    while isMusicPlaying:
 
         # ring lights on
         for i in range(144, 160):
@@ -742,12 +742,12 @@ def fadeToBlack():
 #      If so, start the fade-out and the song ends
 #      Then, request the server for the next song —> trackFinished
 def playSongController():
-    global sp, prevDuration, prevtrackID, startTime, totalTime, durationCheck, currtrackID, seekCheck, seekedPlayer, seekedClient, currDuration, playback, currVolumeVal
+    global sp, prevDuration, prevtrackID, startTrackTime, totalTrackTime, durationCheck, currTrackID, seekedPlayer, seekedClient, currDuration, playback, currVolumeVal
 
     try:
         while True:
             # if a song is being played,
-            if playingCheck:
+            if isMusicPlaying:
                 # and if the song duration needs to be figured out,
                 if(durationCheck):
                     print("Duration Checking")
@@ -788,29 +788,24 @@ def playSongController():
                         durationCheck=False
                         print("Duration is set")
                         currDuration=currSongItem['duration_ms']
-                        currtrackID=currSongItem['id']
+                        currTrackID=currSongItem['id']
+                        totalTrackTime=currSongItem['duration_ms']-seekedPlayer
 
-                        # if the client is joining the others, calculate the duration in respect to the 'seekedPlayer' timestamp
-                        if(seekCheck):
-                            print("Duration set by seeking")
-                            totalTime=currSongItem['duration_ms']-seekedPlayer
-                            seekCheck=False
-                        else:
-                            totalTime=currDuration
-                        startTime=time.time()
+                        ## TODO: broadcastTimestamp
+                        startTrackTime=time.time()
 
                 if(not durationCheck):
-                    elapsed_time=(time.time() - startTime) * 1000
+                    elapsed_time=(time.time() - startTrackTime) * 1000
                     seekedClient=int(elapsed_time)
-                    if prevDuration==currDuration or prevtrackID==currtrackID:
+                    if prevDuration==currDuration or prevtrackID==currTrackID:
                             print("Forcing to Continue")
                             print("prevtrackID", prevtrackID)
-                            print("currID",currtrackID)
-                            playSongsToContinue(currDuration, currtrackID, "Immediate")
+                            print("currID",currTrackID)
+                            playSongsToContinue(currDuration, currTrackID, "Immediate")
 
                     # if the total time in the song is within the last 10s of the song,
                     # prepare to move on to the next song
-                    if totalTime-seekedClient<=10000:
+                    if totalTrackTime-seekedClient<=10000:
                         print("Fading out")
                         try:
                             playback = sp.current_playback()
@@ -853,10 +848,10 @@ def playSongController():
                             socketConnection()
 
                     # if the song reaches the end (within the last 2s), end the song
-                    if totalTime-elapsed_time<=2000:
+                    if totalTrackTime-elapsed_time<=2000:
                         print("Song has ended")
                         seekedPlayer=0
-                        playSongsToContinue(currDuration,currtrackID, "Normal")
+                        playSongsToContinue(currDuration,currTrackID, "Normal")
             else:
                 rx=1
     except KeyboardInterrupt:
@@ -884,14 +879,13 @@ def moving_average(values):
 
 
 def queueLightController():
-    global lights,lightCheck
+    global lightInfo,isQueueLightON
 
     try:
         while True:
-            if (lightCheck):
-                colorArrayBuilder(lights)
-                #showNewBPM(lights)
-                lightCheck=False
+            if (isQueueLightON):
+                colorArrayBuilder(lightInfo)
+                isQueueLightON=False
     except TimeoutError:
         print("Timeout Error in queueLightController")
 
@@ -903,14 +897,14 @@ def queueLightController():
         socketConnection()
 
 def ringLightController():
-    global lights, ringLightCheck, playingCheck
+    global lightInfo, isRingLightON, isMusicPlaying
 
     try:
         while True:
-            if(ringLightCheck and playingCheck):
+            if(isRingLightON and isMusicPlaying):
                 print("inside ringLightController if block")
-                ringLightUpdate(lights["queueLight1"]["ringLight"], lights["queueLight1"]["bpm"])
-                ringLightCheck=False
+                ringLightUpdate(lightInfo["queueLight1"]["ringLight"], lightInfo["queueLight1"]["bpm"])
+                isRingLightON=False
     except TimeoutError:
         print("Timeout Error in ringLightController")
 
@@ -1006,14 +1000,14 @@ def indicatorLightController():
         socketConnection()
 
 def fadeoutController():
-    global fadeToBlackCheck
+    global isFadingToBlack
 
     try:
         while True:
-            if(fadeToBlackCheck):
+            if(isFadingToBlack):
                 print("fading to black")
                 fadeToBlack()
-                fadeToBlackCheck = False
+                isFadingToBlack = False
     except TimeoutError:
         print("Timeout Error in fadeoutController")
 
@@ -1110,10 +1104,10 @@ try:
 
     @sio.event
     def disconnect():
-        global serverConnCheck, bpmCountCheck
+        global serverConnCheck, isActive
 
         serverConnCheck = False
-        bpmCountCheck = False
+        isActive = False
         print('Disconnected from server')
 
 
@@ -1130,8 +1124,8 @@ try:
 
     @sio.event
     def broadcast(data):
-        global playingCheck, seekCheck, lightCheck, ringLightCheck, bpmCountCheck
-        global sp, spToken, currtrackID, seekedPlayer, lights, clientStates, currCluster, bpmAdded
+        global isMusicPlaying, isQueueLightON, isRingLightON, isActive
+        global sp, spToken, currTrackID, seekedPlayer, lightInfo, clientStates, currCluster, bpmAdded
 
         json_data = json.loads(data) # incoming message is transformed into a JSON object
         print("Server Sent the JSON:")
@@ -1141,15 +1135,15 @@ try:
         print("    Current client states: ", clientStates)
 
         if(json_data["activeUsers"][clientID-1]==True):
-            #colorArrayBuilder(json_data["lights"])
-            lights=json_data["lights"]
-            lightCheck=True
+            #colorArrayBuilder(json_data["lightInfo"])
+            lightInfo=json_data["lightInfo"]
+            isQueueLightON=True
                 # TODO: check the condition
-                # ringLightCheck = True
+                # isRingLightON = True
 
             currCluster = json_data["songdata"]["cluster_number"]
 
-            print("bpmCountCheck", bpmCountCheck)
+            print("isActive", isActive)
 
             try:
                 playSong(["spotify:track:"+json_data["songdata"]["trackID"]],json_data["songdata"]["timestamp"])
@@ -1167,8 +1161,8 @@ except KeyboardInterrupt:
 
     print("Disconnecting from server...")
     sio.disconnect()
-    # playingCheck=False
-    # bpmCountCheck=False
+    # isMusicPlaying=False
+    # isActive=False
     time.sleep(2)
     print("Reconnecting to server...")
     socketConnection()
