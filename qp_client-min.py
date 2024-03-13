@@ -100,6 +100,7 @@ isQueueLightON = False   # is the light for the queue on?
 isRingLightON = False    # is the light for the ring on? -- the ring light indicates the last person who tapped
 isFadingToBlack = False  # lights for the queue and the ring will go out when the power is off
 serverConnCheck = False  # check the server connection
+isEarlyTransition = False # when receiving the broadcast msg before finishing the song -- need fast transition (fade-out, fade-in)
 
 lightInfo = None
 clientStates = []        # shows the status of all four clients (e.g., [True, True, False, False])
@@ -776,7 +777,6 @@ def playSongController():
                         print("Disconnecting from server...")
                         sio.disconnect()
                         time.sleep(2)
-    global sp, prevDuration, prevtrackID, startTrackTimestamp, totalTrackTime, durationCheck, currTrackID, elapsedTrackTime, playback, currVolumeVal
 
                         refreshSpotifyAuthToken()
 
@@ -1017,6 +1017,7 @@ def fadeoutController():
         #sio.connect('https://qp-master-server.herokuapp.com/')
         socketConnection()
 
+    global sp, prevDuration, prevtrackID, startTrackTimestamp, totalTrackTime, durationCheck, currTrackID, elapsedTrackTime, playback, currVolumeVal, isEarlyTransition
 
 try:
 
@@ -1124,7 +1125,7 @@ try:
     @sio.event
     def broadcast(data):
         global sp, spToken, clientStates
-        global isMusicPlaying, isActive, lightInfo, currTrackInfo
+        global isMusicPlaying, isActive, isEarlyTransition, lightInfo, currTrackInfo
         global currBPM, currTrackID, currCluster
 
         json_data = json.loads(data) # incoming message is transformed into a JSON object
@@ -1143,7 +1144,10 @@ try:
             startTrackTimestamp = json_data["currentTrack"]["broadcastTimestamp"]
             lightInfo=json_data["lightInfo"]
 
-                # TODO: these should not be controlled here
+            ### TODO: write This
+            # isEarlyTransition =
+
+                ### TODO: these should not be controlled here?
                 # isQueueLightON = True
                 # isRingLightON = True
                 # playSong(["spotify:track:"+json_data["currentTrack"]["trackID"]], json_data["currentTrack"]["timestamp"])
