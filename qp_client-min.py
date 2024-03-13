@@ -118,6 +118,8 @@ baseUrl="https://qp-master-server.herokuapp.com/"
 prevVolume = 0            # previous value for volume
 currVolume = 0            # current value for volume
 refVolume = 0
+fadingVolumeFlag = False
+
 
 # Lights function variables
 colorArrBefore=[(0,0,0,0)]*144    # indicates four queue colors for the 'current' state
@@ -246,7 +248,7 @@ def setClientInactive():
 
 # Controls the potentiometer for volume and active/inactive state
 def potController():
-    global sp, isActive, prevVolume, currVolume, isMusicPlaying, currTrackID, elapsedTrackTime, serverConnCheck, isFadingToBlack, device_id, clientStates
+    global sp, isActive, prevVolume, currVolume, isMusicPlaying, currTrackID, elapsedTrackTime, serverConnCheck, isFadingToBlack, device_id, clientStates, fadingVolumeFlag
 
     #Voltage variables
     window_size = 5
@@ -293,10 +295,6 @@ def potController():
                     print("Potentiometer is turned OFF.")
                     print("Client is set Inactive")
 
-                    fadeOutVolume()
-                    prevVolume = 0
-                    currVolume = 0
-
                     # turn the queue and ring lights off
                     isFadingToBlack = True
 
@@ -322,6 +320,8 @@ def potController():
             if isActive:
                 # set to a new volume (read the pot) -- prevent sudden volume change
                 currVolume = int(map_to_volume(filtered_voltage))
+                # pause reading the volume when the volume is fading in or out
+                if (not fadingVolumeFlag):
 
                 # only update the volume when the new voltage is moved more than a certain threshold
                 if(abs(prevVolume-currVolume) >= 5):
@@ -569,8 +569,8 @@ def running_average(values):
     return sum(values) / len(values)
 
 
-def fadeOutVolume():
-    global sp, currVolume, refVolume, device_id
+def fadeOutVolume(halt = False):
+    global sp, currVolume, refVolume, device_id, fadingVolumeFlag
 
     refVolume = currVolume
 
@@ -682,9 +682,14 @@ def fadeOutVolume():
             print(f"An error occurred while [fading out volume 2]: {str(e)}")
             time.sleep(2)
 
+    # halt for instant fade-out, fade-in for early transition
+    if not halt:
+        # remove the flag
+        fadingVolumeFlag = False
+
 
 def fadeInVolume():
-    global sp, currVolume, refVolume, device_id
+    global sp, currVolume, refVolume, device_id, fadingVolumeFlag
 
     refVolume = 0  # Start from volume 0
 
@@ -797,6 +802,10 @@ def fadeInVolume():
         except Exception as e:
             print(f"An error occurred while [fading in volume 2]: {str(e)}")
             time.sleep(2)
+
+    # remove the flag
+    fadingVolumeFlag = False
+
 
 # ----------------------------------------------------------
 # Section 4: NeoPixel & Ring Light Control
@@ -1187,10 +1196,20 @@ def playSongController():
             if not isActive:
                 if (isMusicPlaying):
                     isMusicPlaying=False
+
+                    fadingVolumeFlag = True
+                    fadeOutVolume()
                     prevVolume = 0
                     currVolume = 0
-                    sp.volume(currVolume, device_id)
+
                     sp.pause_playback(device_id=device_id)
+
+                # even if the music is not playing, clean up the variables
+                else:
+                    fadingVolumeFlag = False
+                    prevVolume = 0
+                    currVolume = 0
+
             # QP is ON
             else:
 
