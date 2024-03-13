@@ -116,7 +116,7 @@ baseUrl="https://qp-master-server.herokuapp.com/"
 
 # Global volume variables
 prevVolumeVal = 0              # previous value for volume
-currVolumeValumeVal = 100            # current value for volume
+currVolumeValumeVal = 0            # current value for volume
 
 # Lights function variables
 colorArrBefore=[(0,0,0,0)]*144    # indicates four queue colors for the 'current' state
@@ -248,7 +248,7 @@ def potController():
     global sp, isActive, prevVolumeVal, currVolumeVal, isMusicPlaying, currTrackID, elapsedTrackTime, serverConnCheck, isFadingToBlack, device_id, clientStates
 
     #Voltage variables
-    window_size = 4
+    window_size = 5
     voltage_readings = [0] * window_size  # Initialize with zeros
 
     try:
@@ -257,15 +257,19 @@ def potController():
             # Read potentiometer voltage
             current_voltage = chan_pot.voltage
 
-            # Update moving average readings
+            # Update running average readings
             voltage_readings.append(current_voltage)
-            if len(voltage_readings) > window_size:
+
+            # when QP is first turned on, wait a few more readings
+            if (len(voltage_readings) < window_size):
+                continue;
+            elif (len(voltage_readings) > window_size)
                 voltage_readings.pop(0)  # Remove the oldest reading
 
-            # Calculate the moving average
-            filtered_voltage = moving_average(voltage_readings)
+            # Calculate a running average
+            filtered_voltage = running_average(voltage_readings)
             filtered_voltage = current_voltage
-            #print(filtered_voltage)
+            # print(filtered_voltage)
 
             # The voltage is lower than the 'active' threshold. The client is now 'inactive'.
             #  (1) pause the playback for this client
@@ -274,38 +278,14 @@ def potController():
             #  (4) turn the ring light off
             if filtered_voltage < 0.03:
                 # double-check if the song is being played and the BPM is 'tappable'
-                if isMusicPlaying and isActive:
+                if isActive:
                     # set the flags off so it's not playing the song or detecting any BPM taps
-                    isMusicPlaying=False
                     isActive=False
 
                     # reset tap variables
                     bpmAdded = 0
                     msLastTap = 0
                     tapCount = 0
-
-                    # request to pause the song
-                    try:
-                        sp.pause_playback(device_id=device_id)
-                    # will give the error for spotify command failed have to incorporate similar mechanism as volume
-                    except spotipy.exceptions.SpotifyException as e:
-                        # Check for "device not found" error
-                        if e.http_status == 404 and "Device not found" in str(e):
-                            print("Device not found. [in PotController when turning the pot off] Restarting spotifyd...")
-
-                            restart_spotifyd()
-
-                            print("Disconnecting from server...")
-                            sio.disconnect()
-                            time.sleep(2)
-                            print("Reconnecting to server...")
-                            #sio.connect('https://qp-master-server.herokuapp.com/')
-                            socketConnection()
-                        elif e.http_status == 401:
-                            print("Spotify Token Expired in potController when turning the pot off")
-                            refreshSpotifyAuthToken()
-                        else:
-                            raise
 
                     # notify the server that this client is off
                     setClientInactive()
@@ -319,15 +299,8 @@ def potController():
             # (1) should start listening to new bpm (set isActive to True)
             # (2) should be connected to the server
             elif filtered_voltage > 0.1 and not isActive and serverConnCheck:
-                # set to a new volume (read the pot)
-                currVolumeVal = int(map_to_volume(chan_pot.voltage))
-
-                ### TODO: may need this to prevent sudden volume change
-                # currVolumeVal = int(map_to_volume(filtered_voltage))
-
-                isActive = True
-
                 # notify the server that this client is 'active'
+                isActive = True
                 setClientActive()
                 print("Potentiometer is turned ON.")
                 print("Client is set Active")
@@ -335,25 +308,26 @@ def potController():
             # This is when a client is recovered from a disconnection or device not found exception
             elif filtered_voltage > 0.1 and serverConnCheck and len(clientStates) == 4 and not clientStates[clientID-1]:
                 # notify the server that this client is 'active'
+                setClientActive()
                 print("Current client states: ", clientStates)
                 print("Client connection is recovered. Request the server to set this client Active")
-                setClientActive()
 
-            ### TODO: create a dedicated thread for managing the volume
             # If a song is being played and the pot value changes, this indicates the volume change.
             #     *** have this as a seperate thread maybe just to have better code modularity, no point being here anyways
-            if isActive and isMusicPlaying:
-                currVolumeVal = int(map_to_volume(chan_pot.voltage))
-                #currVolumeVal = int(map_to_volume(filtered_voltage))
-                #print(currVolumeVal)
+            if isActive:
+                # set to a new volume (read the pot) -- prevent sudden volume change
+                currVolumeVal = int(map_to_volume(filtered_voltage))
 
                 # only update the volume when the new voltage is moved more than a certain threshold
                 if(abs(prevVolumeVal-currVolumeVal) >= 5):
+                    prevVolumeVal = currVolumeVal
+
                     try:
                         devices = sp.devices()['devices']
                         print("potController Changing Volume")
                         print("Current devices: ", devices)
                         sp.volume(currVolumeVal, device_id)
+
                     # Restart spotifyd with credentials if device is not found
                     except spotipy.exceptions.SpotifyException as e:
                         # Check for "device not found" error
@@ -400,8 +374,6 @@ def potController():
                         print(f"An error occurred while changing volume: {str(e)}")
                         time.sleep(2)
 
-                    prevVolumeVal = currVolumeVal
-                    print("changing volume")
 
     # this is only for testing
     except KeyboardInterrupt:
@@ -587,7 +559,8 @@ def map_to_volume(input_value):
 # ----------------------------------------------------------
 # Section 3: Volume Control
 
-def moving_average(values):
+# calculate a running average
+def running_average(values):
     return sum(values) / len(values)
 
 ### TODO: add volumeController and volumeThread
@@ -748,56 +721,6 @@ def fadeToBlack():
 # (8)⁠ Check if the timer is within 10 seconds of the song's end.
 #      If so, start the fade-out and the song ends
 #      Then, request the server for the next song —> trackFinished
-def playSongController():
-    try:
-        while True:
-            # if a song is being played,
-            if isMusicPlaying:
-                # and if the song duration needs to be figured out,
-                if(durationCheck):
-                    print("Duration Checking")
-                    try:
-                        # request the current song's info and find the exact duration
-                        currSongItem = sp.currently_playing()['item']
-                    except spotipy.exceptions.SpotifyException as e:
-                        # Check for "device not found" error
-                        if e.http_status == 404 and "Device not found" in str(e):
-                            print("Device not found. [in PlaySongController when loading the currently playing song] Restarting spotifyd...")
-
-                            restart_spotifyd()
-
-                            print("Disconnecting from server...")
-                            sio.disconnect()
-                            time.sleep(2)
-                            print("Reconnecting to server...")
-                            #sio.connect('https://qp-master-server.herokuapp.com/')
-                            socketConnection()
-                        elif e.http_status == 401:
-                            print("Spotify Token Expired in PlaySongController when loading the current song")
-                            refreshSpotifyAuthToken()
-                        else:
-                            raise
-                    except requests.exceptions.ReadTimeout:
-                        print("Read timeout while checking for currently playing song")
-                        print("Disconnecting from server...")
-                        sio.disconnect()
-                        time.sleep(2)
-
-                        refreshSpotifyAuthToken()
-
-                        print("Reconnecting to server...")
-                        #sio.connect('https://qp-master-server.herokuapp.com/')
-                        socketConnection()
-
-                    if(currSongItem):
-                        durationCheck=False
-                        print("Duration is set")
-                        currDuration=currSongItem['duration_ms']
-                        currTrackID=currSongItem['id']
-                        totalTrackTime=currSongItem['duration_ms']-seekedPlayer
-
-                        ## TODO: broadcastTimestamp
-                        startTrackTime=time.time()
 
                 if(not durationCheck):
                     elapsed_time=(time.time() - startTrackTime) * 1000
@@ -1022,6 +945,22 @@ def fadeoutController():
 # ----------------------------------------------------------
 # Section 5: Music Controls
     global sp, prevDuration, prevtrackID, startTrackTimestamp, totalTrackTime, durationCheck, currTrackID, elapsedTrackTime, playback, currVolumeVal, isEarlyTransition
+def playSongController():
+    global sp, prevDuration, prevtrackID, startTrackTimestamp, totalTrackTime, currTrackID, elapsedTrackTime, playback, prevVolumeVal, currVolumeVal, isEarlyTransition
+
+    while True:
+        try:
+            # QP is OFF
+            if not isActive:
+                if (isMusicPlaying):
+                    isMusicPlaying=False
+                    prevVolumeVal = 0
+                    currVolumeVal = 0
+                    sp.volume(currVolumeVal, device_id)
+                    sp.pause_playback(device_id=device_id)
+            # QP is ON
+            else:
+
 
 # ----------------------------------------------------------
 # Section 6: QueuePlayer Client Main
