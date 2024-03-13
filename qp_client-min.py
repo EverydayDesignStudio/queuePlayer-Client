@@ -1126,21 +1126,71 @@ try:
         clientStates = json_data["activeUsers"]
         print("    Current client states: ", clientStates)
 
-        if(json_data["activeUsers"][clientID-1]==True):
-            #colorArrayBuilder(json_data["lightInfo"])
+        # track changes
+        if (json_data["currentTrack"]["trackID"] != currTrackID):
+            print("## New TrackID Received!")
+            currTrackID = json_data["currentTrack"]["trackID"]
+            currCluster = json_data["currentTrack"]["cluster_number"]
+            startTrackTimestamp = json_data["currentTrack"]["broadcastTimestamp"]
             lightInfo=json_data["lightInfo"]
-            isQueueLightON=True
-                # TODO: check the condition
+
+                # TODO: these should not be controlled here
+                # isQueueLightON = True
                 # isRingLightON = True
-
-            currCluster = json_data["songdata"]["cluster_number"]
-
-            print("isActive", isActive)
+                # playSong(["spotify:track:"+json_data["currentTrack"]["trackID"]], json_data["currentTrack"]["timestamp"])
 
             try:
-                playSong(["spotify:track:"+json_data["songdata"]["trackID"]],json_data["songdata"]["timestamp"])
-            except Exception as e:
-                print(f"An error occurred in the message thread: {str(e)}")
+                currTrackInfo = sp.track(currTrackID)
+                totalTrackTime = currTrackInfo['duration_ms']
+
+            except requests.exceptions.ConnectTimeout:
+                print("Connection timeout while requesting track info")
+                print("Disconnecting from server...")
+                sio.disconnect()
+                time.sleep(2)
+                print("Reconnecting to server...")
+                #sio.connect('https://qp-master-server.herokuapp.com/')
+                socketConnection()
+
+            except requests.exceptions.ReadTimeout:
+                print("Read timeout while requesting track info")
+
+                print("Disconnecting from server...")
+                sio.disconnect()
+                time.sleep(2)
+
+                refreshSpotifyAuthToken()
+
+                print("Reconnecting to server...")
+                #sio.connect('https://qp-master-server.herokuapp.com/')
+                socketConnection()
+
+            #Last Resort is to restart script
+            # except requests.exceptions.ReadTimeout:
+                # print("Minor Setback. Restarting the script...")
+                # restart_script()
+
+            # Restart spotifyd with credentials if device is not found
+            except spotipy.exceptions.SpotifyException as e:
+                # Check for "device not found" error
+                if e.http_status == 404 and "Device not found" in str(e):
+                    print("Device not found. [broadcast] Restarting spotifyd...")
+
+                    restart_spotifyd()
+
+                    print("Disconnecting from server...")
+                    sio.disconnect()
+                    time.sleep(2)
+                    print("Reconnecting to server...")
+                    #sio.connect('https://qp-master-server.herokuapp.com/')
+                    socketConnection()
+                elif e.http_status == 401:
+                    print("Spotify Token Expired in broadcast")
+                    refreshSpotifyAuthToken()
+                else:
+                    raise
+        else:
+            print("## Same TrackID. I'm already on this track.")
 
         print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
 
