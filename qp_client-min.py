@@ -115,8 +115,11 @@ msLastTap=0              # timestamp of the last entered tap
 baseUrl="https://qp-master-server.herokuapp.com/"
 
 # Global volume variables
-prevVolumeVal = 0              # previous value for volume
-currVolumeValumeVal = 0            # current value for volume
+prevVolume = 0            # previous value for volume
+currVolume = 0            # current value for volume
+refVolume = 0
+fadeOutVolumeFlag = false
+fadeInVolumeFlag = false
 
 # Lights function variables
 colorArrBefore=[(0,0,0,0)]*144    # indicates four queue colors for the 'current' state
@@ -245,7 +248,7 @@ def setClientInactive():
 
 # Controls the potentiometer for volume and active/inactive state
 def potController():
-    global sp, isActive, prevVolumeVal, currVolumeVal, isMusicPlaying, currTrackID, elapsedTrackTime, serverConnCheck, isFadingToBlack, device_id, clientStates
+    global sp, isActive, prevVolume, currVolume, isMusicPlaying, currTrackID, elapsedTrackTime, serverConnCheck, isFadingToBlack, device_id, clientStates
 
     #Voltage variables
     window_size = 5
@@ -316,17 +319,17 @@ def potController():
             #     *** have this as a seperate thread maybe just to have better code modularity, no point being here anyways
             if isActive:
                 # set to a new volume (read the pot) -- prevent sudden volume change
-                currVolumeVal = int(map_to_volume(filtered_voltage))
+                currVolume = int(map_to_volume(filtered_voltage))
 
                 # only update the volume when the new voltage is moved more than a certain threshold
-                if(abs(prevVolumeVal-currVolumeVal) >= 5):
-                    prevVolumeVal = currVolumeVal
+                if(abs(prevVolume-currVolume) >= 5):
+                    prevVolume = currVolume
 
                     try:
                         devices = sp.devices()['devices']
                         print("potController Changing Volume")
                         print("Current devices: ", devices)
-                        sp.volume(currVolumeVal, device_id)
+                        sp.volume(currVolume, device_id)
 
                     # Restart spotifyd with credentials if device is not found
                     except spotipy.exceptions.SpotifyException as e:
@@ -563,8 +566,18 @@ def map_to_volume(input_value):
 def running_average(values):
     return sum(values) / len(values)
 
-### TODO: add volumeController and volumeThread
+## OLO Reference
+def fadeOutVolume():
+    global sp, currVolume, fadeOutVolumeFlag, refVolume, device_id
+    refVolume = currVolume
+    while (refVolume > 0):
+        refVolume = int(refVolume/1.5)
+        sp.volume(refVolume, device_id = device_id)
+    fadeOutVolumeFlag = False
 
+
+def fadeInVolume():
+    global sp, currVolume, fadeInVolumeFlag, refVolume, device_id
 
 # ----------------------------------------------------------
 # Section 4: NeoPixel & Ring Light Control
@@ -946,7 +959,8 @@ def fadeoutController():
 # Section 5: Music Controls
     global sp, prevDuration, prevtrackID, startTrackTimestamp, totalTrackTime, durationCheck, currTrackID, elapsedTrackTime, playback, currVolumeVal, isEarlyTransition
 def playSongController():
-    global sp, prevDuration, prevtrackID, startTrackTimestamp, totalTrackTime, currTrackID, elapsedTrackTime, playback, prevVolumeVal, currVolumeVal, isEarlyTransition
+    global sp, device_id
+    global prevDuration, prevtrackID, startTrackTimestamp, totalTrackTime, currTrackID, elapsedTrackTime, playback, prevVolume, currVolume, isEarlyTransition
 
     while True:
         try:
@@ -954,9 +968,9 @@ def playSongController():
             if not isActive:
                 if (isMusicPlaying):
                     isMusicPlaying=False
-                    prevVolumeVal = 0
-                    currVolumeVal = 0
-                    sp.volume(currVolumeVal, device_id)
+                    prevVolume = 0
+                    currVolume = 0
+                    sp.volume(currVolume, device_id)
                     sp.pause_playback(device_id=device_id)
             # QP is ON
             else:
