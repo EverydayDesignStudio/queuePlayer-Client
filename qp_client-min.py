@@ -95,9 +95,8 @@ spotify_redirect_uri = 'https://example.com/callback/'
 bpmTimer = None          # a timer to keep checking for new incoming BPMs for every n seconds (by default, n=2)
 isActive = False         # a flag to indicate if the client is active (ready to read new tap and play music)
 isMusicPlaying = False   # whether a song is currently being played
-durationCheck=True       # a flag to indicate if the exact duration needs to be figured out for the current song
-isQueueLightON = False   # is the light for the queue on?
-isRingLightON = False    # is the light for the ring on? -- the ring light indicates the last person who tapped
+isQueueLightNew = False   # is the light for the queue on?
+isRingLightNew = False    # is the light for the ring on? -- the ring light indicates the last person who tapped
 isFadingToBlack = False  # lights for the queue and the ring will go out when the power is off
 serverConnCheck = False  # check the server connection
 isEarlyTransition = False # when receiving the broadcast msg before finishing the song -- need fast transition (fade-out, fade-in)
@@ -879,13 +878,13 @@ def playSongController():
         socketConnection()
 
 def queueLightController():
-    global lightInfo,isQueueLightON
+    global lightInfo,isQueueLightNew
 
     try:
         while True:
-            if (isQueueLightON):
+            if (isQueueLightNew):
                 colorArrayBuilder(lightInfo)
-                isQueueLightON=False
+                isQueueLightNew=False
     except TimeoutError:
         print("Timeout Error in queueLightController")
 
@@ -897,14 +896,16 @@ def queueLightController():
         socketConnection()
 
 def ringLightController():
-    global lightInfo, isRingLightON, isMusicPlaying
+    global lightInfo, isRingLightNew, isMusicPlaying
 
     try:
         while True:
-            if(isRingLightON and isMusicPlaying):
+            if(isRingLightNew and isMusicPlaying):
                 print("inside ringLightController if block")
                 ringLightUpdate(lightInfo["queueLight1"]["ringLight"], lightInfo["queueLight1"]["bpm"])
-                isRingLightON=False
+
+                ### TODO: why false?
+                isRingLightNew=False
     except TimeoutError:
         print("Timeout Error in ringLightController")
 
@@ -1151,11 +1152,18 @@ try:
             lightInfo=json_data["lightInfo"]
 
             ### TODO: write This
+            #  ** things to consider:
+            #   1. 5s delay from the server
+            #   2. broadcastTimestamp
+            #   3. totalTrackTime (song duration)
+            #   4. elapsedTrackTime (timeNow - broadcastTime)
+            #   5. light and volume fadeout starts at 10s before the song ends
+            #   6. client notifies the server at 2s before the song ends
             # isEarlyTransition =
 
                 ### TODO: these should not be controlled here?
-                # isQueueLightON = True
-                # isRingLightON = True
+                # isQueueLightNew = True
+                # isRingLightNew = True
                 # playSong(["spotify:track:"+json_data["currentTrack"]["trackID"]], json_data["currentTrack"]["timestamp"])
 
             try:
