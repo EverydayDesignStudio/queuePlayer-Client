@@ -318,66 +318,66 @@ def potController():
             # If a song is being played and the pot value changes, this indicates the volume change.
             #     *** have this as a seperate thread maybe just to have better code modularity, no point being here anyways
             if isActive:
-                # set to a new volume (read the pot) -- prevent sudden volume change
-                currVolume = int(map_to_volume(filtered_voltage))
                 # pause reading the volume when the volume is fading in or out
                 if (not fadingVolumeFlag):
+                    # set to a new volume (read the pot) -- prevent sudden volume change
+                    currVolume = int(map_to_volume(filtered_voltage))
 
-                # only update the volume when the new voltage is moved more than a certain threshold
-                if(abs(prevVolume-currVolume) >= 5):
-                    prevVolume = currVolume
+                    # only update the volume when the new voltage is moved more than a certain threshold
+                    if(abs(prevVolume-currVolume) >= 5):
+                        prevVolume = currVolume
 
-                    try:
-                        devices = sp.devices()['devices']
-                        print("potController Changing Volume")
-                        print("Current devices: ", devices)
-                        sp.volume(currVolume, device_id)
+                        try:
+                            devices = sp.devices()['devices']
+                            print("potController Changing Volume")
+                            print("Current devices: ", devices)
+                            sp.volume(currVolume, device_id)
 
-                    # Restart spotifyd with credentials if device is not found
-                    except spotipy.exceptions.SpotifyException as e:
-                        # Check for "device not found" error
-                        if e.http_status == 404 and "Device not found" in str(e):
-                            print("Device not found. [in PotController when changing volume] Restarting spotifyd...")
+                        # Restart spotifyd with credentials if device is not found
+                        except spotipy.exceptions.SpotifyException as e:
+                            # Check for "device not found" error
+                            if e.http_status == 404 and "Device not found" in str(e):
+                                print("Device not found. [in PotController when changing volume] Restarting spotifyd...")
 
-                            restart_spotifyd()
+                                restart_spotifyd()
 
+                                print("Disconnecting from server...")
+                                sio.disconnect()
+                                time.sleep(2)
+                                print("Reconnecting to server...")
+                                #sio.connect('https://qp-master-server.herokuapp.com/')
+                                socketConnection()
+                            elif e.http_status == 401:
+                                print("Spotify Token Expired in potController when changing volume")
+                                refreshSpotifyAuthToken()
+                            else:
+                                raise
+
+                        except requests.exceptions.ConnectTimeout:
+                            print("Connection timeout while changing volume")
                             print("Disconnecting from server...")
                             sio.disconnect()
                             time.sleep(2)
                             print("Reconnecting to server...")
                             #sio.connect('https://qp-master-server.herokuapp.com/')
                             socketConnection()
-                        elif e.http_status == 401:
-                            print("Spotify Token Expired in potController when changing volume")
+
+                        except requests.exceptions.ReadTimeout:
+                            print("Read timeout while changing volume")
+
+                            print("Disconnecting from server...")
+                            sio.disconnect()
+                            time.sleep(2)
+
                             refreshSpotifyAuthToken()
-                        else:
-                            raise
 
-                    except requests.exceptions.ConnectTimeout:
-                        print("Connection timeout while changing volume")
-                        print("Disconnecting from server...")
-                        sio.disconnect()
-                        time.sleep(2)
-                        print("Reconnecting to server...")
-                        #sio.connect('https://qp-master-server.herokuapp.com/')
-                        socketConnection()
+                            print("Reconnecting to server...")
+                            #sio.connect('https://qp-master-server.herokuapp.com/')
+                            socketConnection()
 
-                    except requests.exceptions.ReadTimeout:
-                        print("Read timeout while changing volume")
-
-                        print("Disconnecting from server...")
-                        sio.disconnect()
-                        time.sleep(2)
-
-                        refreshSpotifyAuthToken()
-
-                        print("Reconnecting to server...")
-                        #sio.connect('https://qp-master-server.herokuapp.com/')
-                        socketConnection()
-
-                    except Exception as e:
-                        print(f"An error occurred while changing volume: {str(e)}")
-                        time.sleep(2)
+                        except Exception as e:
+                            print(f"An error occurred while changing volume: {str(e)}")
+                            time.sleep(2)
 
 
     # this is only for testing
@@ -469,82 +469,6 @@ def tapSensor(channel):
 
 GPIO.add_event_detect(channel, GPIO.BOTH, bouncetime=1)  # let us know when the pin goes HIGH or LOW
 GPIO.add_event_callback(channel, tapSensor)  # assign function to GPIO PIN, Run function on change
-
-
-# play a song with a certain timestamp
-# only called by when the server sends the message when,
-#  (1) the client is just turned 'active' and acknowledged by the server
-#  (2) the song is finished and the server broadcasts (is done seeking) the next song to play
-def playSong(trkArr, pos):
-    global sp, isMusicPlaying, durationCheck
-
-    try:
-        devices = sp.devices()['devices']
-        print("PlaySong.")
-        print("Current devices: ", devices)
-        sp.start_playback(device_id=device_id, uris=trkArr, position_ms=pos)
-        sp.volume(currVolumeVal, device_id)
-
-    except requests.exceptions.ConnectTimeout:
-        print("Connection timeout while playing a song")
-        print("Disconnecting from server...")
-        sio.disconnect()
-        time.sleep(2)
-        print("Reconnecting to server...")
-        #sio.connect('https://qp-master-server.herokuapp.com/')
-        socketConnection()
-
-    except requests.exceptions.ReadTimeout:
-        print("Read timeout while playing a song")
-
-        print("Disconnecting from server...")
-        sio.disconnect()
-        time.sleep(2)
-
-        refreshSpotifyAuthToken()
-
-        print("Reconnecting to server...")
-        #sio.connect('https://qp-master-server.herokuapp.com/')
-        socketConnection()
-
-    #Last Resort is to restart script
-    # except requests.exceptions.ReadTimeout:
-        # print("Minor Setback. Restarting the script...")
-        # restart_script()
-
-    # Restart spotifyd with credentials if device is not found
-    except spotipy.exceptions.SpotifyException as e:
-        # Check for "device not found" error
-        if e.http_status == 404 and "Device not found" in str(e):
-            print("Device not found. [in PlaySong] Restarting spotifyd...")
-
-            restart_spotifyd()
-
-            print("Disconnecting from server...")
-            sio.disconnect()
-            time.sleep(2)
-            print("Reconnecting to server...")
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
-        elif e.http_status == 401:
-            print("Spotify Token Expired in playsong method")
-            refreshSpotifyAuthToken()
-        else:
-            raise
-
-    # indicate the song is now playing
-    isMusicPlaying=True
-    # TODO: why is this set to True here?
-    durationCheck=True
-
-# A wrapper function to save information for cross-checking if the next song coming in is a new song
-# This prevents the same song from playing repeatedly
-def playSongsToContinue(songDuration, trackID, msg):
-    global isMusicPlaying, prevDuration, prevtrackID, currCluster
-    isMusicPlaying=False
-    prevDuration=songDuration
-    prevtrackID=trackID
-    continueSong=requests.get(baseUrl+"trackFinished", json={"clientID":clientID, "trackID":trackID, "cln":currCluster})
 
 
 def map_to_volume(input_value):
@@ -949,98 +873,6 @@ def fadeToBlack():
     pixels[0] = [0,0,0,0]
 
 
-# Start a local manual timer for the duration of the song to identify the end of the song
-# This will avoid rate limit issues from SpotifyAPI
-# (1) Check if the client is playing any song, if not, continue checking
-# (2)⁠ Check whether a duration should be set for the currently playing song (True by default)
-# (3)⁠ ⁠⁠When checking the duration, fetch the duration of the song from the SpotifyAPI,
-#      set the durationCheck to false as for the song's duration is now figured out
-# (4)⁠ Update related variables
-# (5)⁠ If the client is joining others, seekCheck is True -- modify the local timer with a simple calculation
-# (6)⁠ ⁠⁠Since now the duration has been set and the timer has started with durationCheck as False, continue
-# (7)⁠ Check if the song is being repeated by checking the song's ID
-# (8)⁠ Check if the timer is within 10 seconds of the song's end.
-#      If so, start the fade-out and the song ends
-#      Then, request the server for the next song —> trackFinished
-
-                if(not durationCheck):
-                    elapsed_time=(time.time() - startTrackTime) * 1000
-                    seekedClient=int(elapsed_time)
-                    if prevDuration==currDuration or prevtrackID==currTrackID:
-                            print("Forcing to Continue")
-                            print("prevtrackID", prevtrackID)
-                            print("currID",currTrackID)
-                            playSongsToContinue(currDuration, currTrackID, "Immediate")
-
-                    # if the total time in the song is within the last 10s of the song,
-                    # prepare to move on to the next song
-                    if totalTrackTime-seekedClient<=10000:
-                        print("Fading out")
-                        try:
-                            playback = sp.current_playback()
-
-                            if playback != None and playback['device'] != None:
-                                currVolumeVal = playback['device']['volume_percent']
-                                # volume fades out
-                                currVolumeVal=currVolumeVal*0.95
-                                sp.volume(int(currVolumeVal), device_id)
-
-                        except spotipy.exceptions.SpotifyException as e:
-                            # Check for "device not found" error
-                            if e.http_status == 404 and "Device not found" in str(e):
-                                print("Device not found. [in PlaySongController when getting the current playback] Restarting spotifyd...")
-
-                                restart_spotifyd()
-
-                                print("Disconnecting from server...")
-                                sio.disconnect()
-                                time.sleep(2)
-                                print("Reconnecting to server...")
-                                #sio.connect('https://qp-master-server.herokuapp.com/')
-                                socketConnection()
-                            elif e.http_status == 401:
-                                print("Spotify Token Expired in PlaySongController when getting the current playback")
-                                refreshSpotifyAuthToken()
-                            else:
-                                raise
-
-                        except requests.exceptions.ReadTimeout:
-                            print("Read timeout while checking for current playback state")
-                            print("Disconnecting from server...")
-                            sio.disconnect()
-                            time.sleep(2)
-
-                            refreshSpotifyAuthToken()
-
-                            print("Reconnecting to server...")
-                            #sio.connect('https://qp-master-server.herokuapp.com/')
-                            socketConnection()
-
-                    # if the song reaches the end (within the last 2s), end the song
-                    if totalTrackTime-elapsed_time<=2000:
-                        print("Song has ended")
-                        playSongsToContinue(currDuration,currTrackID, "Normal")
-            else:
-                rx=1
-    except KeyboardInterrupt:
-        print("Interrupted by Keyboard, script terminated")
-
-        sio.disconnect()
-
-        time.sleep(2)
-        #sio.connect('https://qp-master-server.herokuapp.com/')
-        socketConnection()
-
-    except TimeoutError:
-        print("Timeout Error in playSongController")
-
-        print("Disconnecting from server...")
-        sio.disconnect()
-        time.sleep(2)
-        print("Reconnecting to server...")
-        #sio.connect('https://qp-master-server.herokuapp.com/')
-        socketConnection()
-
 def queueLightController():
     global lightInfo,isQueueLightNew
 
@@ -1185,10 +1017,32 @@ def fadeoutController():
 
 # ----------------------------------------------------------
 # Section 5: Music Controls
-    global sp, prevDuration, prevtrackID, startTrackTimestamp, totalTrackTime, durationCheck, currTrackID, elapsedTrackTime, playback, currVolumeVal, isEarlyTransition
+
+# A wrapper function to save information for cross-checking if the next song coming in is a new song
+# This prevents the same song from playing repeatedly
+def notifyTrackFinished(trackID):
+    global isMusicPlaying, currCluster
+
+    isMusicPlaying = False
+    continueSong = requests.get(baseUrl+"trackFinished", json={"clientID":clientID, "trackID":trackID, "cln":currCluster})
+
+# Start a local manual timer for the duration of the song to identify the end of the song
+# This will avoid rate limit issues from SpotifyAPI
+# (1) Check if the client is playing any song, if not, continue checking
+# (2)⁠ Check whether a duration should be set for the currently playing song (True by default)
+# (3)⁠ ⁠⁠When checking the duration, fetch the duration of the song from the SpotifyAPI,
+#      set the durationCheck to false as for the song's duration is now figured out
+# (4)⁠ Update related variables
+# (5)⁠ If the client is joining others, seekCheck is True -- modify the local timer with a simple calculation
+# (6)⁠ ⁠⁠Since now the duration has been set and the timer has started with durationCheck as False, continue
+# (7)⁠ Check if the song is being repeated by checking the song's ID
+# (8)⁠ Check if the timer is within 10 seconds of the song's end.
+#      If so, start the fade-out and the song ends
+#      Then, request the server for the next song —> trackFinished
 def playSongController():
     global sp, device_id
-    global prevDuration, prevtrackID, startTrackTimestamp, totalTrackTime, currTrackID, elapsedTrackTime, playback, prevVolume, currVolume, isEarlyTransition
+    global currTrackID, prevVolume, currVolume
+    global startTrackTimestamp, totalTrackTime, elapsedTrackTime, isEarlyTransition
 
     while True:
         try:
@@ -1212,7 +1066,101 @@ def playSongController():
 
             # QP is ON
             else:
+                # but if no music is playing, play the music
+                if not isMusicPlaying and currTrackID != '':
+                    elapsed_time = (time.time() - startTrackTimestamp) * 1000
+                    elapsedTrackTime = int(elapsed_time)
 
+                    devices = sp.devices()['devices']
+                    print("PlaySong.")
+                    print("Current devices: ", devices)
+                    trackURIs = ["spotify:track:"+currTrackID]
+                    sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
+                    fadingVolumeFlag = True
+                    fadeInVolume()
+
+                    # indicate the song is now playing
+                    isMusicPlaying=True
+
+                # if music is playing,
+                else:
+                    elapsed_time = (time.time() - startTrackTimestamp) * 1000
+                    elapsedTrackTime = int(elapsed_time)
+
+                    # when the server forces you to skip to the next song,
+                    if (isEarlyTransition):
+                        fadingVolumeFlag = True
+                        fadeOutVolume(True)
+                        trackURIs = ["spotify:track:"+currTrackID]
+                        sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
+                        fadeInVolume()
+
+                    else:
+                        # if the elapsed time is more or close to the totalTrackTime, notify the server and start fading out
+                        if totalTrackTime-elapsed_time <= 2000:
+                            print("Song has ended")
+                            fadingVolumeFlag = True
+                            fadeOutVolume(True)
+                            notifyTrackFinished(currTrackID)
+
+        except spotipy.exceptions.SpotifyException as e:
+            # Check for "device not found" error
+            if e.http_status == 404 and "Device not found" in str(e):
+                print("Device not found. [in PlaySongController] Restarting spotifyd...")
+
+                restart_spotifyd()
+
+                print("Disconnecting from server...")
+                sio.disconnect()
+                time.sleep(2)
+                print("Reconnecting to server...")
+                #sio.connect('https://qp-master-server.herokuapp.com/')
+                socketConnection()
+            elif e.http_status == 401:
+                print("Spotify Token Expired in PlaySongController when getting the current playback")
+                refreshSpotifyAuthToken()
+            else:
+                raise
+
+        except requests.exceptions.ConnectTimeout:
+            print("Connection timeout [in PlaySongController]")
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+
+        except requests.exceptions.ReadTimeout:
+            print("Read timeout [in PlaySongController]")
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+
+            refreshSpotifyAuthToken()
+
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+
+        except KeyboardInterrupt:
+            print("Interrupted by Keyboard [in PlaySongController], script terminated")
+
+            sio.disconnect()
+
+            time.sleep(2)
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+
+        except TimeoutError:
+            print("Timeout Error [in PlaySongController]")
+
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
 
 # ----------------------------------------------------------
 # Section 6: QueuePlayer Client Main
