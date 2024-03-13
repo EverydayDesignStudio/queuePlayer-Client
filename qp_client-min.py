@@ -122,21 +122,15 @@ currVolumeValumeVal = 100            # current value for volume
 colorArrBefore=[(0,0,0,0)]*144    # indicates four queue colors for the 'current' state
 colorArrAfter=[0]*144             # indicates four queue colors for the 'next' state
 
-# Global idling fail-safe variable
-prevtrackID=''
-prevDuration=0
+# Track Information
 currTrackID=''
 currTrackInfo = None
-currDuration = None
 currCluster = None       # the current song's cluster in the DB
 
 # Local timer variables for song end check
-startTrackTime=None
-totalTrackTime=None
-seekedClient=0                    # local elapsed time to seek for the song duration >> looking for the exact time in song
-
-# Global seek variable
-seekedPlayer=0                    # global(server's) timestamp for the song duration >> reference time of the current song on the server
+startTrackTimestamp = None
+totalTrackTime = None
+elapsedTrackTime = None
 
 # A placeholder variable for the information about user’s current playback (song)
 # https://spotipy.readthedocs.io/en/2.12.0/?highlight=current_playback#spotipy.client.Spotify.current_playback
@@ -250,7 +244,7 @@ def setClientInactive():
 
 # Controls the potentiometer for volume and active/inactive state
 def potController():
-    global sp, isActive, prevVolumeVal, currVolumeVal, isMusicPlaying, currTrackID, seekedClient, serverConnCheck, isFadingToBlack, device_id, clientStates
+    global sp, isActive, prevVolumeVal, currVolumeVal, isMusicPlaying, currTrackID, elapsedTrackTime, serverConnCheck, isFadingToBlack, device_id, clientStates
 
     #Voltage variables
     window_size = 4
@@ -742,8 +736,6 @@ def fadeToBlack():
 #      If so, start the fade-out and the song ends
 #      Then, request the server for the next song —> trackFinished
 def playSongController():
-    global sp, prevDuration, prevtrackID, startTrackTime, totalTrackTime, durationCheck, currTrackID, seekedPlayer, seekedClient, currDuration, playback, currVolumeVal
-
     try:
         while True:
             # if a song is being played,
@@ -777,6 +769,7 @@ def playSongController():
                         print("Disconnecting from server...")
                         sio.disconnect()
                         time.sleep(2)
+    global sp, prevDuration, prevtrackID, startTrackTimestamp, totalTrackTime, durationCheck, currTrackID, elapsedTrackTime, playback, currVolumeVal
 
                         refreshSpotifyAuthToken()
 
@@ -850,7 +843,6 @@ def playSongController():
                     # if the song reaches the end (within the last 2s), end the song
                     if totalTrackTime-elapsed_time<=2000:
                         print("Song has ended")
-                        seekedPlayer=0
                         playSongsToContinue(currDuration,currTrackID, "Normal")
             else:
                 rx=1
@@ -1124,8 +1116,8 @@ try:
 
     @sio.event
     def broadcast(data):
-        global isMusicPlaying, isQueueLightON, isRingLightON, isActive
-        global sp, spToken, currTrackID, seekedPlayer, lightInfo, clientStates, currCluster, bpmAdded
+        global isMusicPlaying, isActive
+        global sp, spToken, currTrackID, lightInfo, clientStates, currCluster, bpmAdded, currTrackInfo
 
         json_data = json.loads(data) # incoming message is transformed into a JSON object
         print("Server Sent the JSON:")
@@ -1161,8 +1153,8 @@ except KeyboardInterrupt:
 
     print("Disconnecting from server...")
     sio.disconnect()
-    # isMusicPlaying=False
-    # isActive=False
+    isMusicPlaying=False
+    isActive=False
     time.sleep(2)
     print("Reconnecting to server...")
     socketConnection()
