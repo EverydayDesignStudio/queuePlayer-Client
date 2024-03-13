@@ -118,8 +118,6 @@ baseUrl="https://qp-master-server.herokuapp.com/"
 prevVolume = 0            # previous value for volume
 currVolume = 0            # current value for volume
 refVolume = 0
-fadeOutVolumeFlag = false
-fadeInVolumeFlag = false
 
 # Lights function variables
 colorArrBefore=[(0,0,0,0)]*144    # indicates four queue colors for the 'current' state
@@ -294,6 +292,10 @@ def potController():
                     setClientInactive()
                     print("Potentiometer is turned OFF.")
                     print("Client is set Inactive")
+
+                    fadeOutVolume()
+                    prevVolume = 0
+                    currVolume = 0
 
                     # turn the queue and ring lights off
                     isFadingToBlack = True
@@ -566,18 +568,235 @@ def map_to_volume(input_value):
 def running_average(values):
     return sum(values) / len(values)
 
-## OLO Reference
+
 def fadeOutVolume():
-    global sp, currVolume, fadeOutVolumeFlag, refVolume, device_id
+    global sp, currVolume, refVolume, device_id
+
     refVolume = currVolume
+
     while (refVolume > 0):
-        refVolume = int(refVolume/1.5)
-        sp.volume(refVolume, device_id = device_id)
-    fadeOutVolumeFlag = False
+        refVolume = int(refVolume / 1.5)
+
+        # Ensure volume goes to 0
+        if refVolume < 1:
+            refVolume = 0
+
+        try:
+            sp.volume(refVolume, device_id=device_id)
+
+        # Restart spotifyd with credentials if device is not found
+        except spotipy.exceptions.SpotifyException as e:
+            # Check for "device not found" error
+            if e.http_status == 404 and "Device not found" in str(e):
+                print("Device not found when [fading out volume]. Restarting spotifyd...")
+
+                restart_spotifyd()
+
+                print("Disconnecting from server...")
+                sio.disconnect()
+                time.sleep(2)
+                print("Reconnecting to server...")
+                #sio.connect('https://qp-master-server.herokuapp.com/')
+                socketConnection()
+            elif e.http_status == 401:
+                print("Spotify Token Expired in [fading out volume]")
+                refreshSpotifyAuthToken()
+            else
+                raise
+
+        except requests.exceptions.ConnectTimeout:
+            print("Connection timeout while [fading out volume]")
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+
+        except requests.exceptions.ReadTimeout:
+            print("Read timeout while [fading out volume]")
+
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+
+            refreshSpotifyAuthToken()
+
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+
+        except Exception as e:
+            print(f"An error occurred while [fading out volume]: {str(e)}")
+            time.sleep(2)
+
+        # Delay to prevent hitting API rate limits and to make fade in smoother
+        time.sleep(0.2)
+
+    if (refVolume > 0):
+        try:
+            sp.volume(0, device_id=device_id)
+        # Restart spotifyd with credentials if device is not found
+        except spotipy.exceptions.SpotifyException as e:
+            # Check for "device not found" error
+            if e.http_status == 404 and "Device not found" in str(e):
+                print("Device not found when [fading out volume 2]. Restarting spotifyd...")
+
+                restart_spotifyd()
+
+                print("Disconnecting from server...")
+                sio.disconnect()
+                time.sleep(2)
+                print("Reconnecting to server...")
+                #sio.connect('https://qp-master-server.herokuapp.com/')
+                socketConnection()
+            elif e.http_status == 401:
+                print("Spotify Token Expired in [fading out volume 2]")
+                refreshSpotifyAuthToken()
+            else
+                raise
+
+        except requests.exceptions.ConnectTimeout:
+            print("Connection timeout while [fading out volume 2]")
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+
+        except requests.exceptions.ReadTimeout:
+            print("Read timeout while [fading out volume 2]")
+
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+
+            refreshSpotifyAuthToken()
+
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+
+        except Exception as e:
+            print(f"An error occurred while [fading out volume 2]: {str(e)}")
+            time.sleep(2)
 
 
 def fadeInVolume():
-    global sp, currVolume, fadeInVolumeFlag, refVolume, device_id
+    global sp, currVolume, refVolume, device_id
+
+    refVolume = 0  # Start from volume 0
+
+    while refVolume < currVolume:
+
+        # Increment volume
+        refVolume = int(refVolume * 1.5 + 1)
+
+        # Ensure volume does not exceed target
+        if refVolume > currVolume:
+            refVolume = currVolume
+        try:
+            sp.volume(refVolume, device_id=device_id)
+
+        # Restart spotifyd with credentials if device is not found
+        except spotipy.exceptions.SpotifyException as e:
+            # Check for "device not found" error
+            if e.http_status == 404 and "Device not found" in str(e):
+                print("Device not found when [fading in volume]. Restarting spotifyd...")
+
+                restart_spotifyd()
+
+                print("Disconnecting from server...")
+                sio.disconnect()
+                time.sleep(2)
+                print("Reconnecting to server...")
+                #sio.connect('https://qp-master-server.herokuapp.com/')
+                socketConnection()
+            elif e.http_status == 401:
+                print("Spotify Token Expired in [fading in volume]")
+                refreshSpotifyAuthToken()
+            else
+                raise
+
+        except requests.exceptions.ConnectTimeout:
+            print("Connection timeout while [fading in volume]")
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+
+        except requests.exceptions.ReadTimeout:
+            print("Read timeout while [fading in volume]")
+
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+
+            refreshSpotifyAuthToken()
+
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+
+        except Exception as e:
+            print(f"An error occurred while [fading in volume]: {str(e)}")
+            time.sleep(2)
+
+        # Delay to prevent hitting API rate limits and to make fade in smoother
+        time.sleep(0.2)
+
+    # Ensure volume is set to target at the end, in case the loop increments skipped it
+    if refVolume < currVolume:
+        try:
+            sp.volume(currVolume, device_id=device_id)
+        # Restart spotifyd with credentials if device is not found
+        except spotipy.exceptions.SpotifyException as e:
+            # Check for "device not found" error
+            if e.http_status == 404 and "Device not found" in str(e):
+                print("Device not found when [fading in volume 2]. Restarting spotifyd...")
+
+                restart_spotifyd()
+
+                print("Disconnecting from server...")
+                sio.disconnect()
+                time.sleep(2)
+                print("Reconnecting to server...")
+                #sio.connect('https://qp-master-server.herokuapp.com/')
+                socketConnection()
+            elif e.http_status == 401:
+                print("Spotify Token Expired in [fading in volume 2]")
+                refreshSpotifyAuthToken()
+            else
+                raise
+
+        except requests.exceptions.ConnectTimeout:
+            print("Connection timeout while [fading in volume 2]")
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+
+        except requests.exceptions.ReadTimeout:
+            print("Read timeout while [fading in volume 2]")
+
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+
+            refreshSpotifyAuthToken()
+
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+
+        except Exception as e:
+            print(f"An error occurred while [fading in volume 2]: {str(e)}")
+            time.sleep(2)
 
 # ----------------------------------------------------------
 # Section 4: NeoPixel & Ring Light Control
