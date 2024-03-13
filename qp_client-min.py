@@ -125,6 +125,7 @@ colorArrAfter=[0]*144             # indicates four queue colors for the 'next' s
 # Track Information
 currTrackID=''
 currTrackInfo = None
+currBPM = 0
 currCluster = None       # the current song's cluster in the DB
 
 # Local timer variables for song end check
@@ -278,6 +279,11 @@ def potController():
                     isMusicPlaying=False
                     isActive=False
 
+                    # reset tap variables
+                    bpmAdded = 0
+                    msLastTap = 0
+                    tapCount = 0
+
                     # request to pause the song
                     try:
                         sp.pause_playback(device_id=device_id)
@@ -309,16 +315,17 @@ def potController():
                     # turn the queue and ring lights off
                     isFadingToBlack = True
 
-
             # The client becomes 'active',
             # (1) should start listening to new bpm (set isActive to True)
             # (2) should be connected to the server
             elif filtered_voltage > 0.1 and not isActive and serverConnCheck:
                 # set to a new volume (read the pot)
-                currVolumeVal = int (map_to_volume(chan_pot.voltage)) #set current volume to potentiometer value
-                #currVolumeVal = int(map_to_volume(filtered_voltage))
+                currVolumeVal = int(map_to_volume(chan_pot.voltage))
 
-                isActive=True
+                ### TODO: may need this to prevent sudden volume change
+                # currVolumeVal = int(map_to_volume(filtered_voltage))
+
+                isActive = True
 
                 # notify the server that this client is 'active'
                 setClientActive()
@@ -328,10 +335,11 @@ def potController():
             # This is when a client is recovered from a disconnection or device not found exception
             elif filtered_voltage > 0.1 and serverConnCheck and len(clientStates) == 4 and not clientStates[clientID-1]:
                 # notify the server that this client is 'active'
-                setClientActive()
                 print("Current client states: ", clientStates)
                 print("Client connection is recovered. Request the server to set this client Active")
+                setClientActive()
 
+            ### TODO: create a dedicated thread for managing the volume
             # If a song is being played and the pot value changes, this indicates the volume change.
             #     *** have this as a seperate thread maybe just to have better code modularity, no point being here anyways
             if isActive and isMusicPlaying:
@@ -410,8 +418,8 @@ def potController():
 # ----------------------------------------------------------
 # Section 2: Client->Server + Client->Spotify Controls
 
-def pushBPMToQueue(bpmAdded):
-    songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpmAdded, "clientID":clientID, "cln":currCluster})
+def pushBPMToQueue(bpm):
+    songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpm, "clientID":clientID, "cln":currCluster})
 
 # read the tap once, record the timestamp
 # increase or reset the tap count, depending on the interval
@@ -434,11 +442,10 @@ def TapBPM():
         print ("  # Next tap {}".format(tapCount))
 
     msLastTap=msCurr
-    bpmTapCheck=True
 
 # There is a new BPM that just came in, so notify the server to either play a song or add a song to the queue
 def tapController():
-    global isMusicPlaying, bpmAdded, msLastTap, tapCount, tapInterval
+    global isActive, bpmAdded, msLastTap, tapCount, tapInterval
 
     while True:
 
@@ -449,7 +456,7 @@ def tapController():
             if msCurr-msLastTap > 1000*tapInterval and bpmAdded > 0:
                 print("   # LastTap Detected. BPM: {}".format(bpmAdded))
                 # notify the server accordingly,
-                if isMusicPlaying:
+                if isActive:
                     pushBPMToQueue(bpmAdded)
 
                 # reset the variables
@@ -1116,8 +1123,9 @@ try:
 
     @sio.event
     def broadcast(data):
-        global isMusicPlaying, isActive
-        global sp, spToken, currTrackID, lightInfo, clientStates, currCluster, bpmAdded, currTrackInfo
+        global sp, spToken, clientStates
+        global isMusicPlaying, isActive, lightInfo, currTrackInfo
+        global currBPM, currTrackID, currCluster
 
         json_data = json.loads(data) # incoming message is transformed into a JSON object
         print("Server Sent the JSON:")
@@ -1131,6 +1139,7 @@ try:
             print("## New TrackID Received!")
             currTrackID = json_data["currentTrack"]["trackID"]
             currCluster = json_data["currentTrack"]["cluster_number"]
+            currBPM = json_data["currentTrack"]["bpm"]
             startTrackTimestamp = json_data["currentTrack"]["broadcastTimestamp"]
             lightInfo=json_data["lightInfo"]
 
