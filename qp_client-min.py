@@ -586,9 +586,16 @@ def map_to_volume(input_value):
         return volume
 
 # ----------------------------------------------------------
+# Section 3: Volume Control
+
+def moving_average(values):
+    return sum(values) / len(values)
+
+### TODO: add volumeController and volumeThread
+
 
 # ----------------------------------------------------------
-# Section 3: NeoPixel & Ring Light Control
+# Section 4: NeoPixel & Ring Light Control
 
 def interpolate_rgbw(start_rgbw, end_rgbw, steps):
     r1, g1, b1, w1 = start_rgbw
@@ -621,6 +628,7 @@ def colorArrayBuilder(lightInfo):
         colors = lightInfo[queueLight]["colors"]
         isNewBPM = lightInfo[queueLight]["isNewBPM"]
 
+        ### TODO: reverse the brightness?
         # Check if "rotate" is True for the current ring
         if isNewBPM:
             dim_brightness = 50  # Adjust the dim brightness as needed
@@ -727,8 +735,6 @@ def fadeToBlack():
         time.sleep(0.01)
     pixels[0] = [0,0,0,0]
 
-# ----------------------------------------------------------
-# Section 4: Timer Controls
 
 # Start a local manual timer for the duration of the song to identify the end of the song
 # This will avoid rate limit issues from SpotifyAPI
@@ -871,11 +877,6 @@ def playSongController():
         print("Reconnecting to server...")
         #sio.connect('https://qp-master-server.herokuapp.com/')
         socketConnection()
-# ----------------------------------------------------------
-
-def moving_average(values):
-    return sum(values) / len(values)
-
 
 def queueLightController():
     global lightInfo,isQueueLightON
@@ -1017,7 +1018,12 @@ def fadeoutController():
         #sio.connect('https://qp-master-server.herokuapp.com/')
         socketConnection()
 
+# ----------------------------------------------------------
+# Section 5: Music Controls
     global sp, prevDuration, prevtrackID, startTrackTimestamp, totalTrackTime, durationCheck, currTrackID, elapsedTrackTime, playback, currVolumeVal, isEarlyTransition
+
+# ----------------------------------------------------------
+# Section 6: QueuePlayer Client Main
 
 try:
 
