@@ -768,12 +768,12 @@ def queueLightController():
 
 # the ring light indicates the last client tapped
 def ringLightController():
-    global lightInfo, pixels, ringLightColor, isActive, isBPMChanged, currBPM
+    global lightInfo, pixels, ringLightColor, isActive, isBPMChanged, currBPM, currTrackID
 
     while True:
         try:
             # flash the ring light when the QP is active
-            if(isActive):
+            if(isActive and currTrackID != ''):
                 # calculate the beat interval only once when the bpm changes
                 if (isBPMChanged):
                     # Calculate the time interval between beats
@@ -956,42 +956,43 @@ def playSongController():
 
             # QP is ON
             else:
-                # but if no music is playing, play the music
-                if not isMusicPlaying and currTrackID != '':
-                    elapsed_time = (time.time() - startTrackTimestamp) * 1000
-                    elapsedTrackTime = int(elapsed_time)
-
-                    devices = sp.devices()['devices']
-                    print("PlaySong.")
-                    print("Current devices: ", devices)
-                    trackURIs = ["spotify:track:"+currTrackID]
-                    sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
-                    fadingVolumeFlag = True
-                    fadeInVolume()
-
-                    # indicate the song is now playing
-                    isMusicPlaying=True
-
-                # if music is playing,
-                else:
-                    elapsed_time = (time.time() - startTrackTimestamp) * 1000
-                    elapsedTrackTime = int(elapsed_time)
-
-                    # when the server forces you to skip to the next song,
-                    if (isEarlyTransition):
-                        fadingVolumeFlag = True
-                        fadeOutVolume(True)
+                if currTrackID != '':
+                    # but if no music is playing, play the music
+                    if not isMusicPlaying:
+                        elapsed_time = (time.time() - startTrackTimestamp) * 1000
+                        elapsedTrackTime = int(elapsed_time)
+    
+                        devices = sp.devices()['devices']
+                        print("PlaySong.")
+                        print("Current devices: ", devices)
                         trackURIs = ["spotify:track:"+currTrackID]
                         sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
+                        fadingVolumeFlag = True
                         fadeInVolume()
-
+    
+                        # indicate the song is now playing
+                        isMusicPlaying=True
+    
+                    # if music is playing,
                     else:
-                        # when the song ends, notify the server and start fading out
-                        if elapsed_time > totalTrackTime:
-                            print("Song has ended")
+                        elapsed_time = (time.time() - startTrackTimestamp) * 1000
+                        elapsedTrackTime = int(elapsed_time)
+    
+                        # when the server forces you to skip to the next song,
+                        if (isEarlyTransition):
                             fadingVolumeFlag = True
                             fadeOutVolume(True)
-                            notifyTrackFinished(currTrackID)
+                            trackURIs = ["spotify:track:"+currTrackID]
+                            sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
+                            fadeInVolume()
+    
+                        else:
+                            # when the song ends, notify the server and start fading out
+                            if elapsed_time > totalTrackTime:
+                                print("Song has ended")
+                                fadingVolumeFlag = True
+                                fadeOutVolume(True)
+                                notifyTrackFinished(currTrackID)
 
         except spotipy.exceptions.SpotifyException as e:
             # Check for "device not found" error
