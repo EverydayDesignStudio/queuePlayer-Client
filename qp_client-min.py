@@ -101,7 +101,7 @@ isEarlyTransition = False # when receiving the broadcast msg before finishing th
 
 lightInfo = None
 ringLightColor = (0, 0, 0, 0)
-isQueueLightNew = False   # a flag to update the queue lights
+updateQueueLight = False   # a flag to update the queue lights
 clientStates = []        # shows the status of all four clients (e.g., [True, True, False, False])
 
 # BPM function variables
@@ -748,13 +748,13 @@ def fadeToBlack():
 
 
 def queueLightController():
-    global lightInfo,isQueueLightNew
+    global lightInfo,updateQueueLight
 
     try:
         while True:
-            if (isQueueLightNew):
+            if (updateQueueLight):
                 colorArrayBuilder(lightInfo)
-                isQueueLightNew=False
+                updateQueueLight=False
     except TimeoutError:
         print("Timeout Error in queueLightController")
 
@@ -1191,7 +1191,7 @@ try:
 
             startTrackTimestamp = json_data["currentTrack"]["broadcastTimestamp"]
             lightInfo = json_data["lightInfo"]
-            isQueueLightNew = True
+            updateQueueLight = True
 
             # change the ring light only when the current track is added by tapping (by anyone)
             #    or the ring color is actually different -- this is for the clients who joins the queue
