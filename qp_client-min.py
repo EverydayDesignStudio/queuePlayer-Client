@@ -1092,8 +1092,8 @@ def playSongController():
                         fadeInVolume()
 
                     else:
-                        # if the elapsed time is more or close to the totalTrackTime, notify the server and start fading out
-                        if totalTrackTime-elapsed_time <= 2000:
+                        # when the song ends, notify the server and start fading out
+                        if elapsed_time > totalTrackTime:
                             print("Song has ended")
                             fadingVolumeFlag = True
                             fadeOutVolume(True)
