@@ -1301,7 +1301,9 @@ try:
             isQueueLightNew = True
 
             # change the ring light only when the current track is added by tapping (by anyone)
-            if (json_data["currentTrack"]["isNewBPM"]):
+            #    or the ring color is actually different -- this is for the clients who joins the queue
+            #
+            if (json_data["currentTrack"]["isNewBPM"] or ringLightColor != lightInfo["queueLight1"]["ringLight"]):
                 ringLightColor = lightInfo["queueLight1"]["ringLight"]
 
                 # verbose for testing
