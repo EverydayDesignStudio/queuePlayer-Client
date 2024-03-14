@@ -750,20 +750,20 @@ def fadeToBlack():
 def queueLightController():
     global lightInfo,updateQueueLight
 
-    try:
-        while True:
+    while True:
+        try:
             if (updateQueueLight):
                 colorArrayBuilder(lightInfo)
                 updateQueueLight=False
-    except TimeoutError:
-        print("Timeout Error in queueLightController")
+        except TimeoutError:
+            print("Timeout Error in queueLightController")
 
-        print("Disconnecting from server...")
-        sio.disconnect()
-        time.sleep(2)
-        print("Reconnecting to server...")
-        #sio.connect('https://qp-master-server.herokuapp.com/')
-        socketConnection()
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
 
 
 # the ring light indicates the last client tapped
@@ -806,9 +806,8 @@ def ringLightController():
 def indicatorLightController():
     global clientID, clientStates
 
-    try:
-        while True:
-
+    while True:
+        try:
             # Client 1 - Green, Violet, Orange
             if(clientID == 1):
                 if(len(clientStates) > 0 and clientStates[1] == True): #Green QP
@@ -877,34 +876,34 @@ def indicatorLightController():
                 else:
                     GPIO.output(25,GPIO.LOW)
 
-    except TimeoutError:
-        print("Timeout Error in infiniteloop6")
+        except TimeoutError:
+            print("Timeout Error in infiniteloop6")
 
-        print("Disconnecting from server...")
-        sio.disconnect()
-        time.sleep(2)
-        print("Reconnecting to server...")
-        #sio.connect('https://qp-master-server.herokuapp.com/')
-        socketConnection()
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
 
 def fadeoutController():
     global isFadingToBlack
 
-    try:
-        while True:
+    while True:
+        try:
             if(isFadingToBlack):
                 print("fading to black")
                 fadeToBlack()
                 isFadingToBlack = False
-    except TimeoutError:
-        print("Timeout Error in fadeoutController")
+        except TimeoutError:
+            print("Timeout Error in fadeoutController")
 
-        print("Disconnecting from server...")
-        sio.disconnect()
-        time.sleep(2)
-        print("Reconnecting to server...")
-        #sio.connect('https://qp-master-server.herokuapp.com/')
-        socketConnection()
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
 
 # ----------------------------------------------------------
 # Section 5: Music Controls
