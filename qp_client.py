@@ -132,9 +132,9 @@ isBPMChanged = False
 currCluster = None       # the current song's cluster in the DB
 
 # Local timer variables for song end check
-startTrackTimestamp = 0
-totalTrackTime = 0
-elapsedTrackTime = 0
+startTrackTimestamp = None
+totalTrackTime = None
+elapsedTrackTime = None
 
 # A placeholder variable for the information about user’s current playback (song)
 # https://spotipy.readthedocs.io/en/2.12.0/?highlight=current_playback#spotipy.client.Spotify.current_playback
@@ -770,6 +770,9 @@ def queueLightController():
 def ringLightController():
     global lightInfo, pixels, ringLightColor, isActive, isBPMChanged, currBPM, currTrackID
 
+    interval = 0
+    beat_interval = 0
+    
     while True:
         try:
             # flash the ring light when the QP is active
@@ -780,18 +783,19 @@ def ringLightController():
                     interval = 60 / currBPM
                     beat_interval = 60 / (currBPM * 2.5)
                     isBPMChanged = False
-
-                # ring lights on
-                for i in range(144, 160):
-                    pixels[i] = ringLightColor
-                pixels.show()
-                time.sleep(beat_interval)
-
-                # ring lights off
-                for i in range(144, 160):
-                    pixels[i] = (0, 0, 0, 0)
-                pixels.show()
-                time.sleep(beat_interval)
+                
+                if (interval > 0 and beat_interval > 0):
+                    # ring lights on
+                    for i in range(144, 160):
+                        pixels[i] = ringLightColor
+                    pixels.show()
+                    time.sleep(beat_interval)
+    
+                    # ring lights off
+                    for i in range(144, 160):
+                        pixels[i] = (0, 0, 0, 0)
+                    pixels.show()
+                    time.sleep(beat_interval)
 
         except TimeoutError:
             print("Timeout Error in ringLightController")
@@ -1182,7 +1186,6 @@ try:
             currTrackID = json_data["currentTrack"]["trackID"]
             currCluster = json_data["currentTrack"]["cluster_number"]
 
-
             # if the time remaining until the next song starts
             #       (the difference between broadcastTimestamp and startTrackTimestamp)
             #    is less (<) than the time remaining in the current song
@@ -1197,7 +1200,7 @@ try:
             # change the ring light only when the current track is added by tapping (by anyone)
             #    or the ring color is actually different -- this is for the clients who joins the queue
             #
-            if (json_data["currentTrack"]["isNewBPM"] or ringLightColor != lightInfo["queueLight1"]["ringLight"]):
+            if (lightInfo["queueLight1"]["isNewBPM"] or ringLightColor != lightInfo["queueLight1"]["ringLight"]):
                 ringLightColor = lightInfo["queueLight1"]["ringLight"]
 
                 # verbose for testing
