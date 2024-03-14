@@ -254,9 +254,9 @@ def potController():
     window_size = 5
     voltage_readings = [0] * window_size  # Initialize with zeros
 
-    try:
+    while True:
     # Inside your main loop where you read the potentiometer voltage
-        while True:
+        try:
             # Read potentiometer voltage
             current_voltage = chan_pot.voltage
 
@@ -266,12 +266,12 @@ def potController():
             # when QP is first turned on, wait a few more readings
             if (len(voltage_readings) < window_size):
                 continue;
-            elif (len(voltage_readings) > window_size)
+            elif (len(voltage_readings) > window_size):
                 voltage_readings.pop(0)  # Remove the oldest reading
 
             # Calculate a running average
             filtered_voltage = running_average(voltage_readings)
-            filtered_voltage = current_voltage
+            # filtered_voltage = current_voltage
             # print(filtered_voltage)
 
             # The voltage is lower than the 'active' threshold. The client is now 'inactive'.
@@ -301,6 +301,7 @@ def potController():
             # The client becomes 'active',
             # (1) should start listening to new bpm (set isActive to True)
             # (2) should be connected to the server
+                ### TODO: check these thesholds
             elif filtered_voltage > 0.1 and not isActive and serverConnCheck:
                 # notify the server that this client is 'active'
                 isActive = True
@@ -379,15 +380,14 @@ def potController():
                             print(f"An error occurred while changing volume: {str(e)}")
                             time.sleep(2)
 
+        # this is only for testing
+        except KeyboardInterrupt:
+            print("Interrupted by Keyboard, script terminated")
 
-    # this is only for testing
-    except KeyboardInterrupt:
-        print("Interrupted by Keyboard, script terminated")
-
-        sio.disconnect()
-        time.sleep(2)
-        #sio.connect('https://qp-master-server.herokuapp.com/')
-        socketConnection()
+            sio.disconnect()
+            time.sleep(2)
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
 
 
 # ----------------------------------------------------------
