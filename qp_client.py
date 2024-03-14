@@ -132,9 +132,9 @@ isBPMChanged = False
 currCluster = None       # the current song's cluster in the DB
 
 # Local timer variables for song end check
-startTrackTimestamp = None
-totalTrackTime = None
-elapsedTrackTime = None
+startTrackTimestamp = 0
+totalTrackTime = 0
+elapsedTrackTime = 0
 
 # A placeholder variable for the information about user’s current playback (song)
 # https://spotipy.readthedocs.io/en/2.12.0/?highlight=current_playback#spotipy.client.Spotify.current_playback
