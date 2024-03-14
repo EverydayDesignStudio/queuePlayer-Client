@@ -1172,12 +1172,14 @@ try:
         # track changes
         if (json_data["currentTrack"]["trackID"] != currTrackID):
             print("## New TrackID Received!")
-            currTrackID = json_data["currentTrack"]["trackID"]
-            currCluster = json_data["currentTrack"]["cluster_number"]
-
+            
             if (currBPM != json_data["currentTrack"]["bpm"]):
                 currBPM = json_data["currentTrack"]["bpm"]
                 isBPMChanged = True
+            
+            currTrackID = json_data["currentTrack"]["trackID"]
+            currCluster = json_data["currentTrack"]["cluster_number"]
+
 
             # if the time remaining until the next song starts
             #       (the difference between broadcastTimestamp and startTrackTimestamp)
