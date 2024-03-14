@@ -95,13 +95,13 @@ spotify_redirect_uri = 'https://example.com/callback/'
 bpmTimer = None          # a timer to keep checking for new incoming BPMs for every n seconds (by default, n=2)
 isActive = False         # a flag to indicate if the client is active (ready to read new tap and play music)
 isMusicPlaying = False   # whether a song is currently being played
-isQueueLightNew = False   # is the light for the queue on?
-isRingLightNew = False    # is the light for the ring on? -- the ring light indicates the last person who tapped
 isFadingToBlack = False  # lights for the queue and the ring will go out when the power is off
 serverConnCheck = False  # check the server connection
 isEarlyTransition = False # when receiving the broadcast msg before finishing the song -- need fast transition (fade-out, fade-in)
 
 lightInfo = None
+ringLightColor = (0, 0, 0, 0)
+isQueueLightNew = False   # a flag to update the queue lights
 clientStates = []        # shows the status of all four clients (e.g., [True, True, False, False])
 
 # BPM function variables
@@ -120,7 +120,6 @@ currVolume = 0            # current value for volume
 refVolume = 0
 fadingVolumeFlag = False
 
-
 # Lights function variables
 colorArrBefore=[(0,0,0,0)]*144    # indicates four queue colors for the 'current' state
 colorArrAfter=[0]*144             # indicates four queue colors for the 'next' state
@@ -129,6 +128,7 @@ colorArrAfter=[0]*144             # indicates four queue colors for the 'next' s
 currTrackID=''
 currTrackInfo = None
 currBPM = 0
+isBPMChanged = False
 currCluster = None       # the current song's cluster in the DB
 
 # Local timer variables for song end check
@@ -819,27 +819,6 @@ def colorArrayBuilder(lightInfo):
         colorArrBefore = copy.deepcopy(colorArrAfter)
 
 
-def ringLightUpdate(ringColor, bpm):
-    global isMusicPlaying, pixels
-
-    interval = 60 / bpm  # Calculate the time interval between beats
-    beat_interval = 60 / (bpm * 2.5)
-
-    while isMusicPlaying:
-
-        # ring lights on
-        for i in range(144, 160):
-            pixels[i] = ringColor
-        pixels.show()
-        time.sleep(beat_interval)
-
-        # ring lights off
-        for i in range(144, 160):
-            pixels[i] = (0, 0, 0, 0)
-        pixels.show()
-        time.sleep(beat_interval)
-
-
 def fadeToBlack():
     global pixels # Make sure 'pixels' is a global variable
     global colorArrBefore
@@ -891,26 +870,43 @@ def queueLightController():
         #sio.connect('https://qp-master-server.herokuapp.com/')
         socketConnection()
 
+
+# the ring light indicates the last client tapped
 def ringLightController():
-    global lightInfo, isRingLightNew, isMusicPlaying
+    global lightInfo, pixels, ringLightColor, isActive, isBPMChanged, currBPM
 
-    try:
-        while True:
-            if(isRingLightNew and isMusicPlaying):
-                print("inside ringLightController if block")
-                ringLightUpdate(lightInfo["queueLight1"]["ringLight"], lightInfo["queueLight1"]["bpm"])
+    while True:
+        try:
+            # flash the ring light when the QP is active
+            if(isActive):
+                # calculate the beat interval only once when the bpm changes
+                if (isBPMChanged):
+                    # Calculate the time interval between beats
+                    interval = 60 / currBPM
+                    beat_interval = 60 / (currBPM * 2.5)
+                    isBPMChanged = False
 
-                ### TODO: why false?
-                isRingLightNew=False
-    except TimeoutError:
-        print("Timeout Error in ringLightController")
+                # ring lights on
+                for i in range(144, 160):
+                    pixels[i] = ringLightColor
+                pixels.show()
+                time.sleep(beat_interval)
 
-        print("Disconnecting from server...")
-        sio.disconnect()
-        time.sleep(2)
-        print("Reconnecting to server...")
-        #sio.connect('https://qp-master-server.herokuapp.com/')
-        socketConnection()
+                # ring lights off
+                for i in range(144, 160):
+                    pixels[i] = (0, 0, 0, 0)
+                pixels.show()
+                time.sleep(beat_interval)
+
+        except TimeoutError:
+            print("Timeout Error in ringLightController")
+
+            print("Disconnecting from server...")
+            sio.disconnect()
+            time.sleep(2)
+            print("Reconnecting to server...")
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
 
 def indicatorLightController():
     global clientID, clientStates
@@ -1272,7 +1268,7 @@ try:
     def broadcast(data):
         global sp, spToken, clientStates
         global isMusicPlaying, isActive, isEarlyTransition, lightInfo, currTrackInfo
-        global currBPM, currTrackID, currCluster
+        global currBPM, currTrackID, currCluster, ringLightColor, isBPMChanged
 
         json_data = json.loads(data) # incoming message is transformed into a JSON object
         print("Server Sent the JSON:")
@@ -1286,9 +1282,31 @@ try:
             print("## New TrackID Received!")
             currTrackID = json_data["currentTrack"]["trackID"]
             currCluster = json_data["currentTrack"]["cluster_number"]
-            currBPM = json_data["currentTrack"]["bpm"]
+
+            if (currBPM != json_data["currentTrack"]["bpm"]):
+                currBPM = json_data["currentTrack"]["bpm"]
+                isBPMChanged = True
+
             startTrackTimestamp = json_data["currentTrack"]["broadcastTimestamp"]
-            lightInfo=json_data["lightInfo"]
+            lightInfo = json_data["lightInfo"]
+            isQueueLightNew = True
+
+            # change the ring light only when the current track is added by tapping (by anyone)
+            if (json_data["currentTrack"]["isNewBPM"]):
+                ringLightColor = lightInfo["queueLight1"]["ringLight"]
+
+                # verbose for testing
+                clientX = 0
+                if (ringLightColor == YELLOW):
+                    clientX = 1
+                elif (ringLightColor == GREEN):
+                    clientX = 2
+                elif (ringLightColor == VIOLET):
+                    clientX = 3
+                elif (ringLightColor == ORANGE):
+                    clientX = 4
+                print("##  This track is tapped by Client {}. Change the ring light.".format(clientX))
+
 
             ### TODO: write This
             #  ** things to consider:
@@ -1299,11 +1317,6 @@ try:
             #   5. light and volume fadeout starts at 10s before the song ends
             #   6. client notifies the server at 2s before the song ends
             # isEarlyTransition =
-
-                ### TODO: these should not be controlled here?
-                # isQueueLightNew = True
-                # isRingLightNew = True
-                # playSong(["spotify:track:"+json_data["currentTrack"]["trackID"]], json_data["currentTrack"]["timestamp"])
 
             try:
                 currTrackInfo = sp.track(currTrackID)
