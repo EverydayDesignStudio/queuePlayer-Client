@@ -1177,6 +1177,8 @@ try:
                 currBPM = json_data["currentTrack"]["bpm"]
                 isBPMChanged = True
             
+            startTrackTimestamp = json_data["currentTrack"]["broadcastTimestamp"]
+            
             currTrackID = json_data["currentTrack"]["trackID"]
             currCluster = json_data["currentTrack"]["cluster_number"]
 
@@ -1189,7 +1191,6 @@ try:
             if (json_data["currentTrack"]["broadcastTimestamp"] - startTrackTimestamp < totalTrackTime - elapsedTrackTime):
                 isEarlyTransition = True
 
-            startTrackTimestamp = json_data["currentTrack"]["broadcastTimestamp"]
             lightInfo = json_data["lightInfo"]
             updateQueueLight = True
 
