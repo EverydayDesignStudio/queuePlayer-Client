@@ -1167,8 +1167,6 @@ try:
         json_data = json.loads(data) # incoming message is transformed into a JSON object
         print("Server Sent the JSON:")
         print(json.dumps(json_data, indent = 2))
-
-        clientStates = json_data["activeUsers"]
         print("    Current client states: ", clientStates)
 
         # track changes
