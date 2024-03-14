@@ -1267,8 +1267,9 @@ try:
     @sio.event
     def broadcast(data):
         global sp, spToken, clientStates
-        global isMusicPlaying, isActive, isEarlyTransition, lightInfo, currTrackInfo
+        global isMusicPlaying, isActive, lightInfo, currTrackInfo
         global currBPM, currTrackID, currCluster, ringLightColor, isBPMChanged
+        global elapsedTrackTime, totalTrackTime, startTrackTimestamp, isEarlyTransition
 
         json_data = json.loads(data) # incoming message is transformed into a JSON object
         print("Server Sent the JSON:")
@@ -1286,6 +1287,23 @@ try:
             if (currBPM != json_data["currentTrack"]["bpm"]):
                 currBPM = json_data["currentTrack"]["bpm"]
                 isBPMChanged = True
+
+            ### TODO: write This
+            #  ** things to consider:
+            #   1. 5s delay from the server
+            #   2. broadcastTimestamp
+            #   3. totalTrackTime (song duration)
+            #   4. elapsedTrackTime (timeNow - broadcastTime)
+            #   5. light and volume fadeout starts at 10s before the song ends
+            #   6. client notifies the server at 2s before the song ends
+
+            # if the time remaining until the next song starts
+            #       (the difference between broadcastTimestamp and startTrackTimestamp)
+            #    is less (<) than the time remaining in the current song
+            #       (totalTrackTime - elapsedTrackTime)
+            # if true, it means the client is running behind, and an early transition to the next song is necessary.
+            if (json_data["currentTrack"]["broadcastTimestamp"] - startTrackTimestamp < totalTrackTime - elapsedTrackTime):
+                isEarlyTransition = True
 
             startTrackTimestamp = json_data["currentTrack"]["broadcastTimestamp"]
             lightInfo = json_data["lightInfo"]
@@ -1306,17 +1324,6 @@ try:
                 elif (ringLightColor == ORANGE):
                     clientX = 4
                 print("##  This track is tapped by Client {}. Change the ring light.".format(clientX))
-
-
-            ### TODO: write This
-            #  ** things to consider:
-            #   1. 5s delay from the server
-            #   2. broadcastTimestamp
-            #   3. totalTrackTime (song duration)
-            #   4. elapsedTrackTime (timeNow - broadcastTime)
-            #   5. light and volume fadeout starts at 10s before the song ends
-            #   6. client notifies the server at 2s before the song ends
-            # isEarlyTransition =
 
             try:
                 currTrackInfo = sp.track(currTrackID)
