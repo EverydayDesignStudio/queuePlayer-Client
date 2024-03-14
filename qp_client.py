@@ -931,7 +931,7 @@ def notifyTrackFinished(trackID):
 #      Then, request the server for the next song —> trackFinished
 def playSongController():
     global sp, device_id
-    global currTrackID, prevVolume, currVolume
+    global currTrackID, prevVolume, currVolume, isMusicPlaying, isActive, fadingVolumeFlag
     global startTrackTimestamp, totalTrackTime, elapsedTrackTime, isEarlyTransition
 
     while True:
