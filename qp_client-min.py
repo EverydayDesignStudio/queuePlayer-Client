@@ -170,8 +170,7 @@ def compareDeviceID():
         print(devices)
         if (len(devices['devices']) > 0):
             device_id_tmp = devices['devices'][0]['id']
-        else:
-            raise
+
     except Exception as e:
         print(f"An error occurred while looking up the active devices: {str(e)}")
         time.sleep(2)
@@ -351,8 +350,6 @@ def potController():
                             elif e.http_status == 401:
                                 print("Spotify Token Expired in potController when changing volume")
                                 refreshSpotifyAuthToken()
-                            else:
-                                raise
 
                         except requests.exceptions.ConnectTimeout:
                             print("Connection timeout while changing volume")
@@ -1013,8 +1010,6 @@ def playSongController():
             elif e.http_status == 401:
                 print("Spotify Token Expired in PlaySongController when getting the current playback")
                 refreshSpotifyAuthToken()
-            else:
-                raise
 
         except requests.exceptions.ConnectTimeout:
             print("Connection timeout [in PlaySongController]")
@@ -1264,8 +1259,7 @@ try:
                 elif e.http_status == 401:
                     print("Spotify Token Expired in broadcast")
                     refreshSpotifyAuthToken()
-                else:
-                    raise
+
         else:
             print("## Same TrackID. I'm already on this track.")
 
