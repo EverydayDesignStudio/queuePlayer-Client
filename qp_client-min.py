@@ -1288,15 +1288,6 @@ try:
                 currBPM = json_data["currentTrack"]["bpm"]
                 isBPMChanged = True
 
-            ### TODO: write This
-            #  ** things to consider:
-            #   1. 5s delay from the server
-            #   2. broadcastTimestamp
-            #   3. totalTrackTime (song duration)
-            #   4. elapsedTrackTime (timeNow - broadcastTime)
-            #   5. light and volume fadeout starts at 10s before the song ends
-            #   6. client notifies the server at 2s before the song ends
-
             # if the time remaining until the next song starts
             #       (the difference between broadcastTimestamp and startTrackTimestamp)
             #    is less (<) than the time remaining in the current song
