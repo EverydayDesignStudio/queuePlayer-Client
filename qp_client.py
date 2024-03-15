@@ -1143,10 +1143,13 @@ try:
 
     @sio.event
     def disconnect():
-        global serverConnCheck, isActive
+        global serverConnCheck, isActive, currTrackID
 
         serverConnCheck = False
         isActive = False
+
+        # reset the trackID so when the client is recovered, it can resume
+        currTrackID = ''
         print('Disconnected from server')
 
 
@@ -1193,6 +1196,10 @@ try:
             # if true, it means the client is running behind, and an early transition to the next song is necessary.
             if (json_data["currentTrack"]["broadcastTimestamp"] - startTrackTimestamp < totalTrackTime - elapsedTrackTime):
                 isEarlyTransition = True
+
+            ### TODO: what if a single client is reconnected after the song is finished on the server?
+            # >> server is indefinitely waiting and the client cannot send the trackFinished notification 
+            #  calculate the elapsed time and somehow notify the server 
 
             lightInfo = json_data["lightInfo"]
             updateQueueLight = True
