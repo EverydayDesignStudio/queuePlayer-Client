@@ -144,6 +144,33 @@ playback=None
 retry = 0
 RETRY_MAX = 5
 
+### Verbose and flags for each thread to print lines for debugging
+VERBOSE = True
+FLAGS = 0
+FLAG_PlaySongController = 1          # 00000001
+FLAG_PotController = 2               # 00000010
+FLAG_TapController = 4               # 00000100
+FLAG_QueueLightController = 8        # 00001000
+FLAG_RingLightController = 16        # 00010000
+FLAG_IndicatorLightController = 32   # 00100000
+FLAG_FadeOutController = 64          # 01000000
+FLAG_SocketMessages = 128            # 10000000
+
+### Set flags accordingly
+FLAGS |= FLAG_SocketMessages         # Set flag for receiving the server messages
+FLAGS |= FLAG_QueueLightController   # Set flag for the queueLightController
+# FLAGS |= FLAG_PlaySongController
+# FLAGS |= FLAG_PotController
+# FLAGS |= FLAG_TapController
+# FLAGS |= FLAG_RingLightController
+# FLAGS |= FLAG_IndicatorLightController
+# FLAGS |= FLAG_FadeOutController
+
+# Helper function to check if a flag is set
+def isVerboseFlagSet(flag):
+    global FLAGS
+    return VERBOSE and (FLAGS & flag) != 0
+
 # Wrapper function for socket connection
 def socketConnection():
     connected = False
@@ -772,7 +799,7 @@ def ringLightController():
 
     interval = 0
     beat_interval = 0
-    
+
     while True:
         try:
             # flash the ring light when the QP is active
@@ -783,14 +810,14 @@ def ringLightController():
                     interval = 60 / currBPM
                     beat_interval = 60 / (currBPM * 2.5)
                     isBPMChanged = False
-                
+
                 if (interval > 0 and beat_interval > 0):
                     # ring lights on
                     for i in range(144, 160):
                         pixels[i] = ringLightColor
                     pixels.show()
                     time.sleep(beat_interval)
-    
+
                     # ring lights off
                     for i in range(144, 160):
                         pixels[i] = (0, 0, 0, 0)
@@ -965,7 +992,7 @@ def playSongController():
                     if not isMusicPlaying:
                         elapsed_time = (time.time() - startTrackTimestamp) * 1000
                         elapsedTrackTime = int(elapsed_time)
-    
+
                         devices = sp.devices()['devices']
                         print("PlaySong.")
                         print("Current devices: ", devices)
@@ -973,15 +1000,15 @@ def playSongController():
                         sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
                         fadingVolumeFlag = True
                         fadeInVolume()
-    
+
                         # indicate the song is now playing
                         isMusicPlaying=True
-    
+
                     # if music is playing,
                     else:
                         elapsed_time = (time.time() - startTrackTimestamp) * 1000
                         elapsedTrackTime = int(elapsed_time)
-    
+
                         # when the server forces you to skip to the next song,
                         if (isEarlyTransition):
                             fadingVolumeFlag = True
@@ -989,7 +1016,7 @@ def playSongController():
                             trackURIs = ["spotify:track:"+currTrackID]
                             sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
                             fadeInVolume()
-    
+
                         else:
                             # when the song ends, notify the server and start fading out
                             if elapsed_time > totalTrackTime:
@@ -1179,13 +1206,13 @@ try:
         # track changes
         if (json_data["currentTrack"]["trackID"] != currTrackID):
             print("## New TrackID Received!")
-            
+
             if (currBPM != json_data["currentTrack"]["bpm"]):
                 currBPM = json_data["currentTrack"]["bpm"]
                 isBPMChanged = True
-            
+
             startTrackTimestamp = json_data["currentTrack"]["broadcastTimestamp"]
-            
+
             currTrackID = json_data["currentTrack"]["trackID"]
             currCluster = json_data["currentTrack"]["cluster_number"]
 
@@ -1198,8 +1225,8 @@ try:
                 isEarlyTransition = True
 
             ### TODO: what if a single client is reconnected after the song is finished on the server?
-            # >> server is indefinitely waiting and the client cannot send the trackFinished notification 
-            #  calculate the elapsed time and somehow notify the server 
+            # >> server is indefinitely waiting and the client cannot send the trackFinished notification
+            #  calculate the elapsed time and somehow notify the server
 
             lightInfo = json_data["lightInfo"]
             updateQueueLight = True
