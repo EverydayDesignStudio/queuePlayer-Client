@@ -353,6 +353,9 @@ def potController():
                     print("Client is set Inactive")
 
                     # turn the queue and ring lights off
+
+                    if (isVerboseFlagSet(FLAG_FadeOutController)):
+                        print("  $$ FadingToBlack flag is set in [potController].")
                     isFadingToBlack = True
                     print("Setting a flag to fade out the lights.")
 
@@ -863,6 +866,9 @@ def ringLightController():
 def indicatorLightController():
     global clientID, clientStates
 
+    if (isVerboseFlagSet(FLAG_IndicatorLightController)):
+        print("  $$ IndicatorLightController initialized.")
+
     while True:
         try:
             # Client 1 - Green, Violet, Orange
@@ -940,11 +946,16 @@ def indicatorLightController():
 def fadeoutController():
     global isFadingToBlack
 
+    if (isVerboseFlagSet(FLAG_FadeOutController)):
+        print("  $$ FadeOutController initialized.")
+
     while True:
         try:
             if(isFadingToBlack):
-                print("fading to black")
+                print("FadeoutController -- Fading to black..")
                 fadeToBlack()
+                if (isVerboseFlagSet(FLAG_FadeOutController)):
+                    print("  $$ Fade out to black is done. Releasing the flag.")
                 isFadingToBlack = False
         except Exception as e:
             print(f"  !! An error occurred in [fadeoutController]: {str(e)}")
