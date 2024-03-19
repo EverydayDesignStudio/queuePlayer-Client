@@ -107,7 +107,7 @@ clientStates = []        # shows the status of all four clients (e.g., [True, Tr
 # BPM function variables
 bpmAdded=0               # default base BPM to start with
 tapCount=0               # the number of taps detected
-tapInterval=3            # if no more tap is detected within 3 seconds, stop recording and calculate a new BPM
+tapInterval=2            # if no more tap is detected within n seconds, stop recording and calculate a new BPM
 msFirstTap=0             # timestamp of the first detected tap
 msLastTap=0              # timestamp of the last entered tap
 
@@ -450,79 +450,87 @@ def potController():
 # Section 2: Client->Server + Client->Spotify Controls
 
 def pushBPMToQueue(bpm):
+    global clientID, currCluster
+
+    if (isVerboseFlagSet(FLAG_TapController)):
+        print("  $$ Sending a post request to server.")
+        print("  $$   bpm: {}, clientID: {}, cluster: {}".format(bpm, clientID, currCluster))
+
     songToBeQueued=requests.post(baseUrl+"getTrackToQueue", json={"bpm":bpm, "clientID":clientID, "cln":currCluster})
 
 # read the tap once, record the timestamp
 # increase or reset the tap count, depending on the interval
 def TapBPM():
-    global tapCount, msFirstTap, msLastTap, bpmAdded
+    global tapCount, msFirstTap, msLastTap, bpmAdded, tapInterval
 
-    msCurr=int(time.time()*1000)
-    if(msCurr-msLastTap > 1000*2):
+    msCurr = int(time.time()*1000)
+    if(msCurr-msLastTap > 1000*tapInterval):
+        if (isVerboseFlagSet(FLAG_TapController)):
+            print("  $$ It's been more than {} secs since the last tap. Resetting the tapCount to 0.".format(tapInterval))
+
         tapCount = 0
 
     if(tapCount == 0):
-        print ("  # First tap")
+        print ("  # First tap. Tapcount: 1")
         msFirstTap = msCurr
         tapCount = 1
     else:
         if msCurr-msFirstTap > 0:
-            bpmAvg= 60000 * tapCount / (msCurr-msFirstTap)
-            bpmAdded=round(round(bpmAvg*100)/100)
+            bpmAvg = 60000 * tapCount / (msCurr - msFirstTap)
+            bpmAdded = round(round(bpmAvg * 100) / 100)
         tapCount+=1
-        print ("  # Next tap {}".format(tapCount))
+        if (isVerboseFlagSet(FLAG_TapController)):
+            print ("  $$ Next tap. Tapcount: {}".format(tapCount))
 
-    msLastTap=msCurr
+    msLastTap = msCurr
 
 # There is a new BPM that just came in, so notify the server to either play a song or add a song to the queue
 def tapController():
     global isActive, bpmAdded, msLastTap, tapCount, tapInterval
 
+    if (isVerboseFlagSet(FLAG_TapController)):
+        print("  $$ TapController initialized.")
+
     while True:
 
         msCurr = int(time.time()*1000)
 
-        try:
-            # the last tap has happened more than 2 seconds ago -- finish recording
-            if msCurr-msLastTap > 1000*tapInterval and bpmAdded > 0:
-                print("   # LastTap Detected. BPM: {}".format(bpmAdded))
-                # notify the server accordingly,
-                if isActive:
-                    pushBPMToQueue(bpmAdded)
+        # the last tap has happened more than x seconds ago -- finish recording
+        if msCurr-msLastTap > 1000*tapInterval and bpmAdded > 0:
+            print("   # LastTap Detected. Tapcount: {}, bpm: {}".format(tapCount, bpmAdded))
+            # notify the server accordingly,
+            if isActive:
+                if (isVerboseFlagSet(FLAG_TapController)):
+                    print("  $$ Client is active. Notify the server with bpm ", bpmAdded)
+                pushBPMToQueue(bpmAdded)
+            else:
+                if (isVerboseFlagSet(FLAG_TapController)):
+                    print("  $$ Client is inactive. Discard the bpm input.")
 
-                # reset the variables
-                bpmAdded = 0
-                msLastTap = 0
-                tapCount = 0
-
-        except KeyboardInterrupt:
-            print("Interrupted by Keyboard, script terminated")
-            sio.disconnect()
-            time.sleep(2)
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
+            # reset the variables
+            bpmAdded = 0
+            msLastTap = 0
+            tapCount = 0
 
         time.sleep(2)
 
 # A worker function to detect and update the tap signals
 # This will only run once whenever the tap sensor receives a signal
 def tapSensor(channel):
-    global isActive, bpmTimer
+    global isActive
 
-    if isActive:
-        try:
-            if GPIO.input(channel):
-                print ("Tap")
-                TapBPM()
-        except KeyboardInterrupt:
-            print("Interrupted by Keyboard, script terminated")
-            sio.disconnect()
-            time.sleep(2)
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
+    if GPIO.input(channel):
+        if isActive:
+            print ("Tap")
+            TapBPM()
+        else:
+            if (isVerboseFlagSet(FLAG_TapController)):
+                print("  $$ Inactive Tap.")
 
-GPIO.add_event_detect(channel, GPIO.BOTH, bouncetime=1)  # let us know when the pin goes HIGH or LOW
-GPIO.add_event_callback(channel, tapSensor)  # assign function to GPIO PIN, Run function on change
+# Add event detection for falling edge with debounce time of 50 ms
+GPIO.add_event_detect(channel, GPIO.BOTH, bouncetime=50)
+# Assign function to GPIO PIN, Run function on change
+GPIO.add_event_callback(channel, tapSensor)
 
 
 def map_to_volume(input_value):
