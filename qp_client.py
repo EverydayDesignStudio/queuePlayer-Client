@@ -964,10 +964,23 @@ def fadeoutController():
 # ----------------------------------------------------------
 # Section 5: Music Controls
 
+def ms_to_min_sec_string(milliseconds):
+    # Convert milliseconds to seconds
+    seconds = milliseconds / 1000
+    # Calculate minutes and remaining seconds
+    minutes = int(seconds // 60)
+    remaining_seconds = int(seconds % 60)
+    # Format the result as "{min}:{sec}"
+    return f"{minutes:02d}:{remaining_seconds:02d}"
+
 # A wrapper function to save information for cross-checking if the next song coming in is a new song
 # This prevents the same song from playing repeatedly
 def notifyTrackFinished(trackID):
     global isMusicPlaying, currCluster
+
+    if (isVerboseFlagSet(FLAG_PlaySongController)):
+        print("  $$ Pause the music and notify the server.")
+        print("  $$ ClientID: {}, (finished)TrackID: {}, cluster: {}".format(clientID, trackID, currCluster))
 
     isMusicPlaying = False
     continueSong = requests.get(baseUrl+"trackFinished", json={"clientID":clientID, "trackID":trackID, "cln":currCluster})
@@ -990,11 +1003,18 @@ def playSongController():
     global currTrackID, prevVolume, currVolume, isMusicPlaying, isActive, fadingVolumeFlag
     global startTrackTimestamp, totalTrackTime, elapsedTrackTime, isEarlyTransition
 
+    if (isVerboseFlagSet(FLAG_PlaySongController)):
+        print("  $$ PlaySongController is initialized.")
+
     while True:
         try:
             # QP is OFF
             if not isActive:
                 if (isMusicPlaying):
+                    if (isVerboseFlagSet(FLAG_PlaySongController)):
+                        print("  $$ QP is not active but the music is still playing.")
+                        print("  $$ Pause the playback.")
+
                     isMusicPlaying=False
 
                     fadeOutVolume()
@@ -1005,6 +1025,8 @@ def playSongController():
 
                 # even if the music is not playing, clean up the variables
                 else:
+                    if (isVerboseFlagSet(FLAG_PlaySongController)):
+                        print("  $$ QP is now Inactive and NOT playing music.")
                     fadingVolumeFlag = False
                     prevVolume = 0
                     currVolume = 0
@@ -1014,13 +1036,19 @@ def playSongController():
                 if currTrackID != '':
                     # but if no music is playing, play the music
                     if not isMusicPlaying:
+                        if (isVerboseFlagSet(FLAG_PlaySongController)):
+                            print("  $$ QP is ON but the music is not playing.")
+
                         elapsed_time = (time.time() - startTrackTimestamp) * 1000
                         elapsedTrackTime = int(elapsed_time)
 
-                        devices = sp.devices()['devices']
-                        print("PlaySong.")
-                        print("Current devices: ", devices)
                         trackURIs = ["spotify:track:"+currTrackID]
+
+                        if (isVerboseFlagSet(FLAG_PlaySongController)):
+                            formatted_time = ms_to_min_sec_string(elapsedTrackTime)
+                            print("  $$ Track [{}] is how at {} in the song.".format(queue[0].track_name, formatted_time))
+                            print("  $$ Start playback at that time.")
+
                         sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
                         fadeInVolume()
 
@@ -1034,6 +1062,12 @@ def playSongController():
 
                         # when the server forces you to skip to the next song,
                         if (isEarlyTransition):
+                            if (isVerboseFlagSet(FLAG_PlaySongController)):
+                                print("  $$ Early transition in [PlaySongController]")
+                                formatted_time = ms_to_min_sec_string(elapsedTrackTime)
+                                print("  $$ The new track [{}] is how at {} in the song.".format(queue[0].track_name, formatted_time))
+                                print("  $$ Start playback at that time.")
+
                             fadeOutVolume(True)
                             trackURIs = ["spotify:track:"+currTrackID]
                             sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
@@ -1041,10 +1075,18 @@ def playSongController():
 
                         else:
                             # when the song ends, notify the server and start fading out
-                            if elapsed_time > totalTrackTime:
+                            if elapsedTrackTime > totalTrackTime:
                                 print("Song has ended")
+
+                                if (isVerboseFlagSet(FLAG_PlaySongController)):
+                                    print("  $$ elapsedTrackTime: {}, totalTrackTime: {}".format(elapsedTrackTime, totalTrackTime))
+
                                 fadeOutVolume(True)
                                 notifyTrackFinished(currTrackID)
+
+                else:
+                    if (isVerboseFlagSet(FLAG_PlaySongController)):
+                        print("  $$ QP is ON but has no trackID yet.")
 
         except spotipy.exceptions.SpotifyException as e:
             # Check for "device not found" error
