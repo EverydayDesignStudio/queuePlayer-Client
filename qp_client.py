@@ -718,14 +718,16 @@ def interpolate_rgbw(start_rgbw, end_rgbw, steps):
 
 def colorArrayBuilder(lightInfo):
     global colorArrBefore, colorArrAfter, pixels
-    n = 0
-    print("inside colorArrayBuilder")
-    print(pixels[0])
 
-    for queueLight in lightInfo:
-        print("for loop enters")
-        colors = lightInfo[queueLight]["colors"]
-        isNewBPM = lightInfo[queueLight]["isNewBPM"]
+    n = 0
+
+    if (isVerboseFlagSet(FLAG_QueueLightController)):
+        print("  $$ Color Array Builder")
+        print("  $$  First pixel: {}".format(pixels[0]))
+
+    for queueLight, queueLightInfo in lightInfo.items():
+        colors = queueLightInfo["colors"]
+        isNewBPM = queueLightInfo["isNewBPM"]
 
         ### TODO: reverse the brightness?
         # Check if "rotate" is True for the current ring
@@ -749,7 +751,11 @@ def colorArrayBuilder(lightInfo):
 
     # Check if color array is different to trigger fade in and out
     if colorArrBefore != colorArrAfter:
-        print("if enters")
+        if (isVerboseFlagSet(FLAG_QueueLightController)):
+            print("  $$ Color Arrays are different. Update the queue lights!")
+            print("  $$   Color before: {}".format(colorArrBefore))
+            print("  $$   Color After: {}".format(colorArrAfter))
+
         # Define the maximum brightness value
         max_brightness = 255
         fade_duration = 0.15 # Adjust the fade duration as desired
@@ -759,7 +765,9 @@ def colorArrayBuilder(lightInfo):
 
         # Fade-out effect
         if not (pixels[0] == [0,0,0,0]):
-            print("fade out")
+            if (isVerboseFlagSet(FLAG_QueueLightController)):
+                print("  $$ Fading out..")
+
             for step in range(num_steps, -1, -1):
                 brightness = int(step * max_brightness / num_steps)
                 for i in range(144):
@@ -769,7 +777,9 @@ def colorArrayBuilder(lightInfo):
                 time.sleep(0.01)
 
         # Fade-in effect
-        print("fade in")
+        if (isVerboseFlagSet(FLAG_QueueLightController)):
+            print("  $$ Fading in..")
+
         for step in range(num_steps + 1):
             brightness = int(step * max_brightness / num_steps)
             for i in range(144):
@@ -817,20 +827,16 @@ def fadeToBlack():
 def queueLightController():
     global lightInfo,updateQueueLight
 
-    while True:
-        try:
-            if (updateQueueLight):
-                colorArrayBuilder(lightInfo)
-                updateQueueLight=False
-        except TimeoutError:
-            print("Timeout Error in queueLightController")
+    if (isVerboseFlagSet(FLAG_QueueLightController)):
+        print("  $$ QueueLightController initialized.")
 
-            print("Disconnecting from server...")
-            sio.disconnect()
-            time.sleep(2)
-            print("Reconnecting to server...")
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
+    while True:
+        if (updateQueueLight):
+            if (isVerboseFlagSet(FLAG_QueueLightController)):
+                print("  $$ Update Queue Light signal received.")
+
+            colorArrayBuilder(lightInfo)
+            updateQueueLight=False
 
 
 # the ring light indicates the last client tapped
@@ -1265,6 +1271,9 @@ try:
             #  calculate the elapsed time and somehow notify the server
 
             lightInfo = json_data["lightInfo"]
+
+            if (isVerboseFlagSet(FLAG_QueueLightController)):
+                print("  $$ [Broadcast] Setting the queueLight flag.")
             updateQueueLight = True
 
             # change the ring light only when the current track is added by tapping (by anyone)
