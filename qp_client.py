@@ -274,7 +274,9 @@ def setClientInactive():
 
 # Controls the potentiometer for volume and active/inactive state
 def potController():
-    global sp, isActive, prevVolume, currVolume, isMusicPlaying, currTrackID, elapsedTrackTime, serverConnCheck, isFadingToBlack, device_id, clientStates, fadingVolumeFlag
+    global sp, serverConnCheck, device_id, clientStates
+    global isActive, isMusicPlaying, isFadingToBlack
+    global prevVolume, currVolume, fadingVolumeFlag
 
     #Voltage variables
     window_size = 5
@@ -548,6 +550,7 @@ def running_average(values):
 def fadeOutVolume(halt = False):
     global sp, currVolume, refVolume, device_id, fadingVolumeFlag
 
+    fadingVolumeFlag = True
     refVolume = currVolume
 
     while (refVolume > 0):
@@ -616,6 +619,7 @@ def fadeOutVolume(halt = False):
 def fadeInVolume():
     global sp, currVolume, refVolume, device_id, fadingVolumeFlag
 
+    fadingVolumeFlag = True
     refVolume = 0  # Start from volume 0
 
     while refVolume < currVolume:
@@ -1000,7 +1004,6 @@ def playSongController():
                 if (isMusicPlaying):
                     isMusicPlaying=False
 
-                    fadingVolumeFlag = True
                     fadeOutVolume()
                     prevVolume = 0
                     currVolume = 0
@@ -1026,7 +1029,6 @@ def playSongController():
                         print("Current devices: ", devices)
                         trackURIs = ["spotify:track:"+currTrackID]
                         sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
-                        fadingVolumeFlag = True
                         fadeInVolume()
 
                         # indicate the song is now playing
@@ -1039,7 +1041,6 @@ def playSongController():
 
                         # when the server forces you to skip to the next song,
                         if (isEarlyTransition):
-                            fadingVolumeFlag = True
                             fadeOutVolume(True)
                             trackURIs = ["spotify:track:"+currTrackID]
                             sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
@@ -1049,7 +1050,6 @@ def playSongController():
                             # when the song ends, notify the server and start fading out
                             if elapsed_time > totalTrackTime:
                                 print("Song has ended")
-                                fadingVolumeFlag = True
                                 fadeOutVolume(True)
                                 notifyTrackFinished(currTrackID)
 
