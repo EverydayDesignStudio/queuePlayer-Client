@@ -117,7 +117,7 @@ baseUrl="https://qp-master-server.herokuapp.com/"
 # Global volume variables
 prevVolume = 0            # previous value for volume
 currVolume = 0            # current value for volume
-refVolume = 0
+refVolume = 0             # placeholder for a temporary volume for fading in and out
 fadingVolumeFlag = False
 
 # Lights function variables
@@ -280,6 +280,9 @@ def potController():
     window_size = 5
     voltage_readings = [0] * window_size  # Initialize with zeros
 
+    if (isVerboseFlagSet(FLAG_PotController)):
+        print("  $$ PotController Initialized.")
+
     while True:
     # Inside your main loop where you read the potentiometer voltage
         try:
@@ -291,6 +294,8 @@ def potController():
 
             # when QP is first turned on, wait a few more readings
             if (len(voltage_readings) < window_size):
+                if (isVerboseFlagSet(FLAG_PotController)):
+                    print("  $$ Voltage reading is not ready yet.. Size: ", len(voltage_readings))
                 continue;
             elif (len(voltage_readings) > window_size):
                 voltage_readings.pop(0)  # Remove the oldest reading
@@ -298,7 +303,8 @@ def potController():
             # Calculate a running average
             filtered_voltage = running_average(voltage_readings)
             # filtered_voltage = current_voltage
-            # print(filtered_voltage)
+            if (isVerboseFlagSet(FLAG_PotController)):
+                print("  $$ Filtered voltage: ", filtered_voltage)
 
             # The voltage is lower than the 'active' threshold. The client is now 'inactive'.
             #  (1) pause the playback for this client
@@ -308,6 +314,10 @@ def potController():
             if filtered_voltage < 0.03:
                 # double-check if the song is being played and the BPM is 'tappable'
                 if isActive:
+                    if (isVerboseFlagSet(FLAG_PotController)):
+                        print("  $$ Case 1")
+
+                    print("Potentiometer is turned OFF.")
                     # set the flags off so it's not playing the song or detecting any BPM taps
                     isActive=False
 
@@ -318,28 +328,34 @@ def potController():
 
                     # notify the server that this client is off
                     setClientInactive()
-                    print("Potentiometer is turned OFF.")
                     print("Client is set Inactive")
 
                     # turn the queue and ring lights off
                     isFadingToBlack = True
+                    print("Setting a flag to fade out the lights.")
 
             # The client becomes 'active',
             # (1) should start listening to new bpm (set isActive to True)
             # (2) should be connected to the server
                 ### TODO: check these thesholds
             elif filtered_voltage > 0.1 and not isActive and serverConnCheck:
+                if (isVerboseFlagSet(FLAG_PotController)):
+                    print("  $$ Case 2")
+
                 # notify the server that this client is 'active'
+                print("Potentiometer is turned ON.")
                 isActive = True
                 setClientActive()
-                print("Potentiometer is turned ON.")
                 print("Client is set Active")
 
             # This is when a client is recovered from a disconnection or device not found exception
             elif filtered_voltage > 0.1 and serverConnCheck and len(clientStates) == 4 and not clientStates[clientID-1]:
+                if (isVerboseFlagSet(FLAG_PotController)):
+                    print("  $$ Case 3")
+
+                print("Current client states: ", clientStates)
                 # notify the server that this client is 'active'
                 setClientActive()
-                print("Current client states: ", clientStates)
                 print("Client connection is recovered. Request the server to set this client Active")
 
             # If a song is being played and the pot value changes, this indicates the volume change.
@@ -352,14 +368,21 @@ def potController():
 
                     # only update the volume when the new voltage is moved more than a certain threshold
                     if(abs(prevVolume-currVolume) >= 5):
+                        if (isVerboseFlagSet(FLAG_PotController)):
+                            print("  $$ Case 4 -- Volume Change! {} -> {}".format(prevVolume, currVolume))
+
                         prevVolume = currVolume
 
                         try:
                             devices = sp.devices()['devices']
-                            print("potController Changing Volume")
-                            print("Current devices: ", devices)
-                            sp.volume(currVolume, device_id)
+                            if (isVerboseFlagSet(FLAG_PotController)):
+                                print("Current devices: ", devices)
 
+                            # set to fixed volume as currVolume can be continuously changing
+                            print("PotController Changing Volume")
+                            sp.volume(prevVolume, device_id)
+
+                        ### TODO: [priority] -- try avoiding too many disconnection-reconnection. Handle errors locally as much as possible
                         # Restart spotifyd with credentials if device is not found
                         except spotipy.exceptions.SpotifyException as e:
                             # Check for "device not found" error
@@ -403,6 +426,11 @@ def potController():
                         except Exception as e:
                             print(f"An error occurred while changing volume: {str(e)}")
                             time.sleep(2)
+                else:
+                    if (isVerboseFlagSet(FLAG_PotController)):
+                        print("  $$ Case 5")
+                        print("  $$ Fade flag is set -- reading voltage to set the current volume is paused.")
+
 
         # this is only for testing
         except KeyboardInterrupt:
