@@ -843,42 +843,50 @@ def queueLightController():
 def ringLightController():
     global lightInfo, pixels, ringLightColor, isActive, isBPMChanged, currBPM, currTrackID
 
+    if (isVerboseFlagSet(FLAG_RingLightController)):
+        print("  $$ RingLightController initialized.")
+
     interval = 0
     beat_interval = 0
 
     while True:
-        try:
-            # flash the ring light when the QP is active
-            if(isActive and currTrackID != ''):
-                # calculate the beat interval only once when the bpm changes
-                if (isBPMChanged):
-                    # Calculate the time interval between beats
-                    interval = 60 / currBPM
-                    beat_interval = 60 / (currBPM * 2.5)
-                    isBPMChanged = False
+        # flash the ring light when the QP is active
+        if(isActive and currTrackID != ''):
 
-                if (interval > 0 and beat_interval > 0):
-                    # ring lights on
-                    for i in range(144, 160):
-                        pixels[i] = ringLightColor
-                    pixels.show()
-                    time.sleep(beat_interval)
+            # calculate the beat interval only once when the bpm changes
+            if (isBPMChanged):
+                if (isVerboseFlagSet(FLAG_RingLightController)):
+                    print("  $$ BPM changed! Re-calculating the interval..")
+                    print("  $$ BPM is now: ", currBPM)
 
-                    # ring lights off
-                    for i in range(144, 160):
-                        pixels[i] = (0, 0, 0, 0)
-                    pixels.show()
-                    time.sleep(beat_interval)
+                # Calculate the time interval between beats
+                interval = 60 / currBPM
+                beat_interval = 60 / (currBPM * 2.5)
+                isBPMChanged = False
 
-        except TimeoutError:
-            print("Timeout Error in ringLightController")
+            if (interval > 0 and beat_interval > 0):
+                if (isVerboseFlagSet(FLAG_RingLightController)):
+                    if (ringLightColor == YELLOW):
+                        print("  $$ Current ring light is: YELLOW")
+                    elif (ringLightColor == GREEN):
+                        print("  $$ Current ring light is: GREEN")
+                    elif (ringLightColor == VIOLET):
+                        print("  $$ Current ring light is: VIOLET")
+                    elif (ringLightColor == ORANGE):
+                        print("  $$ Current ring light is: ORANGE")
 
-            print("Disconnecting from server...")
-            sio.disconnect()
-            time.sleep(2)
-            print("Reconnecting to server...")
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
+                # ring lights on
+                for i in range(144, 160):
+                    pixels[i] = ringLightColor
+                pixels.show()
+                time.sleep(beat_interval)
+
+                # ring lights off
+                for i in range(144, 160):
+                    pixels[i] = (0, 0, 0, 0)
+                pixels.show()
+                time.sleep(beat_interval)
+
 
 def indicatorLightController():
     global clientID, clientStates
@@ -1280,6 +1288,9 @@ try:
             #    or the ring color is actually different -- this is for the clients who joins the queue
             #
             if (lightInfo["queueLight1"]["isNewBPM"] or ringLightColor != lightInfo["queueLight1"]["ringLight"]):
+                if (isVerboseFlagSet(FLAG_RingLightController)):
+                    print("  $$ [Broadcast] RingLightColor updated!")
+
                 ringLightColor = lightInfo["queueLight1"]["ringLight"]
 
                 # verbose for testing
