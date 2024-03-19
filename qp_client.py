@@ -142,6 +142,7 @@ playback=None
 
 #fail-safe recovery
 retry = 0
+retry_connection = 0
 RETRY_MAX = 5
 sleepTimeOnError = 3        # when there is an exception, pause for x seconds
 
@@ -241,6 +242,18 @@ def restart_spotifyd():
             break
             # restart_script()
 
+
+def retryServerConnection():
+    global retry_connection
+
+    print ("  !! RETRY MAX reached. Try reconnecting to the server..")
+    sio.disconnect()
+    time.sleep(sleepTimeOnError)
+    #sio.connect('https://qp-master-server.herokuapp.com/')
+    socketConnection()
+    retry_connection = 0
+
+
 def restart_script():
     # Add any cleanup or state reset logic here
     time.sleep(5)  # Optional delay before restarting to avoid immediate restart loop
@@ -281,7 +294,7 @@ def setClientInactive():
 
 # Controls the potentiometer for volume and active/inactive state
 def potController():
-    global sp, serverConnCheck, device_id, clientStates
+    global sp, serverConnCheck, device_id, clientStates, retry_connection
     global isActive, isMusicPlaying, isFadingToBlack
     global prevVolume, currVolume, fadingVolumeFlag
 
@@ -391,57 +404,38 @@ def potController():
                             print("PotController Changing Volume")
                             sp.volume(prevVolume, device_id)
 
-                        ### TODO: [priority] -- try avoiding too many disconnection-reconnection. Handle errors locally as much as possible
                         # Restart spotifyd with credentials if device is not found
                         except spotipy.exceptions.SpotifyException as e:
                             # Check for "device not found" error
                             if e.http_status == 404 and "Device not found" in str(e):
-                                print("Device not found in [PotController] when changing volume. Restarting spotifyd...")
+                                print("  !! Device not found in [PotController] when changing volume. Restarting spotifyd...")
                                 restart_spotifyd()
                             elif e.http_status == 401:
-                                print("Spotify Token Expired in [PotController] when changing volume")
+                                print("  !! Spotify Token Expired in [PotController] when changing volume")
                                 refreshSpotifyAuthToken()
                             time.sleep(sleepTimeOnError)
 
                         except requests.exceptions.ConnectTimeout:
-                            print("Connection timeout while changing volume")
-                            print("Disconnecting from server...")
-                            sio.disconnect()
+                            print("  !! Connection timeout in [PotController] while changing volume.")
+                            print("  !! Retrying after a few seconds..")
+                            retry_connection += 1
                             time.sleep(sleepTimeOnError)
-                            print("Reconnecting to server...")
-                            #sio.connect('https://qp-master-server.herokuapp.com/')
-                            socketConnection()
+                            if (retry_connection >= RETRY_MAX):
+                                retryServerConnection()
 
                         except requests.exceptions.ReadTimeout:
-                            print("Read timeout while changing volume")
-
-                            print("Disconnecting from server...")
-                            sio.disconnect()
+                            print("  !! Read timeout in [PotController] while changing volume.")
+                            print("  !! Try refreshing Spotify token.")
+                            refreshSpotifyAuthToken()
                             time.sleep(sleepTimeOnError)
 
-                            refreshSpotifyAuthToken()
-
-                            print("Reconnecting to server...")
-                            #sio.connect('https://qp-master-server.herokuapp.com/')
-                            socketConnection()
-
                         except Exception as e:
-                            print(f"An error occurred while changing volume: {str(e)}")
+                            print(f"  !! An error occurred in [PotController] while changing volume: {str(e)}")
                             time.sleep(sleepTimeOnError)
                 else:
                     if (isVerboseFlagSet(FLAG_PotController)):
                         print("  $$ Case 5")
                         print("  $$ Fade flag is set -- reading voltage to set the current volume is paused.")
-
-
-        # this is only for testing
-        except KeyboardInterrupt:
-            print("Interrupted by Keyboard, script terminated")
-
-            sio.disconnect()
-            time.sleep(sleepTimeOnError)
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
 
 
 # ----------------------------------------------------------
@@ -492,27 +486,31 @@ def tapController():
         print("  $$ TapController initialized.")
 
     while True:
+        try:
+            msCurr = int(time.time()*1000)
 
-        msCurr = int(time.time()*1000)
+            # the last tap has happened more than x seconds ago -- finish recording
+            if msCurr-msLastTap > 1000*tapInterval and bpmAdded > 0:
+                print("   # LastTap Detected. Tapcount: {}, bpm: {}".format(tapCount, bpmAdded))
+                # notify the server accordingly,
+                if isActive:
+                    if (isVerboseFlagSet(FLAG_TapController)):
+                        print("  $$ Client is active. Notify the server with bpm ", bpmAdded)
+                    pushBPMToQueue(bpmAdded)
+                else:
+                    if (isVerboseFlagSet(FLAG_TapController)):
+                        print("  $$ Client is inactive. Discard the bpm input.")
 
-        # the last tap has happened more than x seconds ago -- finish recording
-        if msCurr-msLastTap > 1000*tapInterval and bpmAdded > 0:
-            print("   # LastTap Detected. Tapcount: {}, bpm: {}".format(tapCount, bpmAdded))
-            # notify the server accordingly,
-            if isActive:
-                if (isVerboseFlagSet(FLAG_TapController)):
-                    print("  $$ Client is active. Notify the server with bpm ", bpmAdded)
-                pushBPMToQueue(bpmAdded)
-            else:
-                if (isVerboseFlagSet(FLAG_TapController)):
-                    print("  $$ Client is inactive. Discard the bpm input.")
+                # reset the variables
+                bpmAdded = 0
+                msLastTap = 0
+                tapCount = 0
 
-            # reset the variables
-            bpmAdded = 0
-            msLastTap = 0
-            tapCount = 0
+            time.sleep(sleepTimeOnError)
 
-        time.sleep(sleepTimeOnError)
+        except Exception as e:
+            print(f"  !! An error occurred in [tapController]: {str(e)}")
+            time.sleep(sleepTimeOnError)
 
 # A worker function to detect and update the tap signals
 # This will only run once whenever the tap sensor receives a signal
@@ -556,7 +554,7 @@ def running_average(values):
 
 
 def fadeOutVolume(halt = False):
-    global sp, currVolume, refVolume, device_id, fadingVolumeFlag
+    global sp, currVolume, refVolume, device_id, fadingVolumeFlag, retry_connection
 
     fadingVolumeFlag = True
     refVolume = currVolume
@@ -575,37 +573,29 @@ def fadeOutVolume(halt = False):
         except spotipy.exceptions.SpotifyException as e:
             # Check for "device not found" error
             if e.http_status == 404 and "Device not found" in str(e):
-                print("Device not found when [fading out volume]. Restarting spotifyd...")
+                print("  !! Device not found when [fading out volume]. Restarting spotifyd...")
                 restart_spotifyd()
             elif e.http_status == 401:
-                print("Spotify Token Expired in [fading out volume]")
+                print("  !! Spotify Token Expired in [fading out volume]")
                 refreshSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
 
         except requests.exceptions.ConnectTimeout:
-            print("Connection timeout while [fading out volume]")
-            print("Disconnecting from server...")
-            sio.disconnect()
+            print("  !! Connection timeout while [fading out volume].")
+            print("  !! Retrying after a few seconds..")
+            retry_connection += 1
             time.sleep(sleepTimeOnError)
-            print("Reconnecting to server...")
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
+            if (retry_connection >= RETRY_MAX):
+                retryServerConnection()
 
         except requests.exceptions.ReadTimeout:
-            print("Read timeout while [fading out volume]")
-
-            print("Disconnecting from server...")
-            sio.disconnect()
+            print("  !! Read timeout while [fading out volume].")
+            print("  !! Try refreshing Spotify token.")
+            refreshSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
 
-            refreshSpotifyAuthToken()
-
-            print("Reconnecting to server...")
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
-
         except Exception as e:
-            print(f"An error occurred while [fading out volume]: {str(e)}")
+            print(f"  !! An error occurred while [fading out volume]: {str(e)}")
             time.sleep(sleepTimeOnError)
 
         # Delay to prevent hitting API rate limits and to make fade in smoother
@@ -618,7 +608,7 @@ def fadeOutVolume(halt = False):
 
 
 def fadeInVolume():
-    global sp, currVolume, refVolume, device_id, fadingVolumeFlag
+    global sp, currVolume, refVolume, device_id, fadingVolumeFlag retry_connection
 
     fadingVolumeFlag = True
     refVolume = 0  # Start from volume 0
@@ -639,37 +629,29 @@ def fadeInVolume():
         except spotipy.exceptions.SpotifyException as e:
             # Check for "device not found" error
             if e.http_status == 404 and "Device not found" in str(e):
-                print("Device not found when [fading in volume]. Restarting spotifyd...")
+                print("  !! Device not found when [fading in volume]. Restarting spotifyd...")
                 restart_spotifyd()
             elif e.http_status == 401:
-                print("Spotify Token Expired in [fading in volume]")
+                print("  !! Spotify Token Expired in [fading in volume]")
                 refreshSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
 
         except requests.exceptions.ConnectTimeout:
-            print("Connection timeout while [fading in volume]")
-            print("Disconnecting from server...")
-            sio.disconnect()
+            print("  !! Connection timeout while [fading in volume].")
+            print("  !! Retrying after a few seconds..")
+            retry_connection += 1
             time.sleep(sleepTimeOnError)
-            print("Reconnecting to server...")
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
+            if (retry_connection >= RETRY_MAX):
+                retryServerConnection()
 
         except requests.exceptions.ReadTimeout:
-            print("Read timeout while [fading in volume]")
-
-            print("Disconnecting from server...")
-            sio.disconnect()
+            print("  !! Read timeout while [fading in volume].")
+            print("  !! Try refreshing Spotify token.")
+            refreshSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
 
-            refreshSpotifyAuthToken()
-
-            print("Reconnecting to server...")
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
-
         except Exception as e:
-            print(f"An error occurred while [fading in volume]: {str(e)}")
+            print(f"  !! An error occurred while [fading in volume]: {str(e)}")
             time.sleep(sleepTimeOnError)
 
         # Delay to prevent hitting API rate limits and to make fade in smoother
@@ -817,12 +799,16 @@ def queueLightController():
         print("  $$ QueueLightController initialized.")
 
     while True:
-        if (updateQueueLight):
-            if (isVerboseFlagSet(FLAG_QueueLightController)):
-                print("  $$ Update Queue Light signal received.")
+        try:
+            if (updateQueueLight):
+                if (isVerboseFlagSet(FLAG_QueueLightController)):
+                    print("  $$ Update Queue Light signal received.")
 
-            colorArrayBuilder(lightInfo)
-            updateQueueLight=False
+                colorArrayBuilder(lightInfo)
+                updateQueueLight=False
+        except Exception as e:
+            print(f"  !! An error occurred in [queueLightController]: {str(e)}")
+            time.sleep(sleepTimeOnError)
 
 
 # the ring light indicates the last client tapped
@@ -947,15 +933,9 @@ def indicatorLightController():
                 else:
                     GPIO.output(25,GPIO.LOW)
 
-        except TimeoutError:
-            print("Timeout Error in infiniteloop6")
-
-            print("Disconnecting from server...")
-            sio.disconnect()
+        except Exception as e:
+            print(f"  !! An error occurred in [indicatorLightController]: {str(e)}")
             time.sleep(sleepTimeOnError)
-            print("Reconnecting to server...")
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
 
 def fadeoutController():
     global isFadingToBlack
@@ -966,15 +946,9 @@ def fadeoutController():
                 print("fading to black")
                 fadeToBlack()
                 isFadingToBlack = False
-        except TimeoutError:
-            print("Timeout Error in fadeoutController")
-
-            print("Disconnecting from server...")
-            sio.disconnect()
+        except Exception as e:
+            print(f"  !! An error occurred in [fadeoutController]: {str(e)}")
             time.sleep(sleepTimeOnError)
-            print("Reconnecting to server...")
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
 
 # ----------------------------------------------------------
 # Section 5: Music Controls
@@ -1001,7 +975,7 @@ def notifyTrackFinished(trackID):
 #      If so, start the fade-out and the song ends
 #      Then, request the server for the next song —> trackFinished
 def playSongController():
-    global sp, device_id
+    global sp, device_id, retry_connection
     global currTrackID, prevVolume, currVolume, isMusicPlaying, isActive, fadingVolumeFlag
     global startTrackTimestamp, totalTrackTime, elapsedTrackTime, isEarlyTransition
 
@@ -1064,58 +1038,36 @@ def playSongController():
         except spotipy.exceptions.SpotifyException as e:
             # Check for "device not found" error
             if e.http_status == 404 and "Device not found" in str(e):
-                print("Device not found in [PlaySongController] Restarting spotifyd...")
+                print("  !! Device not found in [PlaySongController] Restarting spotifyd...")
                 restart_spotifyd()
             elif e.http_status == 401:
-                print("Spotify Token Expired in [PlaySongController].")
+                print("  !! Spotify Token Expired in [PlaySongController].")
                 refreshSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
 
         except requests.exceptions.ConnectTimeout:
-            print("Connection timeout [in PlaySongController]")
-            print("Disconnecting from server...")
-            sio.disconnect()
+            print("  !! Connection timeout in [PlaySongController].")
+            print("  !! Retrying after a few seconds..")
+            retry_connection += 1
             time.sleep(sleepTimeOnError)
-            print("Reconnecting to server...")
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
+            if (retry_connection >= RETRY_MAX):
+                retryServerConnection()
 
         except requests.exceptions.ReadTimeout:
-            print("Read timeout [in PlaySongController]")
-            print("Disconnecting from server...")
-            sio.disconnect()
-            time.sleep(sleepTimeOnError)
-
+            print("  !! Read timeout in [PlaySongController].")
+            print("  !! Try refreshing Spotify token.")
             refreshSpotifyAuthToken()
-
-            print("Reconnecting to server...")
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
-
-        except KeyboardInterrupt:
-            print("Interrupted by Keyboard [in PlaySongController], script terminated")
-
-            sio.disconnect()
-
             time.sleep(sleepTimeOnError)
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
 
-        except TimeoutError:
-            print("Timeout Error [in PlaySongController]")
-
-            print("Disconnecting from server...")
-            sio.disconnect()
+        except Exception as e:
+            print(f"  !! An error occurred in [PlaySongController]: {str(e)}")
             time.sleep(sleepTimeOnError)
-            print("Reconnecting to server...")
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
+
 
 # ----------------------------------------------------------
 # Section 6: QueuePlayer Client Main
 
 try:
-
     print("start of script")
     thread_TapSensor = threading.Thread(target=tapSensor(channel))
     thread_TapSensor.start()
@@ -1222,7 +1174,7 @@ try:
 
     @sio.event
     def broadcast(data):
-        global sp, spToken, clientStates
+        global sp, spToken, clientStates, retry_connection
         global isMusicPlaying, isActive, lightInfo, currTrackInfo
         global currBPM, currTrackID, currCluster, ringLightColor, isBPMChanged
         global elapsedTrackTime, totalTrackTime, startTrackTimestamp, isEarlyTransition
@@ -1291,27 +1243,15 @@ try:
                     currTrackInfo = newTrackInfo
                     totalTrackTime = currTrackInfo['duration_ms']
 
-                # except requests.exceptions.ConnectTimeout:
-                #     print("Connection timeout while requesting track info")
-                #     print("Disconnecting from server...")
-                #     sio.disconnect()
-                #     time.sleep(sleepTimeOnError)
-                #     print("Reconnecting to server...")
-                #     #sio.connect('https://qp-master-server.herokuapp.com/')
-                #     socketConnection()
-                #
-                # except requests.exceptions.ReadTimeout:
-                #     print("Read timeout while requesting track info")
-                #
-                #     print("Disconnecting from server...")
-                #     sio.disconnect()
-                #     time.sleep(sleepTimeOnError)
-                #
-                #     refreshSpotifyAuthToken()
-                #
-                #     print("Reconnecting to server...")
-                #     #sio.connect('https://qp-master-server.herokuapp.com/')
-                #     socketConnection()
+                except (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout):
+                    print("  !! Connection or Read timeout while requesting track info.")
+                    print("  !! Retrying after a few seconds..")
+                    retry_connection += 1
+                    time.sleep(sleepTimeOnError)
+
+                    if (retry_connection >= RETRY_MAX):
+                        refreshSpotifyAuthToken()
+                        retryServerConnection()
 
                 #Last Resort is to restart script
                 # except requests.exceptions.ReadTimeout:
@@ -1322,12 +1262,16 @@ try:
                 except spotipy.exceptions.SpotifyException as e:
                     # Check for "device not found" error
                     if e.http_status == 404 and "Device not found" in str(e):
-                        print("Device not found in [broadcast]. Restarting spotifyd...")
+                        print("  !! Device not found in [broadcast]. Restarting spotifyd...")
                         restart_spotifyd()
                     elif e.http_status == 401:
-                        print("Spotify Token Expired in [broadcast]")
+                        print("  !! Spotify Token Expired in [broadcast]")
                         refreshSpotifyAuthToken()
 
+                    time.sleep(sleepTimeOnError)
+
+                except Exception as e:
+                    print(f"  !! An error occurred in [broadcast]: {str(e)}")
                     time.sleep(sleepTimeOnError)
 
         else:
@@ -1339,16 +1283,8 @@ try:
     #sio.connect('https://qp-master-server.herokuapp.com/')
     socketConnection()
     sio.wait()
-except KeyboardInterrupt:
-    print("Interrupted by Keyboard, script terminated")
 
-    print("Disconnecting from server...")
-    sio.disconnect()
-    isMusicPlaying=False
-    isActive=False
+except Exception as e:
+print(f"  !! An error occurred in [QueuePlayerMain]: {str(e)}")
     time.sleep(sleepTimeOnError)
-    print("Reconnecting to server...")
-    socketConnection()
-    #sio.connect('https://qp-master-server.herokuapp.com/')
-
 # ----------------------------------------------------------
