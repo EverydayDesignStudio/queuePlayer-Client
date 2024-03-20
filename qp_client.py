@@ -1003,7 +1003,7 @@ def notifyTrackFinished(trackID):
 #      Then, request the server for the next song —> trackFinished
 def playSongController():
     global sp, device_id, retry_connection
-    global currTrackID, prevVolume, currVolume, isMusicPlaying, isActive, fadingVolumeFlag, nextTrackRequested
+    global currTrackInfo, currTrackID, prevVolume, currVolume, isMusicPlaying, isActive, fadingVolumeFlag, nextTrackRequested
     global startTrackTimestamp, totalTrackTime, elapsedTrackTime, isEarlyTransition
 
     if (isVerboseFlagSet(FLAG_PlaySongController)):
@@ -1067,7 +1067,7 @@ def playSongController():
 
                     if (isVerboseFlagSet(FLAG_PlaySongController)):
                         formatted_time = ms_to_min_sec_string(elapsedTrackTime)
-                        print("  $$ Track [{}] is how at {} in the song.".format(queue[0].track_name, formatted_time))
+                        print("  $$ Track [{}] is now at {} in the song.".format(currTrackInfo.name, formatted_time))
                         print("  $$ Start playback at that time.")
 
                     sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
@@ -1083,7 +1083,7 @@ def playSongController():
                         if (isVerboseFlagSet(FLAG_PlaySongController)):
                             print("  $$ Early transition in [PlaySongController]")
                             formatted_time = ms_to_min_sec_string(elapsedTrackTime)
-                            print("  $$ The new track [{}] is how at {} in the song.".format(queue[0].track_name, formatted_time))
+                            print("  $$ The new track [{}] is now at {} in the song.".format(currTrackInfo.name, formatted_time))
                             print("  $$ Start playback at that time.")
 
                         fadeOutVolume(True)
