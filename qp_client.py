@@ -414,6 +414,7 @@ def potController():
                     if (isVerboseFlagSet(FLAG_PotController)):
                         print("  $$ Case 5")
                         print("  $$ Fade flag is set -- reading voltage to set the current volume is paused.")
+                        time.sleep(1)
 
         # Restart spotifyd with credentials if device is not found
         except spotipy.exceptions.SpotifyException as e:
@@ -559,64 +560,59 @@ def running_average(values):
     return sum(values) / len(values)
 
 
-def fadeOutVolume(halt = False):
+def fadeInVolume(doFadeOut = False):
     global sp, currVolume, refVolume, device_id, fadingVolumeFlag, retry_connection
 
     fadingVolumeFlag = True
-    refVolume = currVolume
 
-    while (refVolume > 0):
-        refVolume = int(refVolume / 1.5)
+    ### ---- fade out ---- ###
+    if doFadeOut:
+        refVolume = currVolume
 
-        # Ensure volume goes to 0
-        if refVolume < 1:
-            refVolume = 0
+        while (refVolume > 0):
+            refVolume = int(refVolume / 1.5)
 
-        try:
-            sp.volume(refVolume, device_id=device_id)
+            # Ensure volume goes to 0
+            if refVolume < 1:
+                refVolume = 0
 
-        # Restart spotifyd with credentials if device is not found
-        except spotipy.exceptions.SpotifyException as e:
-            # Check for "device not found" error
-            if e.http_status == 404 and "Device not found" in str(e):
-                print("  !! Device not found when [fading out volume]. Restarting spotifyd...")
-                restart_spotifyd()
-            elif e.http_status == 401:
-                print("  !! Spotify Token Expired in [fading out volume]")
+            try:
+                sp.volume(refVolume, device_id=device_id)
+
+            # Restart spotifyd with credentials if device is not found
+            except spotipy.exceptions.SpotifyException as e:
+                # Check for "device not found" error
+                if e.http_status == 404 and "Device not found" in str(e):
+                    print("  !! Device not found when [fading out volume]. Restarting spotifyd...")
+                    restart_spotifyd()
+                elif e.http_status == 401:
+                    print("  !! Spotify Token Expired in [fading out volume]")
+                    refreshSpotifyAuthToken()
+                time.sleep(sleepTimeOnError)
+
+            except requests.exceptions.ConnectTimeout:
+                print("  !! Connection timeout while [fading out volume].")
+                print("  !! Retrying after a few seconds..")
+                retry_connection += 1
+                time.sleep(sleepTimeOnError)
+                if (retry_connection >= RETRY_MAX):
+                    retryServerConnection()
+
+            except requests.exceptions.ReadTimeout:
+                print("  !! Read timeout while [fading out volume].")
+                print("  !! Try refreshing Spotify token.")
                 refreshSpotifyAuthToken()
-            time.sleep(sleepTimeOnError)
+                time.sleep(sleepTimeOnError)
 
-        except requests.exceptions.ConnectTimeout:
-            print("  !! Connection timeout while [fading out volume].")
-            print("  !! Retrying after a few seconds..")
-            retry_connection += 1
-            time.sleep(sleepTimeOnError)
-            if (retry_connection >= RETRY_MAX):
-                retryServerConnection()
+            except Exception as e:
+                print(f"  !! An error occurred while [fading out volume]: {str(e)}")
+                time.sleep(sleepTimeOnError)
 
-        except requests.exceptions.ReadTimeout:
-            print("  !! Read timeout while [fading out volume].")
-            print("  !! Try refreshing Spotify token.")
-            refreshSpotifyAuthToken()
-            time.sleep(sleepTimeOnError)
+            # Delay to prevent hitting API rate limits and to make fade in smoother
+            time.sleep(0.2)
 
-        except Exception as e:
-            print(f"  !! An error occurred while [fading out volume]: {str(e)}")
-            time.sleep(sleepTimeOnError)
+    ### ---- fade in ---- ###
 
-        # Delay to prevent hitting API rate limits and to make fade in smoother
-        time.sleep(0.2)
-
-    # halt for instant fade-out, fade-in for early transition
-    if not halt:
-        # remove the flag
-        fadingVolumeFlag = False
-
-
-def fadeInVolume():
-    global sp, currVolume, refVolume, device_id, fadingVolumeFlag, retry_connection
-
-    fadingVolumeFlag = True
     refVolume = 0  # Start from volume 0
 
     while refVolume < currVolume:
@@ -727,8 +723,8 @@ def colorArrayBuilder(lightInfo):
     if colorArrBefore != colorArrAfter:
         if (isVerboseFlagSet(FLAG_QueueLightController)):
             print("  $$ Color Arrays are different. Update the queue lights!")
-            print("  $$   Color before: {}".format(colorArrBefore))
-            print("  $$   Color After: {}".format(colorArrAfter))
+            # print("  $$   Color before: {}".format(colorArrBefore))
+            # print("  $$   Color After: {}".format(colorArrAfter))
 
         # Define the maximum brightness value
         max_brightness = 255
@@ -1020,7 +1016,6 @@ def playSongController():
 
                     isMusicPlaying=False
 
-                    fadeOutVolume()
                     prevVolume = 0
                     currVolume = 0
 
@@ -1030,6 +1025,7 @@ def playSongController():
                 else:
                     if (isVerboseFlagSet(FLAG_PlaySongController)):
                         print("  $$ QP is now Inactive and NOT playing music.")
+                        time.sleep(1)
                     fadingVolumeFlag = False
                     prevVolume = 0
                     currVolume = 0
@@ -1043,7 +1039,13 @@ def playSongController():
                 if (currTrackID == ''):
                     if (isVerboseFlagSet(FLAG_PlaySongController)):
                         print("  $$ QP is ON but has no trackID yet.")
+                        time.sleep(1)
                         continue
+
+                if (isVerboseFlagSet(FLAG_PlaySongController)):
+                    print(f"Total Track Time: ", ms_to_min_sec_string(totalTrackTime))
+                    print(f"Elapsed Track Time: ", ms_to_min_sec_string(elapsedTrackTime))
+
 
                 # when the song ends, notify the server and start fading out
                 #  ** this condition is not dependant on the music playing, so should be able to handle late recovery
@@ -1054,7 +1056,6 @@ def playSongController():
                     if (isVerboseFlagSet(FLAG_PlaySongController)):
                         print("  $$ elapsedTrackTime: {}, totalTrackTime: {}".format(elapsedTrackTime, totalTrackTime))
 
-                    fadeOutVolume(True)
                     notifyTrackFinished(currTrackID)
                     continue
 
@@ -1063,18 +1064,19 @@ def playSongController():
                     if (isVerboseFlagSet(FLAG_PlaySongController)):
                         print("  $$ QP is ON but the music is not playing.")
 
-                    trackURIs = ["spotify:track:"+currTrackID]
+                    if (currTrackID != ""):
+                        trackURIs = ["spotify:track:"+currTrackID]
 
-                    if (isVerboseFlagSet(FLAG_PlaySongController)):
-                        formatted_time = ms_to_min_sec_string(elapsedTrackTime)
-                        print("  $$ Track [{}] is now at {} in the song.".format(currTrackInfo["name"], formatted_time))
-                        print("  $$ Start playback at that time.")
+                        if (isVerboseFlagSet(FLAG_PlaySongController)):
+                            formatted_time = ms_to_min_sec_string(elapsedTrackTime)
+                            print("  $$ Track [{}] is now at {} in the song.".format(currTrackInfo["name"], formatted_time))
+                            print("  $$ Start playback at that time.")
 
-                    sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
-                    fadeInVolume()
+                        sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
+                        fadeInVolume()
 
-                    # indicate the song is now playing
-                    isMusicPlaying=True
+                        # indicate the song is now playing
+                        isMusicPlaying=True
 
                 # if music is playing,
                 else:
@@ -1086,10 +1088,10 @@ def playSongController():
                             print("  $$ The new track [{}] is now at {} in the song.".format(currTrackInfo["name"], formatted_time))
                             print("  $$ Start playback at that time.")
 
-                        fadeOutVolume(True)
                         trackURIs = ["spotify:track:"+currTrackID]
                         sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
-                        fadeInVolume()
+                        fadeInVolume(True)
+                        isEarlyTransition = False
 
         except spotipy.exceptions.SpotifyException as e:
             # Check for "device not found" error
@@ -1315,8 +1317,8 @@ def on_broadcast(data):
         totalTrackTime = newTrackInfo['duration_ms']
 
         if (isVerboseFlagSet(FLAG_SocketMessages)):
-            print("  $$ [Broadcast] New Track Info: ")
-            print(currTrackInfo)
+            # print("  $$ [Broadcast] New Track Info: ")
+            # print(currTrackInfo)
 
         nextTrackRequested = False
     else:
