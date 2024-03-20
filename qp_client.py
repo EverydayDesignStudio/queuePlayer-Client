@@ -1083,6 +1083,7 @@ def playSongController():
                         trackURIs = ["spotify:track:"+currTrackID]
                         sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
                         fadeInVolume(True)
+                        isEarlyTransition = False
 
         except spotipy.exceptions.SpotifyException as e:
             # Check for "device not found" error
