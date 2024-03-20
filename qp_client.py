@@ -329,8 +329,8 @@ def potController():
             # Calculate a running average
             filtered_voltage = running_average(voltage_readings)
             # filtered_voltage = current_voltage
-            if (isVerboseFlagSet(FLAG_PotController)):
-                print("  $$ Filtered voltage: ", filtered_voltage)
+            # if (isVerboseFlagSet(FLAG_PotController)):
+            #    print("  $$ Filtered voltage: ", filtered_voltage)
 
             # The voltage is lower than the 'active' threshold. The client is now 'inactive'.
             #  (1) pause the playback for this client
@@ -402,48 +402,47 @@ def potController():
 
                         prevVolume = currVolume
 
-                        try:
-                            devices = sp.devices()['devices']
-                            if (isVerboseFlagSet(FLAG_PotController)):
-                                print("Current devices: ", devices)
+                        devices = sp.devices()['devices']
+                        if (isVerboseFlagSet(FLAG_PotController)):
+                            print("Current devices: ", devices)
 
-                            # set to fixed volume as currVolume can be continuously changing
-                            print("PotController Changing Volume")
-                            sp.volume(prevVolume, device_id)
+                        # set to fixed volume as currVolume can be continuously changing
+                        print("PotController Changing Volume")
+                        sp.volume(prevVolume, device_id)
 
-                        # Restart spotifyd with credentials if device is not found
-                        except spotipy.exceptions.SpotifyException as e:
-                            # Check for "device not found" error
-                            if e.http_status == 404 and "Device not found" in str(e):
-                                print("  !! Device not found in [PotController] when changing volume. Restarting spotifyd...")
-                                restart_spotifyd()
-                            elif e.http_status == 401:
-                                print("  !! Spotify Token Expired in [PotController] when changing volume")
-                                refreshSpotifyAuthToken()
-                            time.sleep(sleepTimeOnError)
-
-                        except requests.exceptions.ConnectTimeout:
-                            print("  !! Connection timeout in [PotController] while changing volume.")
-                            print("  !! Retrying after a few seconds..")
-                            retry_connection += 1
-                            time.sleep(sleepTimeOnError)
-                            if (retry_connection >= RETRY_MAX):
-                                retryServerConnection()
-
-                        except requests.exceptions.ReadTimeout:
-                            print("  !! Read timeout in [PotController] while changing volume.")
-                            print("  !! Try refreshing Spotify token.")
-                            refreshSpotifyAuthToken()
-                            time.sleep(sleepTimeOnError)
-
-                        except Exception as e:
-                            print(f"  !! An error occurred in [PotController] while changing volume: {str(e)}")
-                            time.sleep(sleepTimeOnError)
                 else:
                     if (isVerboseFlagSet(FLAG_PotController)):
                         print("  $$ Case 5")
                         print("  $$ Fade flag is set -- reading voltage to set the current volume is paused.")
 
+        # Restart spotifyd with credentials if device is not found
+        except spotipy.exceptions.SpotifyException as e:
+            # Check for "device not found" error
+            if e.http_status == 404 and "Device not found" in str(e):
+                print("  !! Device not found in [PotController]. Restarting spotifyd...")
+                restart_spotifyd()
+            elif e.http_status == 401:
+                print("  !! Spotify Token Expired in [PotController]")
+                refreshSpotifyAuthToken()
+            time.sleep(sleepTimeOnError)
+
+        except requests.exceptions.ConnectTimeout:
+            print("  !! Connection timeout in [PotController].")
+            print("  !! Retrying after a few seconds..")
+            retry_connection += 1
+            time.sleep(sleepTimeOnError)
+            if (retry_connection >= RETRY_MAX):
+                retryServerConnection()
+
+        except requests.exceptions.ReadTimeout:
+            print("  !! Read timeout in [PotController].")
+            print("  !! Try refreshing Spotify token.")
+            refreshSpotifyAuthToken()
+            time.sleep(sleepTimeOnError)
+
+        except Exception as e:
+            print(f"  !! An error occurred in [PotController]: {str(e)}")
+            time.sleep(sleepTimeOnError)
 
 # ----------------------------------------------------------
 
@@ -615,7 +614,7 @@ def fadeOutVolume(halt = False):
 
 
 def fadeInVolume():
-    global sp, currVolume, refVolume, device_id, fadingVolumeFlag retry_connection
+    global sp, currVolume, refVolume, device_id, fadingVolumeFlag, retry_connection
 
     fadingVolumeFlag = True
     refVolume = 0  # Start from volume 0
@@ -1124,7 +1123,6 @@ def playSongController():
 # ----------------------------------------------------------
 # Section 6: QueuePlayer Client Main
 
-@sio.event
 def on_connect():
     global serverConnCheck, clientID, clientColor, sp, spToken
     global client_id, client_secret, spotify_username, device_id, spotify_scope, spotify_redirect_uri
@@ -1174,7 +1172,6 @@ def on_connect():
         getSpotifyAuthToken()
 
 
-@sio.event
 def on_disconnect():
     global serverConnCheck, isActive, currTrackID, nextTrackRequested
 
@@ -1189,7 +1186,6 @@ def on_disconnect():
     print('Disconnected from server')
 
 
-@sio.event
 def on_state_change(data):
     global clientStates
 
@@ -1200,7 +1196,6 @@ def on_state_change(data):
     print("    Current client states: ", clientStates)
 
 
-@sio.event
 def on_broadcast(data):
     global sp, spToken, clientStates, retry_connection
     global isMusicPlaying, isActive, lightInfo, currTrackInfo
@@ -1403,7 +1398,7 @@ def main():
             sio.wait()
 
         except Exception as e:
-        print(f"  !! An error occurred in [QueuePlayerMain]: {str(e)}")
+            print(f"  !! An error occurred in [QueuePlayerMain]: {str(e)}")
             retry_main += 1
             time.sleep(sleepTimeOnError)
 
