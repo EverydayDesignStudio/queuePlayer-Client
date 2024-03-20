@@ -559,64 +559,59 @@ def running_average(values):
     return sum(values) / len(values)
 
 
-def fadeOutVolume(halt = False):
+def fadeInVolume(doFadeOut = False):
     global sp, currVolume, refVolume, device_id, fadingVolumeFlag, retry_connection
 
     fadingVolumeFlag = True
-    refVolume = currVolume
 
-    while (refVolume > 0):
-        refVolume = int(refVolume / 1.5)
+    ### ---- fade out ---- ###
+    if doFadeOut:
+        refVolume = currVolume
 
-        # Ensure volume goes to 0
-        if refVolume < 1:
-            refVolume = 0
+        while (refVolume > 0):
+            refVolume = int(refVolume / 1.5)
 
-        try:
-            sp.volume(refVolume, device_id=device_id)
+            # Ensure volume goes to 0
+            if refVolume < 1:
+                refVolume = 0
 
-        # Restart spotifyd with credentials if device is not found
-        except spotipy.exceptions.SpotifyException as e:
-            # Check for "device not found" error
-            if e.http_status == 404 and "Device not found" in str(e):
-                print("  !! Device not found when [fading out volume]. Restarting spotifyd...")
-                restart_spotifyd()
-            elif e.http_status == 401:
-                print("  !! Spotify Token Expired in [fading out volume]")
+            try:
+                sp.volume(refVolume, device_id=device_id)
+
+            # Restart spotifyd with credentials if device is not found
+            except spotipy.exceptions.SpotifyException as e:
+                # Check for "device not found" error
+                if e.http_status == 404 and "Device not found" in str(e):
+                    print("  !! Device not found when [fading out volume]. Restarting spotifyd...")
+                    restart_spotifyd()
+                elif e.http_status == 401:
+                    print("  !! Spotify Token Expired in [fading out volume]")
+                    refreshSpotifyAuthToken()
+                time.sleep(sleepTimeOnError)
+
+            except requests.exceptions.ConnectTimeout:
+                print("  !! Connection timeout while [fading out volume].")
+                print("  !! Retrying after a few seconds..")
+                retry_connection += 1
+                time.sleep(sleepTimeOnError)
+                if (retry_connection >= RETRY_MAX):
+                    retryServerConnection()
+
+            except requests.exceptions.ReadTimeout:
+                print("  !! Read timeout while [fading out volume].")
+                print("  !! Try refreshing Spotify token.")
                 refreshSpotifyAuthToken()
-            time.sleep(sleepTimeOnError)
+                time.sleep(sleepTimeOnError)
 
-        except requests.exceptions.ConnectTimeout:
-            print("  !! Connection timeout while [fading out volume].")
-            print("  !! Retrying after a few seconds..")
-            retry_connection += 1
-            time.sleep(sleepTimeOnError)
-            if (retry_connection >= RETRY_MAX):
-                retryServerConnection()
+            except Exception as e:
+                print(f"  !! An error occurred while [fading out volume]: {str(e)}")
+                time.sleep(sleepTimeOnError)
 
-        except requests.exceptions.ReadTimeout:
-            print("  !! Read timeout while [fading out volume].")
-            print("  !! Try refreshing Spotify token.")
-            refreshSpotifyAuthToken()
-            time.sleep(sleepTimeOnError)
+            # Delay to prevent hitting API rate limits and to make fade in smoother
+            time.sleep(0.2)
 
-        except Exception as e:
-            print(f"  !! An error occurred while [fading out volume]: {str(e)}")
-            time.sleep(sleepTimeOnError)
+    ### ---- fade in ---- ###
 
-        # Delay to prevent hitting API rate limits and to make fade in smoother
-        time.sleep(0.2)
-
-    # halt for instant fade-out, fade-in for early transition
-    if not halt:
-        # remove the flag
-        fadingVolumeFlag = False
-
-
-def fadeInVolume():
-    global sp, currVolume, refVolume, device_id, fadingVolumeFlag, retry_connection
-
-    fadingVolumeFlag = True
     refVolume = 0  # Start from volume 0
 
     while refVolume < currVolume:
@@ -1020,7 +1015,6 @@ def playSongController():
 
                     isMusicPlaying=False
 
-                    fadeOutVolume()
                     prevVolume = 0
                     currVolume = 0
 
@@ -1054,7 +1048,6 @@ def playSongController():
                     if (isVerboseFlagSet(FLAG_PlaySongController)):
                         print("  $$ elapsedTrackTime: {}, totalTrackTime: {}".format(elapsedTrackTime, totalTrackTime))
 
-                    fadeOutVolume(True)
                     notifyTrackFinished(currTrackID)
                     continue
 
@@ -1086,10 +1079,9 @@ def playSongController():
                             print("  $$ The new track [{}] is now at {} in the song.".format(currTrackInfo["name"], formatted_time))
                             print("  $$ Start playback at that time.")
 
-                        fadeOutVolume(True)
                         trackURIs = ["spotify:track:"+currTrackID]
                         sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
-                        fadeInVolume()
+                        fadeInVolume(True)
 
         except spotipy.exceptions.SpotifyException as e:
             # Check for "device not found" error
