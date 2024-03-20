@@ -1067,7 +1067,7 @@ def playSongController():
 
                     if (isVerboseFlagSet(FLAG_PlaySongController)):
                         formatted_time = ms_to_min_sec_string(elapsedTrackTime)
-                        print("  $$ Track [{}] is now at {} in the song.".format(currTrackInfo.name, formatted_time))
+                        print("  $$ Track [{}] is now at {} in the song.".format(currTrackInfo["name"], formatted_time))
                         print("  $$ Start playback at that time.")
 
                     sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
@@ -1083,7 +1083,7 @@ def playSongController():
                         if (isVerboseFlagSet(FLAG_PlaySongController)):
                             print("  $$ Early transition in [PlaySongController]")
                             formatted_time = ms_to_min_sec_string(elapsedTrackTime)
-                            print("  $$ The new track [{}] is now at {} in the song.".format(currTrackInfo.name, formatted_time))
+                            print("  $$ The new track [{}] is now at {} in the song.".format(currTrackInfo["name"], formatted_time))
                             print("  $$ Start playback at that time.")
 
                         fadeOutVolume(True)
