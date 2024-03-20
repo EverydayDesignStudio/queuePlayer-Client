@@ -1042,6 +1042,11 @@ def playSongController():
                         time.sleep(1)
                         continue
 
+                if (isVerboseFlagSet(FLAG_PlaySongController)):
+                    print(f"Total Track Time: ", ms_to_min_sec_string(totalTrackTime))
+                    print(f"Elapsed Track Time: ", ms_to_min_sec_string(elapsedTrackTime))
+
+
                 # when the song ends, notify the server and start fading out
                 #  ** this condition is not dependant on the music playing, so should be able to handle late recovery
                 if (not nextTrackRequested and elapsedTrackTime > 0 and totalTrackTime > 0 and elapsedTrackTime > totalTrackTime):
