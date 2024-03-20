@@ -414,6 +414,7 @@ def potController():
                     if (isVerboseFlagSet(FLAG_PotController)):
                         print("  $$ Case 5")
                         print("  $$ Fade flag is set -- reading voltage to set the current volume is paused.")
+                        time.sleep(1)
 
         # Restart spotifyd with credentials if device is not found
         except spotipy.exceptions.SpotifyException as e:
@@ -722,8 +723,8 @@ def colorArrayBuilder(lightInfo):
     if colorArrBefore != colorArrAfter:
         if (isVerboseFlagSet(FLAG_QueueLightController)):
             print("  $$ Color Arrays are different. Update the queue lights!")
-            print("  $$   Color before: {}".format(colorArrBefore))
-            print("  $$   Color After: {}".format(colorArrAfter))
+            # print("  $$   Color before: {}".format(colorArrBefore))
+            # print("  $$   Color After: {}".format(colorArrAfter))
 
         # Define the maximum brightness value
         max_brightness = 255
@@ -1024,6 +1025,7 @@ def playSongController():
                 else:
                     if (isVerboseFlagSet(FLAG_PlaySongController)):
                         print("  $$ QP is now Inactive and NOT playing music.")
+                        time.sleep(1)
                     fadingVolumeFlag = False
                     prevVolume = 0
                     currVolume = 0
@@ -1037,6 +1039,7 @@ def playSongController():
                 if (currTrackID == ''):
                     if (isVerboseFlagSet(FLAG_PlaySongController)):
                         print("  $$ QP is ON but has no trackID yet.")
+                        time.sleep(1)
                         continue
 
                 # when the song ends, notify the server and start fading out
@@ -1309,8 +1312,8 @@ def on_broadcast(data):
         totalTrackTime = newTrackInfo['duration_ms']
 
         if (isVerboseFlagSet(FLAG_SocketMessages)):
-            print("  $$ [Broadcast] New Track Info: ")
-            print(currTrackInfo)
+            # print("  $$ [Broadcast] New Track Info: ")
+            # print(currTrackInfo)
 
         nextTrackRequested = False
     else:
