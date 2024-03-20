@@ -1198,7 +1198,7 @@ def on_state_change(data):
 
 def on_broadcast(data):
     global sp, spToken, clientStates, retry_connection
-    global isMusicPlaying, isActive, lightInfo, currTrackInfo
+    global isMusicPlaying, isActive, lightInfo, currTrackInfo, updateQueueLight
     global currBPM, currTrackID, currCluster, ringLightColor, isBPMChanged
     global elapsedTrackTime, totalTrackTime, startTrackTimestamp, isEarlyTransition, nextTrackRequested
 
