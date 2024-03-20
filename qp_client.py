@@ -1317,7 +1317,7 @@ def on_broadcast(data):
         totalTrackTime = newTrackInfo['duration_ms']
 
         if (isVerboseFlagSet(FLAG_SocketMessages)):
-            # print("  $$ [Broadcast] New Track Info: ")
+            print("  $$ [Broadcast] New Track Info: ")
             # print(currTrackInfo)
 
         nextTrackRequested = False
