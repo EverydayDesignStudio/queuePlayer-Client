@@ -1056,18 +1056,19 @@ def playSongController():
                     if (isVerboseFlagSet(FLAG_PlaySongController)):
                         print("  $$ QP is ON but the music is not playing.")
 
-                    trackURIs = ["spotify:track:"+currTrackID]
+                    if (currTrackID != ""):
+                        trackURIs = ["spotify:track:"+currTrackID]
 
-                    if (isVerboseFlagSet(FLAG_PlaySongController)):
-                        formatted_time = ms_to_min_sec_string(elapsedTrackTime)
-                        print("  $$ Track [{}] is now at {} in the song.".format(currTrackInfo["name"], formatted_time))
-                        print("  $$ Start playback at that time.")
+                        if (isVerboseFlagSet(FLAG_PlaySongController)):
+                            formatted_time = ms_to_min_sec_string(elapsedTrackTime)
+                            print("  $$ Track [{}] is now at {} in the song.".format(currTrackInfo["name"], formatted_time))
+                            print("  $$ Start playback at that time.")
 
-                    sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
-                    fadeInVolume()
+                        sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
+                        fadeInVolume()
 
-                    # indicate the song is now playing
-                    isMusicPlaying=True
+                        # indicate the song is now playing
+                        isMusicPlaying=True
 
                 # if music is playing,
                 else:
