@@ -132,16 +132,17 @@ isBPMChanged = False
 currCluster = None       # the current song's cluster in the DB
 
 # Local timer variables for song end check
-startTrackTimestamp = None
-totalTrackTime = None
-elapsedTrackTime = None
+startTrackTimestamp = -1
+totalTrackTime = -1
+elapsedTrackTime = -1
+nextTrackRequested = False
 
 # A placeholder variable for the information about user’s current playback (song)
 # https://spotipy.readthedocs.io/en/2.12.0/?highlight=current_playback#spotipy.client.Spotify.current_playback
 playback=None
 
 #fail-safe recovery
-retry = 0
+retry_main = 0
 retry_connection = 0
 RETRY_MAX = 5
 sleepTimeOnError = 3        # when there is an exception, pause for x seconds
@@ -209,7 +210,7 @@ def compareDeviceID():
 
 # Function to restart spotifyd -- checking the device connection
 def restart_spotifyd():
-    global retry, RETRY_MAX
+    global retry_main, RETRY_MAX
 
     while True:
         try:
@@ -232,15 +233,11 @@ def restart_spotifyd():
 
         if (not deviceCheck):
             print("$$ retrying.. {}".format(retry))
-            retry += 1
+            retry_main += 1
+            time.sleep(sleepTimeOnError)
 
         else:
             break
-
-        if (retry >= RETRY_MAX):
-            print("!! retry max reached..")
-            break
-            # restart_script()
 
 
 def retryServerConnection():
@@ -256,10 +253,17 @@ def retryServerConnection():
 
 def restart_script():
     # Add any cleanup or state reset logic here
+    sio.disconnect()
     time.sleep(5)  # Optional delay before restarting to avoid immediate restart loop
     print("Restarting the script...")
     python = sys.executable
     os.execl(python, python, *sys.argv)
+
+    ### Option 2:
+    # python_executable = sys.executable
+    # script_file = __file__
+    # subprocess.call([python_executable, script_file])
+    # sys.exit()
 
 # acquires an authenticated spotify token
 def getSpotifyAuthToken():
@@ -1000,7 +1004,7 @@ def notifyTrackFinished(trackID):
 #      Then, request the server for the next song —> trackFinished
 def playSongController():
     global sp, device_id, retry_connection
-    global currTrackID, prevVolume, currVolume, isMusicPlaying, isActive, fadingVolumeFlag
+    global currTrackID, prevVolume, currVolume, isMusicPlaying, isActive, fadingVolumeFlag, nextTrackRequested
     global startTrackTimestamp, totalTrackTime, elapsedTrackTime, isEarlyTransition
 
     if (isVerboseFlagSet(FLAG_PlaySongController)):
@@ -1033,60 +1037,60 @@ def playSongController():
 
             # QP is ON
             else:
-                if currTrackID != '':
-                    # but if no music is playing, play the music
-                    if not isMusicPlaying:
-                        if (isVerboseFlagSet(FLAG_PlaySongController)):
-                            print("  $$ QP is ON but the music is not playing.")
+                if (startTrackTimestamp > 0):
+                    elapsed_time = (time.time() - startTrackTimestamp) * 1000
+                    elapsedTrackTime = int(elapsed_time)
 
-                        elapsed_time = (time.time() - startTrackTimestamp) * 1000
-                        elapsedTrackTime = int(elapsed_time)
-
-                        trackURIs = ["spotify:track:"+currTrackID]
-
-                        if (isVerboseFlagSet(FLAG_PlaySongController)):
-                            formatted_time = ms_to_min_sec_string(elapsedTrackTime)
-                            print("  $$ Track [{}] is how at {} in the song.".format(queue[0].track_name, formatted_time))
-                            print("  $$ Start playback at that time.")
-
-                        sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
-                        fadeInVolume()
-
-                        # indicate the song is now playing
-                        isMusicPlaying=True
-
-                    # if music is playing,
-                    else:
-                        elapsed_time = (time.time() - startTrackTimestamp) * 1000
-                        elapsedTrackTime = int(elapsed_time)
-
-                        # when the server forces you to skip to the next song,
-                        if (isEarlyTransition):
-                            if (isVerboseFlagSet(FLAG_PlaySongController)):
-                                print("  $$ Early transition in [PlaySongController]")
-                                formatted_time = ms_to_min_sec_string(elapsedTrackTime)
-                                print("  $$ The new track [{}] is how at {} in the song.".format(queue[0].track_name, formatted_time))
-                                print("  $$ Start playback at that time.")
-
-                            fadeOutVolume(True)
-                            trackURIs = ["spotify:track:"+currTrackID]
-                            sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
-                            fadeInVolume()
-
-                        else:
-                            # when the song ends, notify the server and start fading out
-                            if elapsedTrackTime > totalTrackTime:
-                                print("Song has ended")
-
-                                if (isVerboseFlagSet(FLAG_PlaySongController)):
-                                    print("  $$ elapsedTrackTime: {}, totalTrackTime: {}".format(elapsedTrackTime, totalTrackTime))
-
-                                fadeOutVolume(True)
-                                notifyTrackFinished(currTrackID)
-
-                else:
+                if (currTrackID == ''):
                     if (isVerboseFlagSet(FLAG_PlaySongController)):
                         print("  $$ QP is ON but has no trackID yet.")
+                        continue
+
+                # when the song ends, notify the server and start fading out
+                #  ** this condition is not dependant on the music playing, so should be able to handle late recovery
+                if (not nextTrackRequested and elapsedTrackTime > 0 and totalTrackTime > 0 and elapsedTrackTime > totalTrackTime):
+                    print("Song has ended")
+                    nextTrackRequested = True
+
+                    if (isVerboseFlagSet(FLAG_PlaySongController)):
+                        print("  $$ elapsedTrackTime: {}, totalTrackTime: {}".format(elapsedTrackTime, totalTrackTime))
+
+                    fadeOutVolume(True)
+                    notifyTrackFinished(currTrackID)
+                    continue
+
+                # if no music is playing, play the music
+                if not isMusicPlaying:
+                    if (isVerboseFlagSet(FLAG_PlaySongController)):
+                        print("  $$ QP is ON but the music is not playing.")
+
+                    trackURIs = ["spotify:track:"+currTrackID]
+
+                    if (isVerboseFlagSet(FLAG_PlaySongController)):
+                        formatted_time = ms_to_min_sec_string(elapsedTrackTime)
+                        print("  $$ Track [{}] is how at {} in the song.".format(queue[0].track_name, formatted_time))
+                        print("  $$ Start playback at that time.")
+
+                    sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
+                    fadeInVolume()
+
+                    # indicate the song is now playing
+                    isMusicPlaying=True
+
+                # if music is playing,
+                else:
+                    # when the server forces you to skip to the next song,
+                    if (isEarlyTransition):
+                        if (isVerboseFlagSet(FLAG_PlaySongController)):
+                            print("  $$ Early transition in [PlaySongController]")
+                            formatted_time = ms_to_min_sec_string(elapsedTrackTime)
+                            print("  $$ The new track [{}] is how at {} in the song.".format(queue[0].track_name, formatted_time))
+                            print("  $$ Start playback at that time.")
+
+                        fadeOutVolume(True)
+                        trackURIs = ["spotify:track:"+currTrackID]
+                        sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
+                        fadeInVolume()
 
         except spotipy.exceptions.SpotifyException as e:
             # Check for "device not found" error
@@ -1119,229 +1123,304 @@ def playSongController():
 
 # ----------------------------------------------------------
 # Section 6: QueuePlayer Client Main
-def main():
+
+@sio.event
+def on_connect():
+    global serverConnCheck, clientID, clientColor, sp, spToken
+    global client_id, client_secret, spotify_username, device_id, spotify_scope, spotify_redirect_uri
+
+    serverConnCheck = True
+    print('Connected to server')
+    sio.emit('connect_user', { "clientID": clientID } )
+
+    if (clientID == 1):
+        ### OLO5
+        clientColor = YELLOW
+        client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
+        client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
+        spotify_username='n39su59fav4b7fmcm0cuwyv2w'
+        device_id='fc0b6be2a96214b9a63fbf6d9584c2cde0a0cf8b'
+    elif (clientID == 2):
+        ### OLO4
+        clientColor = GREEN
+        client_id='aeeefb7f628b41d0b7f5581b668c27f4'
+        client_secret='7a75e01c59f046888fa4b99fbafc4784'
+        spotify_username='x8eug7lj2opi0in1gnvr8lfsz'
+        device_id='651d47833f4c935fadd4a03e43cd5a4c3ec0d170' #raspberry pi ID
+        #device_id = '4cb43e627ebaf5bbd05e96c943da16e6fac0a2c5' #web player ID
+    elif (clientID == 3):
+        ### OLO3
+        clientColor = VIOLET
+        client_id = 'd460c59699a54e309617458dd596228d'
+        client_secret = '7655a37f76e54744ac55617e3e588358'
+        spotify_username='qjczeruw4padtyh69nxeqzohi'
+        device_id = '6b5d83a142591f256666bc28a3eccb56258c5dc7'
+    elif (clientID == 4):
+        ### OLO2
+        clientColor = ORANGE
+        client_id='bdfdc0993dcc4b9fbff8aac081cad246'
+        client_secret='969f0ef8c11d49429e985aab6dd6ff0c'
+        spotify_username='7w8j8bkw92mlnz5mwr3lou55g'
+        #device_id='651d47833f4c935fadd4a03e43cd5a4c3ec0d170'
+        #device_id = '217a37cc1f6f9c7937afbfa6f50424b7d937620f'
+        device_id = '3946ec2b810ec4e30489b4704e9a695b1a64da26'
+
+    # sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=False))
+
+    ### SPOTIFY AUTH
     try:
-        print("start of script")
-        thread_TapSensor = threading.Thread(target=tapSensor(channel))
-        thread_TapSensor.start()
-
-        thread_PlaySong = threading.Thread(target=playSongController)
-        thread_PlaySong.start()
-
-        thread_Potentiometer = threading.Thread(target=potController)
-        thread_Potentiometer.start()
-
-        thread_TapController = threading.Thread(target=tapController)
-        thread_TapController.start()
-
-        thread_QueueLight = threading.Thread(target=queueLightController)
-        thread_QueueLight.start()
-
-        thread_RingLight = threading.Thread(target=ringLightController)
-        thread_RingLight.start()
-
-        thread_IndicatorLight = threading.Thread(target=indicatorLightController)
-        thread_IndicatorLight.start()
-
-        thread_Fadeout = threading.Thread(target=fadeoutController)
-        thread_Fadeout.start()
+        refreshSpotifyAuthToken()
+    except:
+        getSpotifyAuthToken()
 
 
-        # ----------------------------------------------------------
-        # Section 5: Socket Controls
+@sio.event
+def on_disconnect():
+    global serverConnCheck, isActive, currTrackID, nextTrackRequested
 
-        sio = socketio.Client()
-        print("trying to connect")
+    serverConnCheck = False
+    isActive = False
 
-        @sio.event
-        def connect():
-            global serverConnCheck, clientID, clientColor, sp, spToken
-            global client_id, client_secret, spotify_username, device_id, spotify_scope, spotify_redirect_uri
+    # # reset the trackID so when the client is recovered, it can resume
+    # currTrackID = ''
+    isMusicPlaying = False
+    nextTrackRequested = False
 
-            serverConnCheck = True
-            print('Connected to server')
-            sio.emit('connect_user', { "clientID": clientID } )
+    print('Disconnected from server')
 
-            if (clientID == 1):
-                ### OLO5
-                clientColor = YELLOW
-                client_id='765cacd3b58f4f81a5a7b4efa4db02d2'
-                client_secret='cb0ddbd96ee64caaa3d0bf59777f6871'
-                spotify_username='n39su59fav4b7fmcm0cuwyv2w'
-                device_id='fc0b6be2a96214b9a63fbf6d9584c2cde0a0cf8b'
-            elif (clientID == 2):
-                ### OLO4
-                clientColor = GREEN
-                client_id='aeeefb7f628b41d0b7f5581b668c27f4'
-                client_secret='7a75e01c59f046888fa4b99fbafc4784'
-                spotify_username='x8eug7lj2opi0in1gnvr8lfsz'
-                device_id='651d47833f4c935fadd4a03e43cd5a4c3ec0d170' #raspberry pi ID
-                #device_id = '4cb43e627ebaf5bbd05e96c943da16e6fac0a2c5' #web player ID
-            elif (clientID == 3):
-                ### OLO3
-                clientColor = VIOLET
-                client_id = 'd460c59699a54e309617458dd596228d'
-                client_secret = '7655a37f76e54744ac55617e3e588358'
-                spotify_username='qjczeruw4padtyh69nxeqzohi'
-                device_id = '6b5d83a142591f256666bc28a3eccb56258c5dc7'
-            elif (clientID == 4):
-                ### OLO2
-                clientColor = ORANGE
-                client_id='bdfdc0993dcc4b9fbff8aac081cad246'
-                client_secret='969f0ef8c11d49429e985aab6dd6ff0c'
-                spotify_username='7w8j8bkw92mlnz5mwr3lou55g'
-                #device_id='651d47833f4c935fadd4a03e43cd5a4c3ec0d170'
-                #device_id = '217a37cc1f6f9c7937afbfa6f50424b7d937620f'
-                device_id = '3946ec2b810ec4e30489b4704e9a695b1a64da26'
 
-            # sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=False))
+@sio.event
+def on_state_change(data):
+    global clientStates
 
-            ### SPOTIFY AUTH
+    print("## State change message received.")
+    json_data = json.loads(data) # incoming message is transformed into a JSON object
+    print("    Previous client states: ", clientStates)
+    clientStates = json_data["activeUsers"]
+    print("    Current client states: ", clientStates)
+
+
+@sio.event
+def on_broadcast(data):
+    global sp, spToken, clientStates, retry_connection
+    global isMusicPlaying, isActive, lightInfo, currTrackInfo
+    global currBPM, currTrackID, currCluster, ringLightColor, isBPMChanged
+    global elapsedTrackTime, totalTrackTime, startTrackTimestamp, isEarlyTransition, nextTrackRequested
+
+    json_data = json.loads(data) # incoming message is transformed into a JSON object
+    print("Server Sent the JSON:")
+    print(json.dumps(json_data, indent = 2))
+    print("    Current client states: ", clientStates)
+
+    # track changes
+    if (json_data["currentTrack"]["trackID"] != currTrackID):
+        print("## New TrackID Received!")
+
+        if (currBPM != json_data["currentTrack"]["bpm"]):
+            if (isVerboseFlagSet(FLAG_SocketMessages)):
+                print("  $$ [Broadcast] New BPM! {} -> {}".format(currBPM, json_data["currentTrack"]["bpm"]))
+
+            currBPM = json_data["currentTrack"]["bpm"]
+            isBPMChanged = True
+
+        # if the time remaining until the next song starts
+        #       (the difference between broadcastTimestamp and startTrackTimestamp)
+        #    is less (<) than the time remaining in the current song
+        #       (totalTrackTime - elapsedTrackTime)
+        # if true, it means the client is running behind, and an early transition to the next song is necessary.
+        if (json_data["currentTrack"]["broadcastTimestamp"] - startTrackTimestamp < totalTrackTime - elapsedTrackTime):
+            if (isVerboseFlagSet(FLAG_SocketMessages)):
+                print("  $$ [Broadcast] Early Transition detected!")
+                print("  $$   broadcastTimestamp: ", json_data["currentTrack"]["broadcastTimestamp"])
+                print("  $$   startTrackTimestamp: ", startTrackTimestamp)
+                print("  $$   totalTrackTime: {} ({})".format(totalTrackTime, ms_to_min_sec_string(totalTrackTime)))
+                print("  $$   elapsedTrackTime: {} ({})".format(elapsedTrackTime, ms_to_min_sec_string(elapsedTrackTime)))
+                print("  $$    --> {} (broadcastTimestamp - startTrackTimestamp) <? {} (totalTrackTime - elapsedTrackTime) : ".format(json_data["currentTrack"]["broadcastTimestamp"] - startTrackTimestamp, totalTrackTime - elapsedTrackTime))
+
+            isEarlyTransition = True
+        else:
+            isEarlyTransition = False
+
+        currTrackID = json_data["currentTrack"]["trackID"]
+        currCluster = json_data["currentTrack"]["cluster_number"]
+
+        startTrackTimestamp = json_data["currentTrack"]["broadcastTimestamp"]
+
+        if (isVerboseFlagSet(FLAG_SocketMessages)):
+            print("  $$ [Broadcast] Update Track Info: ")
+            print("  $$   startTrackTimestamp (=broadcastTimestamp): ", startTrackTimestamp)
+            print("  $$   TrackID: ", currTrackID)
+            print("  $$   Cluster: ", currCluster)
+
+        lightInfo = json_data["lightInfo"]
+
+        if (isVerboseFlagSet(FLAG_QueueLightController)):
+            print("  $$ [Broadcast] Setting the queueLight flag.")
+        updateQueueLight = True
+
+        # change the ring light only when the current track is added by tapping (by anyone)
+        #    or the ring color is actually different -- this is for the clients who joins the queue
+        #
+        if (lightInfo["queueLight1"]["isNewBPM"] or ringLightColor != lightInfo["queueLight1"]["ringLight"]):
+            ringLightColor = lightInfo["queueLight1"]["ringLight"]
+
+            if (isVerboseFlagSet(FLAG_RingLightController)):
+                print("  $$ [Broadcast] RingLightColor updated!")
+                print("  $$   Ring light is now: ", ringLightColor)
+
+            # verbose for testing
+            clientX = 0
+            if (ringLightColor == YELLOW):
+                clientX = 1
+            elif (ringLightColor == GREEN):
+                clientX = 2
+            elif (ringLightColor == VIOLET):
+                clientX = 3
+            elif (ringLightColor == ORANGE):
+                clientX = 4
+            print("##  This track is tapped by Client {}. Change the ring light.".format(clientX))
+
+        newTrackInfo = None
+        while (newTrackInfo is None):
             try:
-                refreshSpotifyAuthToken()
-            except:
-                getSpotifyAuthToken()
+                newTrackInfo = sp.track(currTrackID)
 
-        @sio.event
-        def disconnect():
-            global serverConnCheck, isActive, currTrackID
+            except (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout):
+                print("  !! Connection or Read timeout while requesting track info.")
+                print("  !! Retrying after a few seconds..")
+                retry_connection += 1
+                time.sleep(sleepTimeOnError)
 
-            serverConnCheck = False
-            isActive = False
+                if (retry_connection >= RETRY_MAX):
+                    refreshSpotifyAuthToken()
+                    retryServerConnection()
 
-            # reset the trackID so when the client is recovered, it can resume
-            currTrackID = ''
-            print('Disconnected from server')
+            #Last Resort is to restart script
+            # except requests.exceptions.ReadTimeout:
+                # print("Minor Setback. Restarting the script...")
+                # restart_script()
+
+            # Restart spotifyd with credentials if device is not found
+            except spotipy.exceptions.SpotifyException as e:
+                # Check for "device not found" error
+                if e.http_status == 404 and "Device not found" in str(e):
+                    print("  !! Device not found in [broadcast]. Restarting spotifyd...")
+                    restart_spotifyd()
+                elif e.http_status == 401:
+                    print("  !! Spotify Token Expired in [broadcast]")
+                    refreshSpotifyAuthToken()
+
+                time.sleep(sleepTimeOnError)
+
+            except Exception as e:
+                print(f"  !! An error occurred in [broadcast]: {str(e)}")
+                time.sleep(sleepTimeOnError)
+
+        currTrackInfo = newTrackInfo
+        totalTrackTime = newTrackInfo['duration_ms']
+
+        if (isVerboseFlagSet(FLAG_SocketMessages)):
+            print("  $$ [Broadcast] New Track Info: ")
+            print(currTrackInfo)
+
+        nextTrackRequested = False
+    else:
+        print("## Same TrackID. I'm already on this track.")
 
 
-        @sio.event
-        def stateChange(data):
-            global clientStates
-
-            print("## State change message received.")
-            json_data = json.loads(data) # incoming message is transformed into a JSON object
-            print("    Previous client states: ", clientStates)
-            clientStates = json_data["activeUsers"]
-            print("    Current client states: ", clientStates)
+    print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
 
 
-        @sio.event
-        def broadcast(data):
-            global sp, spToken, clientStates, retry_connection
-            global isMusicPlaying, isActive, lightInfo, currTrackInfo
-            global currBPM, currTrackID, currCluster, ringLightColor, isBPMChanged
-            global elapsedTrackTime, totalTrackTime, startTrackTimestamp, isEarlyTransition
+def main():
+    global retry_main
 
-            json_data = json.loads(data) # incoming message is transformed into a JSON object
-            print("Server Sent the JSON:")
-            print(json.dumps(json_data, indent = 2))
-            print("    Current client states: ", clientStates)
+    retry_main = 0
 
-            # track changes
-            if (json_data["currentTrack"]["trackID"] != currTrackID):
-                print("## New TrackID Received!")
+    print("[Main] Start of script.")
 
-                if (currBPM != json_data["currentTrack"]["bpm"]):
-                    currBPM = json_data["currentTrack"]["bpm"]
-                    isBPMChanged = True
+    thread_TapSensor = None
+    thread_PlaySong = None
+    thread_Potentiometer = None
+    thread_TapController = None
+    thread_QueueLight = None
+    thread_RingLight = None
+    thread_IndicatorLight = None
+    thread_Fadeout = None
 
-                startTrackTimestamp = json_data["currentTrack"]["broadcastTimestamp"]
+    while (retry_connection < RETRY_MAX):
+        try:
+            # TapSensor
+            if (thread_TapSensor is None):
+                thread_TapSensor = threading.Thread(target=tapSensor(channel))
+            if not thread_TapSensor.is_alive():
+                thread_TapSensor.start()
 
-                currTrackID = json_data["currentTrack"]["trackID"]
-                currCluster = json_data["currentTrack"]["cluster_number"]
+            # PlaySong
+            if (thread_PlaySong is None):
+                thread_PlaySong = threading.Thread(target=playSongController)
+            if not thread_PlaySong.is_alive():
+                thread_PlaySong.start()
 
-                # if the time remaining until the next song starts
-                #       (the difference between broadcastTimestamp and startTrackTimestamp)
-                #    is less (<) than the time remaining in the current song
-                #       (totalTrackTime - elapsedTrackTime)
-                # if true, it means the client is running behind, and an early transition to the next song is necessary.
-                if (json_data["currentTrack"]["broadcastTimestamp"] - startTrackTimestamp < totalTrackTime - elapsedTrackTime):
-                    isEarlyTransition = True
+            # Potentiometer
+            if (thread_Potentiometer is None):
+                thread_Potentiometer = threading.Thread(target=potController)
+            if not thread_Potentiometer.is_alive():
+                thread_Potentiometer.start()
 
-                ### TODO: what if a single client is reconnected after the song is finished on the server?
-                # >> server is indefinitely waiting and the client cannot send the trackFinished notification
-                #  calculate the elapsed time and somehow notify the server
+            # TapController
+            if (thread_TapController is None):
+                thread_TapController = threading.Thread(target=tapController)
+            if not thread_TapController.is_alive():
+                thread_TapController.start()
 
-                lightInfo = json_data["lightInfo"]
+            # Queue Light
+            if (thread_QueueLight is None):
+                thread_QueueLight = threading.Thread(target=queueLightController)
+            if not thread_QueueLight.is_alive():
+                thread_QueueLight.start()
 
-                if (isVerboseFlagSet(FLAG_QueueLightController)):
-                    print("  $$ [Broadcast] Setting the queueLight flag.")
-                updateQueueLight = True
+            # Ring Light
+            if (thread_RingLight is None):
+                thread_RingLight = threading.Thread(target=ringLightController)
+            if not thread_RingLight.is_alive():
+                thread_RingLight.start()
 
-                # change the ring light only when the current track is added by tapping (by anyone)
-                #    or the ring color is actually different -- this is for the clients who joins the queue
-                #
-                if (lightInfo["queueLight1"]["isNewBPM"] or ringLightColor != lightInfo["queueLight1"]["ringLight"]):
-                    if (isVerboseFlagSet(FLAG_RingLightController)):
-                        print("  $$ [Broadcast] RingLightColor updated!")
+            # Indicator Light
+            if (thread_IndicatorLight is None):
+                thread_IndicatorLight = threading.Thread(target=indicatorLightController)
+            if not thread_IndicatorLight.is_alive():
+                thread_IndicatorLight.start()
 
-                    ringLightColor = lightInfo["queueLight1"]["ringLight"]
+            # Fade-out to Black
+            if (thread_Fadeout is None):
+                thread_Fadeout = threading.Thread(target=fadeoutController)
+            if not thread_Fadeout.is_alive():
+                thread_Fadeout.start()
 
-                    # verbose for testing
-                    clientX = 0
-                    if (ringLightColor == YELLOW):
-                        clientX = 1
-                    elif (ringLightColor == GREEN):
-                        clientX = 2
-                    elif (ringLightColor == VIOLET):
-                        clientX = 3
-                    elif (ringLightColor == ORANGE):
-                        clientX = 4
-                    print("##  This track is tapped by Client {}. Change the ring light.".format(clientX))
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+            print("[Main] Socket connection established.")
+            sio.wait()
 
-                newTrackInfo = None
-                while (newTrackInfo is None):
-                    try:
-                        newTrackInfo = sp.track(currTrackID)
-                        currTrackInfo = newTrackInfo
-                        totalTrackTime = currTrackInfo['duration_ms']
+        except Exception as e:
+        print(f"  !! An error occurred in [QueuePlayerMain]: {str(e)}")
+            retry_main += 1
+            time.sleep(sleepTimeOnError)
 
-                    except (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout):
-                        print("  !! Connection or Read timeout while requesting track info.")
-                        print("  !! Retrying after a few seconds..")
-                        retry_connection += 1
-                        time.sleep(sleepTimeOnError)
-
-                        if (retry_connection >= RETRY_MAX):
-                            refreshSpotifyAuthToken()
-                            retryServerConnection()
-
-                    #Last Resort is to restart script
-                    # except requests.exceptions.ReadTimeout:
-                        # print("Minor Setback. Restarting the script...")
-                        # restart_script()
-
-                    # Restart spotifyd with credentials if device is not found
-                    except spotipy.exceptions.SpotifyException as e:
-                        # Check for "device not found" error
-                        if e.http_status == 404 and "Device not found" in str(e):
-                            print("  !! Device not found in [broadcast]. Restarting spotifyd...")
-                            restart_spotifyd()
-                        elif e.http_status == 401:
-                            print("  !! Spotify Token Expired in [broadcast]")
-                            refreshSpotifyAuthToken()
-
-                        time.sleep(sleepTimeOnError)
-
-                    except Exception as e:
-                        print(f"  !! An error occurred in [broadcast]: {str(e)}")
-                        time.sleep(sleepTimeOnError)
-
-            else:
-                print("## Same TrackID. I'm already on this track.")
-
-            print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
-
-        print("should be connected")
-        #sio.connect('https://qp-master-server.herokuapp.com/')
-        socketConnection()
-        sio.wait()
-
-    except Exception as e:
-    print(f"  !! An error occurred in [QueuePlayerMain]: {str(e)}")
-        time.sleep(sleepTimeOnError)
+    # If max retries exceeded, restart the script
+    print("Maximum retry count exceeded. Restarting the script.")
+    restart_script()
     # ----------------------------------------------------------
 
 # Check if the script is being run directly
 if __name__ == "__main__":
+    sio = socketio.Client()
+    print("trying to connect")
+
+    # Register socket event functions with socket client
+    sio.on("connect", on_connect)
+    sio.on("disconnect", on_disconnect)
+    sio.on("stateChange", on_state_change)
+    sio.on("broadcast", on_broadcast)
+
     main()
