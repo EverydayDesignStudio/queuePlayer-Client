@@ -984,7 +984,7 @@ def notifyTrackFinished(trackID):
         print("  $$ ClientID: {}, (finished)TrackID: {}, cluster: {}".format(clientID, trackID, currCluster))
 
     isMusicPlaying = False
-    continueSong = requests.get(baseUrl+"trackFinished", json={"clientID":clientID, "trackID":trackID, "cln":currCluster})
+    continueSong = requests.post(baseUrl+"trackFinished", json={"clientID":clientID, "trackID":trackID, "cln":currCluster})
 
 # Start a local manual timer for the duration of the song to identify the end of the song
 # This will avoid rate limit issues from SpotifyAPI
