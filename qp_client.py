@@ -1076,7 +1076,8 @@ def playSongController():
                             print("  $$ Start playback at that time.")
 
                         sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
-                        fadeInVolume()
+                        # # No need to fade in volume when there is no transition
+                        # fadeInVolume()
 
                         # indicate the song is now playing
                         isMusicPlaying=True
