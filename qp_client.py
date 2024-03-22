@@ -984,7 +984,7 @@ def notifyTrackFinished(trackID):
         print("  $$ ClientID: {}, (finished)TrackID: {}, cluster: {}".format(clientID, trackID, currCluster))
 
     isMusicPlaying = False
-    continueSong = requests.get(baseUrl+"trackFinished", json={"clientID":clientID, "trackID":trackID, "cln":currCluster})
+    continueSong = requests.post(baseUrl+"trackFinished", json={"clientID":clientID, "trackID":trackID, "cln":currCluster})
 
 # Start a local manual timer for the duration of the song to identify the end of the song
 # This will avoid rate limit issues from SpotifyAPI
@@ -1049,7 +1049,7 @@ def playSongController():
                 if (isVerboseFlagSet(FLAG_PlaySongController)):
                     print(f"Total Track Time: ", ms_to_min_sec_string(totalTrackTime))
                     print(f"Elapsed Track Time: ", ms_to_min_sec_string(elapsedTrackTime))
-
+                    time.sleep(1)
 
                 # when the song ends, notify the server and start fading out
                 #  ** this condition is not dependant on the music playing, so should be able to handle late recovery
