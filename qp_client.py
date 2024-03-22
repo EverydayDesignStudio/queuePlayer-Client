@@ -130,6 +130,7 @@ currTrackInfo = None
 currBPM = 0
 isBPMChanged = False
 currCluster = None       # the current song's cluster in the DB
+currQueuedTrackIDs = []
 
 # Local timer variables for song end check
 startTrackTimestamp = -1
@@ -202,8 +203,9 @@ def compareDeviceID():
             device_id_tmp = devices['devices'][0]['id']
 
     except Exception as e:
-        print(f"An error occurred while looking up the active devices: {str(e)}")
+        print(f"  !! An error occurred [in CompareDeviceID] while looking up the active devices: {str(e)}")
         time.sleep(sleepTimeOnError)
+        raise
 
     return device_id_tmp == device_id
 
@@ -212,32 +214,32 @@ def compareDeviceID():
 def restart_spotifyd():
     global retry_main, RETRY_MAX
 
-    while True:
-        try:
-            print("Device not found. Reconnecting to Spotify...")
-            subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
-            subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
-            time.sleep(5)  # Wait for Spotifyd to restart
+    try:
+        print("Device not found. Reconnecting to Spotify...")
+        subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
+        subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
+        time.sleep(5)  # Wait for Spotifyd to restart
 
-            deviceCheck = compareDeviceID()
+        deviceCheck = compareDeviceID()
 
-        except spotipy.exceptions.SpotifyException as e:
-            if e.http_status == 401:
-                print("Spotify Token Expired when restarting Spotifyd")
-                refreshSpotifyAuthToken()
-                time.sleep(sleepTimeOnError)
+    except spotipy.exceptions.SpotifyException as e:
+        if e.http_status == 404 and "Device not found" in str(e):
+            print("  !! Device not found in [restart_spotifyd]. Restarting spotifyd...")
+        if e.http_status == 401:
+            print("  !! Spotify Token Expired when restarting Spotifyd")
 
-        except Exception as e:
-            print(f"An error occurred while restarting Spotifyd: {str(e)}")
-            time.sleep(sleepTimeOnError)
+        time.sleep(sleepTimeOnError)
+        raise spotipy.exceptions.SpotifyException from e
 
-        if (not deviceCheck):
-            print("$$ retrying.. {}".format(retry))
-            retry_main += 1
-            time.sleep(sleepTimeOnError)
+    except Exception as e:
+        print(f"  !! An error occurred in [restart_spotifyd] while restarting Spotifyd: {str(e)}")
+        time.sleep(sleepTimeOnError)
+        raise
 
-        else:
-            break
+    if (not deviceCheck):
+        print("$$ retrying.. {}".format(retry))
+        retry_main += 1
+        time.sleep(sleepTimeOnError)
 
 
 def retryServerConnection():
@@ -570,7 +572,7 @@ def fadeInVolume(doFadeOut = False):
         refVolume = currVolume
 
         while (refVolume > 0):
-            refVolume = int(refVolume / 1.5)
+            refVolume = int(refVolume * 0.5)
 
             # Ensure volume goes to 0
             if refVolume < 1:
@@ -618,7 +620,7 @@ def fadeInVolume(doFadeOut = False):
     while refVolume < currVolume:
 
         # Increment volume
-        refVolume = int(refVolume * 1.5 + 1)
+        refVolume = int(refVolume * 2 + 1)
 
         # Ensure volume does not exceed target
         if refVolume > currVolume:
@@ -1049,6 +1051,7 @@ def playSongController():
 
                 # when the song ends, notify the server and start fading out
                 #  ** this condition is not dependant on the music playing, so should be able to handle late recovery
+                #  ** this flag should be off when the client receives the server's broadcast message
                 if (not nextTrackRequested and elapsedTrackTime > 0 and totalTrackTime > 0 and elapsedTrackTime > totalTrackTime):
                     print("Song has ended")
                     nextTrackRequested = True
@@ -1202,7 +1205,7 @@ def on_broadcast(data):
     global sp, spToken, clientStates, retry_connection
     global isMusicPlaying, isActive, lightInfo, currTrackInfo, updateQueueLight
     global currBPM, currTrackID, currCluster, ringLightColor, isBPMChanged
-    global elapsedTrackTime, totalTrackTime, startTrackTimestamp, isEarlyTransition, nextTrackRequested
+    global elapsedTrackTime, totalTrackTime, startTrackTimestamp, isEarlyTransition, nextTrackRequested, currQueuedTrackIDs
 
     json_data = json.loads(data) # incoming message is transformed into a JSON object
     print("Server Sent the JSON:")
@@ -1211,7 +1214,7 @@ def on_broadcast(data):
 
     # track changes
     if (json_data["currentTrack"]["trackID"] != currTrackID):
-        print("## New TrackID Received!")
+        print("[Broadcast] ## Case 1: New TrackID Received!")
 
         if (currBPM != json_data["currentTrack"]["bpm"]):
             if (isVerboseFlagSet(FLAG_SocketMessages)):
@@ -1252,7 +1255,7 @@ def on_broadcast(data):
         lightInfo = json_data["lightInfo"]
 
         if (isVerboseFlagSet(FLAG_QueueLightController)):
-            print("  $$ [Broadcast] Setting the queueLight flag.")
+            print("  $$ [Broadcast - Case 1] Setting the queueLight flag.")
         updateQueueLight = True
 
         # change the ring light only when the current track is added by tapping (by anyone)
@@ -1321,8 +1324,21 @@ def on_broadcast(data):
             # print(currTrackInfo)
 
         nextTrackRequested = False
+
+    # When the queue changes, leave the track info and update the light info only
+    else if (json_data["queuedTrackIDs"] != currQueuedTrackIDs):
+        print("[Broadcast] ## Case 2: Same Track in play, but the Queue is updated.")
+
+        currQueuedTrackIDs = json_data["queuedTrackIDs"]
+        lightInfo = json_data["lightInfo"]
+        if (isVerboseFlagSet(FLAG_QueueLightController)):
+            print("  $$ [Broadcast - Case 2] Setting the queueLight flag.")
+        updateQueueLight = True
+        # # may need this here
+        # nextTrackRequested = False
+
     else:
-        print("## Same TrackID. I'm already on this track.")
+        print("[Broadcast] ## Case 3: Same Track in play. I'm already on this track.")
 
 
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
