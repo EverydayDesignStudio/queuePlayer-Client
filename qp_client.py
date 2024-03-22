@@ -1326,7 +1326,7 @@ def on_broadcast(data):
         nextTrackRequested = False
 
     # When the queue changes, leave the track info and update the light info only
-    else if (json_data["queuedTrackIDs"] != currQueuedTrackIDs):
+    elif (json_data["queuedTrackIDs"] != currQueuedTrackIDs):
         print("[Broadcast] ## Case 2: Same Track in play, but the Queue is updated.")
 
         currQueuedTrackIDs = json_data["queuedTrackIDs"]
