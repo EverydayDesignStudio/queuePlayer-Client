@@ -203,8 +203,9 @@ def compareDeviceID():
             device_id_tmp = devices['devices'][0]['id']
 
     except Exception as e:
-        print(f"An error occurred while looking up the active devices: {str(e)}")
+        print(f"  !! An error occurred [in CompareDeviceID] while looking up the active devices: {str(e)}")
         time.sleep(sleepTimeOnError)
+        raise
 
     return device_id_tmp == device_id
 
@@ -213,32 +214,32 @@ def compareDeviceID():
 def restart_spotifyd():
     global retry_main, RETRY_MAX
 
-    while True:
-        try:
-            print("Device not found. Reconnecting to Spotify...")
-            subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
-            subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
-            time.sleep(5)  # Wait for Spotifyd to restart
+    try:
+        print("Device not found. Reconnecting to Spotify...")
+        subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
+        subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
+        time.sleep(5)  # Wait for Spotifyd to restart
 
-            deviceCheck = compareDeviceID()
+        deviceCheck = compareDeviceID()
 
-        except spotipy.exceptions.SpotifyException as e:
-            if e.http_status == 401:
-                print("Spotify Token Expired when restarting Spotifyd")
-                refreshSpotifyAuthToken()
-                time.sleep(sleepTimeOnError)
+    except spotipy.exceptions.SpotifyException as e:
+        if e.http_status == 404 and "Device not found" in str(e):
+            print("  !! Device not found in [restart_spotifyd]. Restarting spotifyd...")
+        if e.http_status == 401:
+            print("  !! Spotify Token Expired when restarting Spotifyd")
 
-        except Exception as e:
-            print(f"An error occurred while restarting Spotifyd: {str(e)}")
-            time.sleep(sleepTimeOnError)
+        time.sleep(sleepTimeOnError)
+        raise spotipy.exceptions.SpotifyException from e
 
-        if (not deviceCheck):
-            print("$$ retrying.. {}".format(retry))
-            retry_main += 1
-            time.sleep(sleepTimeOnError)
+    except Exception as e:
+        print(f"  !! An error occurred in [restart_spotifyd] while restarting Spotifyd: {str(e)}")
+        time.sleep(sleepTimeOnError)
+        raise
 
-        else:
-            break
+    if (not deviceCheck):
+        print("$$ retrying.. {}".format(retry))
+        retry_main += 1
+        time.sleep(sleepTimeOnError)
 
 
 def retryServerConnection():
