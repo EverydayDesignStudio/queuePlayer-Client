@@ -1021,6 +1021,8 @@ def playSongController():
                     prevVolume = 0
                     currVolume = 0
 
+                    # Add a guard before calling the Apotify API
+                    devices = sp.devices()['devices']
                     sp.pause_playback(device_id=device_id)
 
                 # even if the music is not playing, clean up the variables
@@ -1075,8 +1077,11 @@ def playSongController():
                             print("  $$ Track [{}] is now at {} in the song.".format(currTrackInfo["name"], formatted_time))
                             print("  $$ Start playback at that time.")
 
+                        # Add a guard before calling the Apotify API
+                        devices = sp.devices()['devices']
                         sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
-                        fadeInVolume()
+                        # # No need to fade in volume when there is no transition
+                        # fadeInVolume()
 
                         # indicate the song is now playing
                         isMusicPlaying=True
@@ -1092,7 +1097,11 @@ def playSongController():
                             print("  $$ Start playback at that time.")
 
                         trackURIs = ["spotify:track:"+currTrackID]
+
+                        # Add a guard before calling the Apotify API
+                        devices = sp.devices()['devices']
                         sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
+
                         fadeInVolume(True)
                         isEarlyTransition = False
 
