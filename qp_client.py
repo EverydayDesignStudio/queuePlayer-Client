@@ -130,6 +130,7 @@ currTrackInfo = None
 currBPM = 0
 isBPMChanged = False
 currCluster = None       # the current song's cluster in the DB
+currQueuedTrackIDs = []
 
 # Local timer variables for song end check
 startTrackTimestamp = -1
@@ -1049,6 +1050,7 @@ def playSongController():
 
                 # when the song ends, notify the server and start fading out
                 #  ** this condition is not dependant on the music playing, so should be able to handle late recovery
+                #  ** this flag should be off when the client receives the server's broadcast message
                 if (not nextTrackRequested and elapsedTrackTime > 0 and totalTrackTime > 0 and elapsedTrackTime > totalTrackTime):
                     print("Song has ended")
                     nextTrackRequested = True
@@ -1202,7 +1204,7 @@ def on_broadcast(data):
     global sp, spToken, clientStates, retry_connection
     global isMusicPlaying, isActive, lightInfo, currTrackInfo, updateQueueLight
     global currBPM, currTrackID, currCluster, ringLightColor, isBPMChanged
-    global elapsedTrackTime, totalTrackTime, startTrackTimestamp, isEarlyTransition, nextTrackRequested
+    global elapsedTrackTime, totalTrackTime, startTrackTimestamp, isEarlyTransition, nextTrackRequested, currQueuedTrackIDs
 
     json_data = json.loads(data) # incoming message is transformed into a JSON object
     print("Server Sent the JSON:")
@@ -1211,7 +1213,7 @@ def on_broadcast(data):
 
     # track changes
     if (json_data["currentTrack"]["trackID"] != currTrackID):
-        print("## New TrackID Received!")
+        print("[Broadcast] ## Case 1: New TrackID Received!")
 
         if (currBPM != json_data["currentTrack"]["bpm"]):
             if (isVerboseFlagSet(FLAG_SocketMessages)):
@@ -1252,7 +1254,7 @@ def on_broadcast(data):
         lightInfo = json_data["lightInfo"]
 
         if (isVerboseFlagSet(FLAG_QueueLightController)):
-            print("  $$ [Broadcast] Setting the queueLight flag.")
+            print("  $$ [Broadcast - Case 1] Setting the queueLight flag.")
         updateQueueLight = True
 
         # change the ring light only when the current track is added by tapping (by anyone)
@@ -1321,8 +1323,21 @@ def on_broadcast(data):
             # print(currTrackInfo)
 
         nextTrackRequested = False
+
+    # When the queue changes, leave the track info and update the light info only
+    else if (json_data["queuedTrackIDs"] != currQueuedTrackIDs):
+        print("[Broadcast] ## Case 2: Same Track in play, but the Queue is updated.")
+
+        currQueuedTrackIDs = json_data["queuedTrackIDs"]
+        lightInfo = json_data["lightInfo"]
+        if (isVerboseFlagSet(FLAG_QueueLightController)):
+            print("  $$ [Broadcast - Case 2] Setting the queueLight flag.")
+        updateQueueLight = True
+        # # may need this here
+        # nextTrackRequested = False
+
     else:
-        print("## Same TrackID. I'm already on this track.")
+        print("[Broadcast] ## Case 3: Same Track in play. I'm already on this track.")
 
 
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
