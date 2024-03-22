@@ -570,7 +570,7 @@ def fadeInVolume(doFadeOut = False):
         refVolume = currVolume
 
         while (refVolume > 0):
-            refVolume = int(refVolume / 1.5)
+            refVolume = int(refVolume * 0.5)
 
             # Ensure volume goes to 0
             if refVolume < 1:
@@ -618,7 +618,7 @@ def fadeInVolume(doFadeOut = False):
     while refVolume < currVolume:
 
         # Increment volume
-        refVolume = int(refVolume * 1.5 + 1)
+        refVolume = int(refVolume * 2 + 1)
 
         # Ensure volume does not exceed target
         if refVolume > currVolume:
