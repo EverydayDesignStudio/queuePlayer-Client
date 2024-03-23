@@ -1238,18 +1238,17 @@ def on_broadcast(data):
             currBPM = json_data["currentTrack"]["bpm"]
             isBPMChanged = True
 
-        # if the broadcast timestamp (indicates when the next song should start)
-        #       (broadcastTimestamp)
-        #    is less (<) than the start of the current time + the total track time,
+        # if the Server's startTrackTimestamp (indicates when the next song should start)
+        #    is less (<) than the Client's startTrackTimestamp + the total track time,
         #       (startTrackTimestamp + totalTrackTime)
         # it means there is an early transition to the next song.
-        if (json_data["currentTrack"]["broadcastTimestamp"] < startTrackTimestamp + (totalTrackTime / 1000)):
+        if (json_data["currentTrack"]["startTrackTimestamp"] < startTrackTimestamp + (totalTrackTime / 1000)):
             if (isVerboseFlagSet(FLAG_SocketMessages)):
                 print("  $$ [Broadcast] Early Transition detected!")
-                print("  $$   broadcastTimestamp: ", json_data["currentTrack"]["broadcastTimestamp"])
-                print("  $$   startTrackTimestamp: ", startTrackTimestamp)
+                print("  $$   (Server) startTrackTimestamp: ", json_data["currentTrack"]["startTrackTimestamp"])
+                print("  $$   (Client) startTrackTimestamp: ", startTrackTimestamp)
                 print("  $$   totalTrackTime: {} ({})".format(totalTrackTime, ms_to_min_sec_string(totalTrackTime)))
-                print("  $$    --> {} (broadcastTimestamp) <? {} (startTrackTimestamp + totalTrackTime) : ".format(json_data["currentTrack"]["broadcastTimestamp"], startTrackTimestamp + (totalTrackTime/1000)))
+                print("  $$    --> {} (Server's STTS) <? {} (Client's STTS + totalTrackTime) : ".format(json_data["currentTrack"]["startTrackTimestamp"], startTrackTimestamp + (totalTrackTime/1000)))
 
             isEarlyTransition = True
         else:
@@ -1258,11 +1257,11 @@ def on_broadcast(data):
         currTrackID = json_data["currentTrack"]["trackID"]
         currCluster = json_data["currentTrack"]["cluster_number"]
 
-        startTrackTimestamp = json_data["currentTrack"]["broadcastTimestamp"]
+        startTrackTimestamp = json_data["currentTrack"]["startTrackTimestamp"]
 
         if (isVerboseFlagSet(FLAG_SocketMessages)):
             print("  $$ [Broadcast] Update Track Info: ")
-            print("  $$   startTrackTimestamp (=broadcastTimestamp): ", startTrackTimestamp)
+            print("  $$   startTrackTimestamp: ", startTrackTimestamp)
             print("  $$   TrackID: ", currTrackID)
             print("  $$   Cluster: ", currCluster)
 
