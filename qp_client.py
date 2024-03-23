@@ -1072,6 +1072,9 @@ def playSongController():
                     if (currTrackID != ""):
                         trackURIs = ["spotify:track:"+currTrackID]
 
+                        elapsed_time = (time.time() - startTrackTimestamp) * 1000
+                        elapsedTrackTime = int(elapsed_time)
+
                         if (isVerboseFlagSet(FLAG_PlaySongController)):
                             formatted_time = ms_to_min_sec_string(elapsedTrackTime)
                             print("  $$ Track [{}] is now at {} in the song.".format(currTrackInfo["name"], formatted_time))
@@ -1090,6 +1093,9 @@ def playSongController():
                 else:
                     # when the server forces you to skip to the next song,
                     if (isEarlyTransition):
+                        elapsed_time = (time.time() - startTrackTimestamp) * 1000
+                        elapsedTrackTime = int(elapsed_time)
+
                         if (isVerboseFlagSet(FLAG_PlaySongController)):
                             print("  $$ Early transition in [PlaySongController]")
                             formatted_time = ms_to_min_sec_string(elapsedTrackTime)
