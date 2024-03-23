@@ -1238,19 +1238,18 @@ def on_broadcast(data):
             currBPM = json_data["currentTrack"]["bpm"]
             isBPMChanged = True
 
-        # if the time remaining until the next song starts
-        #       (the difference between broadcastTimestamp and startTrackTimestamp)
-        #    is less (<) than the time remaining in the current song
-        #       (totalTrackTime - elapsedTrackTime)
-        # if true, it means the client is running behind, and an early transition to the next song is necessary.
-        if (json_data["currentTrack"]["broadcastTimestamp"] - startTrackTimestamp < totalTrackTime - elapsedTrackTime):
+        # if the broadcast timestamp (indicates when the next song should start)
+        #       (broadcastTimestamp)
+        #    is less (<) than the start of the current time + the total track time,
+        #       (startTrackTimestamp + totalTrackTime)
+        # it means there is an early transition to the next song.
+        if (json_data["currentTrack"]["broadcastTimestamp"] < startTrackTimestamp + (totalTrackTime / 1000)):
             if (isVerboseFlagSet(FLAG_SocketMessages)):
                 print("  $$ [Broadcast] Early Transition detected!")
                 print("  $$   broadcastTimestamp: ", json_data["currentTrack"]["broadcastTimestamp"])
                 print("  $$   startTrackTimestamp: ", startTrackTimestamp)
                 print("  $$   totalTrackTime: {} ({})".format(totalTrackTime, ms_to_min_sec_string(totalTrackTime)))
-                print("  $$   elapsedTrackTime: {} ({})".format(elapsedTrackTime, ms_to_min_sec_string(elapsedTrackTime)))
-                print("  $$    --> {} (broadcastTimestamp - startTrackTimestamp) <? {} (totalTrackTime - elapsedTrackTime) : ".format(json_data["currentTrack"]["broadcastTimestamp"] - startTrackTimestamp, totalTrackTime - elapsedTrackTime))
+                print("  $$    --> {} (broadcastTimestamp) <? {} (startTrackTimestamp + totalTrackTime) : ".format(json_data["currentTrack"]["broadcastTimestamp"], startTrackTimestamp + (totalTrackTime/1000)))
 
             isEarlyTransition = True
         else:
