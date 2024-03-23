@@ -1242,7 +1242,8 @@ def on_broadcast(data):
         #    is less (<) than the Client's startTrackTimestamp + the total track time,
         #       (startTrackTimestamp + totalTrackTime)
         # it means there is an early transition to the next song.
-        if (json_data["currentTrack"]["startTrackTimestamp"] < startTrackTimestamp + (totalTrackTime / 1000)):
+        if (json_data["currentTrack"]["startTrackTimestamp"] - startTrackTimestamp > 5 and
+            json_data["currentTrack"]["startTrackTimestamp"] < startTrackTimestamp + (totalTrackTime / 1000)):
             if (isVerboseFlagSet(FLAG_SocketMessages)):
                 print("  $$ [Broadcast] Early Transition detected!")
                 print("  $$   (Server) startTrackTimestamp: ", json_data["currentTrack"]["startTrackTimestamp"])
