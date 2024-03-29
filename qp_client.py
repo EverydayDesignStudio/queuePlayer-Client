@@ -353,34 +353,32 @@ def potController():
             #  (3) turn the queue lights off
             #  (4) turn the ring light off
             if filtered_voltage < 0.03:
-                # double-check if the song is being played and the BPM is 'tappable'
-                if isActive:
-                    if (isVerboseFlagSet(FLAG_PotController)):
-                        print("  $$ Case 1")
+                if (isVerboseFlagSet(FLAG_PotController)):
+                    print("  $$ Case 1")
 
-                    print("Potentiometer is turned OFF.")
-                    # set the flags off so it's not playing the song or detecting any BPM taps
-                    isActive = False
-                    isMusicPlaying = False
+                print("Potentiometer is turned OFF.")
+                # set the flags off so it's not playing the song or detecting any BPM taps
+                isActive = False
 
-                    # setting the fading flag OFF on inActive
-                    fadingVolumeFlag = False
+                # setting the fading flag OFF on inActive
+                fadingVolumeFlag = False
 
-                    # reset tap variables
-                    bpmAdded = 0
-                    msLastTap = 0
-                    tapCount = 0
+                # reset tap variables
+                bpmAdded = 0
+                msLastTap = 0
+                tapCount = 0
 
-                    # notify the server that this client is off
+                # notify the server that this client is off
+                if (serverConnCheck):
                     setClientInactive()
                     print("Client is set Inactive")
 
-                    # turn the queue and ring lights off
+                # turn the queue and ring lights off
 
-                    if (isVerboseFlagSet(FLAG_FadeOutController)):
-                        print("  $$ FadingToBlack flag is set in [potController].")
-                    isFadingToBlack = True
-                    print("Setting a flag to fade out the lights.")
+                if (isVerboseFlagSet(FLAG_FadeOutController)):
+                    print("  $$ FadingToBlack flag is set in [potController].")
+                isFadingToBlack = True
+                print("Setting a flag to fade out the lights.")
 
             # The client becomes 'active',
             # (1) should start listening to new bpm (set isActive to True)
