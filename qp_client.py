@@ -837,14 +837,14 @@ def fadeToBlack():
 
 
 def queueLightController():
-    global lightInfo,updateQueueLight
+    global lightInfo, updateQueueLight, isActive
 
     if (isVerboseFlagSet(FLAG_QueueLightController)):
         print("  $$ QueueLightController initialized.")
 
     while True:
         try:
-            if (updateQueueLight):
+            if (isActive and updateQueueLight):
                 if (isVerboseFlagSet(FLAG_QueueLightController)):
                     print("  $$ Update Queue Light signal received.")
 
