@@ -243,29 +243,42 @@ def restart_spotifyd():
 
 
 def retryServerConnection():
-    global retry_connection
+    global retry_connection, retry_main
 
-    print ("  !! RETRY MAX reached. Try reconnecting to the server..")
-    sio.disconnect()
-    time.sleep(sleepTimeOnError)
-    #sio.connect('https://qp-master-server.herokuapp.com/')
-    socketConnection()
-    retry_connection = 0
+    if (retry_main < RETRY_MAX):
+        try:
+            print ("  !! RETRY MAX reached. Try reconnecting to the server..")
+            sio.disconnect()
+            time.sleep(sleepTimeOnError)
+            #sio.connect('https://qp-master-server.herokuapp.com/')
+            socketConnection()
+        except:
+            restart_script()
+            raise
 
+        retry_connection = 0
+    else:
+        restart_script()
 
 def restart_script():
-    # Add any cleanup or state reset logic here
-    sio.disconnect()
-    time.sleep(5)  # Optional delay before restarting to avoid immediate restart loop
-    print("Restarting the script...")
-    python = sys.executable
-    os.execl(python, python, *sys.argv)
+    global retry_main
 
-    ### Option 2:
-    # python_executable = sys.executable
-    # script_file = __file__
-    # subprocess.call([python_executable, script_file])
-    # sys.exit()
+    if (retry_main >= RETRY_MAX):
+        # Add any cleanup or state reset logic here
+        sio.disconnect()
+        time.sleep(5)  # Optional delay before restarting to avoid immediate restart loop
+        print("Restarting the script...")
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
+
+        ### Option 2:
+        # python_executable = sys.executable
+        # script_file = __file__
+        # subprocess.call([python_executable, script_file])
+        # sys.exit()
+
+    else:
+        retry_main += 1
 
 # acquires an authenticated spotify token
 def getSpotifyAuthToken():
@@ -521,8 +534,13 @@ def tapController():
             time.sleep(sleepTimeOnError)
 
         except Exception as e:
-            print(f"  !! An error occurred in [tapController]: {str(e)}")
+            print(f"  !! An unknown error occurred in [tapController]: {str(e)}")
             time.sleep(sleepTimeOnError)
+            # reset the variables
+            bpmAdded = 0
+            msLastTap = 0
+            tapCount = 0
+            restart_script()
 
 # A worker function to detect and update the tap signals
 # This will only run once whenever the tap sensor receives a signal
@@ -618,8 +636,9 @@ def fadeInVolume(doFadeOut = False):
                 ## Do not add requestQPInfo() here -- should finish fadeout
 
             except Exception as e:
-                print(f"  !! An error occurred while [fading out volume]: {str(e)}")
+                print(f"  !! An unknown error occurred while [fading out volume]: {str(e)}")
                 time.sleep(sleepTimeOnError)
+                restart_script()
                 ## Do not add requestQPInfo() here -- should finish fadeout
 
             # Delay to prevent hitting API rate limits and to make fade in smoother
@@ -676,6 +695,7 @@ def fadeInVolume(doFadeOut = False):
         except Exception as e:
             print(f"  !! An error occurred while [fading in volume]: {str(e)}")
             time.sleep(sleepTimeOnError)
+            restart_script()
             ## Do not add requestQPInfo() here -- should finish fadein
 
         # Delay to prevent hitting API rate limits and to make fade in smoother
@@ -831,8 +851,9 @@ def queueLightController():
                 colorArrayBuilder(lightInfo)
                 updateQueueLight=False
         except Exception as e:
-            print(f"  !! An error occurred in [queueLightController]: {str(e)}")
+            print(f"  !! An unknown error occurred in [queueLightController]: {str(e)}")
             time.sleep(sleepTimeOnError)
+            restart_script()
 
 
 # the ring light indicates the last client tapped
@@ -961,8 +982,9 @@ def indicatorLightController():
                     GPIO.output(25,GPIO.LOW)
 
         except Exception as e:
-            print(f"  !! An error occurred in [indicatorLightController]: {str(e)}")
+            print(f"  !! An unknown error occurred in [indicatorLightController]: {str(e)}")
             time.sleep(sleepTimeOnError)
+            restart_script()
 
 def fadeoutController():
     global isFadingToBlack
@@ -979,8 +1001,9 @@ def fadeoutController():
                     print("  $$ Fade out to black is done. Releasing the flag.")
                 isFadingToBlack = False
         except Exception as e:
-            print(f"  !! An error occurred in [fadeoutController]: {str(e)}")
+            print(f"  !! An unknown error occurred in [fadeoutController]: {str(e)}")
             time.sleep(sleepTimeOnError)
+            restart_script()
 
 # ----------------------------------------------------------
 # Section 5: Music Controls
@@ -1166,8 +1189,9 @@ def playSongController():
             requestQPInfo()
 
         except Exception as e:
-            print(f"  !! An error occurred in [PlaySongController]: {str(e)}")
+            print(f"  !! An unknown error occurred in [PlaySongController]: {str(e)}")
             time.sleep(sleepTimeOnError)
+            restart_script()
             requestQPInfo()
 
 
@@ -1363,6 +1387,7 @@ def on_broadcast(data):
             except Exception as e:
                 print(f"  !! An error occurred in [broadcast]: {str(e)}")
                 time.sleep(sleepTimeOnError)
+                restart_script()
                 requestQPInfo()
 
         currTrackInfo = newTrackInfo
@@ -1465,13 +1490,13 @@ def main():
             sio.wait()
 
         except Exception as e:
-            print(f"  !! An error occurred in [QueuePlayerMain]: {str(e)}")
-            retry_main += 1
+            print(f"  !! An unknown error occurred in [QueuePlayerMain]: {str(e)}")
+            restart_script()
             time.sleep(sleepTimeOnError)
             requestQPInfo()
 
     # If max retries exceeded, restart the script
-    print("Maximum retry count exceeded. Restarting the script.")
+    print("Maximum retry count exceeded in [Main]. Attempt to restarting the script.")
     restart_script()
     # ----------------------------------------------------------
 
