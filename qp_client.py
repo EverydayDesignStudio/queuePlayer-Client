@@ -92,6 +92,7 @@ spotify_redirect_uri = 'https://example.com/callback/'
 
 # Global check variables
 # These flags indicate:
+isQPON = False           # a flag represents the reading the potentiometer voltage
 bpmTimer = None          # a timer to keep checking for new incoming BPMs for every n seconds (by default, n=2)
 isActive = False         # a flag to indicate if the client is active (ready to read new tap and play music)
 isMusicPlaying = False   # whether a song is currently being played
@@ -314,7 +315,7 @@ def setClientInactive():
 # Controls the potentiometer for volume and active/inactive state
 def potController():
     global sp, serverConnCheck, device_id, clientStates, retry_connection
-    global isActive, isMusicPlaying, isFadingToBlack
+    global isQPON, isActive, isMusicPlaying, isFadingToBlack
     global prevVolume, currVolume, fadingVolumeFlag
 
     #Voltage variables
@@ -353,59 +354,66 @@ def potController():
             #  (3) turn the queue lights off
             #  (4) turn the ring light off
             if filtered_voltage < 0.03:
-                if (isVerboseFlagSet(FLAG_PotController)):
-                    print("  $$ Case 1")
+                if (isQPON):
+                    if (isVerboseFlagSet(FLAG_PotController)):
+                        print("  $$ Case 1")
 
-                print("Potentiometer is turned OFF.")
-                # set the flags off so it's not playing the song or detecting any BPM taps
-                isActive = False
+                    print("Potentiometer is turned OFF.")
+                    # set the flags off so it's not playing the song or detecting any BPM taps
+                    isQPON = False
+                    isActive = False
 
-                # setting the fading flag OFF on inActive
-                fadingVolumeFlag = False
+                    # setting the fading flag OFF on inActive
+                    fadingVolumeFlag = False
 
-                # reset tap variables
-                bpmAdded = 0
-                msLastTap = 0
-                tapCount = 0
+                    # reset tap variables
+                    bpmAdded = 0
+                    msLastTap = 0
+                    tapCount = 0
 
-                # notify the server that this client is off
-                if (serverConnCheck):
-                    setClientInactive()
-                    print("Client is set Inactive")
+                    # notify the server that this client is off
+                    if (serverConnCheck):
+                        setClientInactive()
+                        print("Client is set Inactive")
 
-                # turn the queue and ring lights off
+                    # turn the queue and ring lights off
 
-                if (isVerboseFlagSet(FLAG_FadeOutController)):
-                    print("  $$ FadingToBlack flag is set in [potController].")
-                isFadingToBlack = True
-                print("Setting a flag to fade out the lights.")
+                    if (isVerboseFlagSet(FLAG_FadeOutController)):
+                        print("  $$ FadingToBlack flag is set in [potController].")
+                    isFadingToBlack = True
+                    print("Setting a flag to fade out the lights.")
 
-            # The client becomes 'active',
+            # The client becomes ON and Active,
             # (1) should start listening to new bpm (set isActive to True)
             # (2) should be connected to the server
-            elif filtered_voltage > 0.1 and not isActive and serverConnCheck:
+            elif filtered_voltage > 0.1 and not isQPON:
                 if (isVerboseFlagSet(FLAG_PotController)):
                     print("  $$ Case 2")
+                    time.sleep(1)
 
-                # notify the server that this client is 'active'
-                print("Potentiometer is turned ON.")
-                isActive = True
-                setClientActive()
-                print("Client is set Active")
+                isQPON = True
+
+                if (not isActive and serverConnCheck):
+                    # notify the server that this client is 'active'
+                    print("Potentiometer is turned ON.")
+                    isActive = True
+                    setClientActive()
+                    print("Client is set Active")
 
             # This is when a client is recovered from a disconnection or device not found exception
-            elif filtered_voltage > 0.1 and serverConnCheck and len(clientStates) == 4 and not clientStates[clientID-1]:
+            elif isQPON and serverConnCheck and len(clientStates) == 4 and not clientStates[clientID-1]:
                 if (isVerboseFlagSet(FLAG_PotController)):
                     print("  $$ Case 3")
 
                 print("Current client states: ", clientStates)
                 # notify the server that this client is 'active'
+                isActive = True
                 setClientActive()
                 print("Client connection is recovered. Request the server to set this client Active")
 
             # If a song is being played and the pot value changes, this indicates the volume change.
             #     *** have this as a seperate thread maybe just to have better code modularity, no point being here anyways
-            if isActive:
+            if isQPON and isActive:
                 # set to a new volume (read the pot) -- prevent sudden volume change
                 currVolume = int(map_to_volume(filtered_voltage))
 
