@@ -428,6 +428,7 @@ def potController():
                 print("  !! Spotify Token Expired in [PotController]")
                 refreshSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
+            requestQPInfo()
 
         except requests.exceptions.ConnectTimeout:
             print("  !! Connection timeout in [PotController].")
@@ -442,10 +443,12 @@ def potController():
             print("  !! Try refreshing Spotify token.")
             refreshSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
+            requestQPInfo()
 
         except Exception as e:
             print(f"  !! An error occurred in [PotController]: {str(e)}")
             time.sleep(sleepTimeOnError)
+            requestQPInfo()
 
 # ----------------------------------------------------------
 
@@ -591,6 +594,7 @@ def fadeInVolume(doFadeOut = False):
                     print("  !! Spotify Token Expired in [fading out volume]")
                     refreshSpotifyAuthToken()
                 time.sleep(sleepTimeOnError)
+                requestQPInfo()
 
             except requests.exceptions.ConnectTimeout:
                 print("  !! Connection timeout while [fading out volume].")
@@ -605,10 +609,12 @@ def fadeInVolume(doFadeOut = False):
                 print("  !! Try refreshing Spotify token.")
                 refreshSpotifyAuthToken()
                 time.sleep(sleepTimeOnError)
+                requestQPInfo()
 
             except Exception as e:
                 print(f"  !! An error occurred while [fading out volume]: {str(e)}")
                 time.sleep(sleepTimeOnError)
+                requestQPInfo()
 
             # Delay to prevent hitting API rate limits and to make fade in smoother
             time.sleep(0.2)
@@ -639,6 +645,7 @@ def fadeInVolume(doFadeOut = False):
                 print("  !! Spotify Token Expired in [fading in volume]")
                 refreshSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
+            requestQPInfo()
 
         except requests.exceptions.ConnectTimeout:
             print("  !! Connection timeout while [fading in volume].")
@@ -653,10 +660,12 @@ def fadeInVolume(doFadeOut = False):
             print("  !! Try refreshing Spotify token.")
             refreshSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
+            requestQPInfo()
 
         except Exception as e:
             print(f"  !! An error occurred while [fading in volume]: {str(e)}")
             time.sleep(sleepTimeOnError)
+            requestQPInfo()
 
         # Delay to prevent hitting API rate limits and to make fade in smoother
         time.sleep(0.2)
@@ -992,7 +1001,7 @@ def notifyTrackFinished(trackID):
 def requestQPInfo():
     print("  $$ Pause the music and notify the server.")
     res = requests.post(baseUrl+"requestQPInfo", json={"clientID":clientID})
-    
+
 
 # Start a local manual timer for the duration of the song to identify the end of the song
 # This will avoid rate limit issues from SpotifyAPI
@@ -1128,6 +1137,7 @@ def playSongController():
                 print("  !! Spotify Token Expired in [PlaySongController].")
                 refreshSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
+            requestQPInfo()
 
         except requests.exceptions.ConnectTimeout:
             print("  !! Connection timeout in [PlaySongController].")
@@ -1142,10 +1152,12 @@ def playSongController():
             print("  !! Try refreshing Spotify token.")
             refreshSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
+            requestQPInfo()
 
         except Exception as e:
             print(f"  !! An error occurred in [PlaySongController]: {str(e)}")
             time.sleep(sleepTimeOnError)
+            requestQPInfo()
 
 
 # ----------------------------------------------------------
@@ -1317,6 +1329,8 @@ def on_broadcast(data):
                     refreshSpotifyAuthToken()
                     retryServerConnection()
 
+                requestQPInfo()
+
             #Last Resort is to restart script
             # except requests.exceptions.ReadTimeout:
                 # print("Minor Setback. Restarting the script...")
@@ -1333,10 +1347,12 @@ def on_broadcast(data):
                     refreshSpotifyAuthToken()
 
                 time.sleep(sleepTimeOnError)
+                requestQPInfo()
 
             except Exception as e:
                 print(f"  !! An error occurred in [broadcast]: {str(e)}")
                 time.sleep(sleepTimeOnError)
+                requestQPInfo()
 
         currTrackInfo = newTrackInfo
         totalTrackTime = newTrackInfo['duration_ms']
@@ -1441,6 +1457,7 @@ def main():
             print(f"  !! An error occurred in [QueuePlayerMain]: {str(e)}")
             retry_main += 1
             time.sleep(sleepTimeOnError)
+            requestQPInfo()
 
     # If max retries exceeded, restart the script
     print("Maximum retry count exceeded. Restarting the script.")
