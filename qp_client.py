@@ -984,7 +984,15 @@ def notifyTrackFinished(trackID):
         print("  $$ ClientID: {}, (finished)TrackID: {}, cluster: {}".format(clientID, trackID, currCluster))
 
     isMusicPlaying = False
-    continueSong = requests.post(baseUrl+"trackFinished", json={"clientID":clientID, "trackID":trackID, "cln":currCluster})
+    res = requests.post(baseUrl+"trackFinished", json={"clientID":clientID, "trackID":trackID, "cln":currCluster})
+
+
+# A simple function to request the most updated QP Info without modifying anything.
+# Need this to recover from any type of disconnection.
+def requestQPInfo():
+    print("  $$ Pause the music and notify the server.")
+    res = requests.post(baseUrl+"requestQPInfo", json={"clientID":clientID})
+    
 
 # Start a local manual timer for the duration of the song to identify the end of the song
 # This will avoid rate limit issues from SpotifyAPI
