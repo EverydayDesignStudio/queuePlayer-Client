@@ -361,6 +361,7 @@ def potController():
                     print("Potentiometer is turned OFF.")
                     # set the flags off so it's not playing the song or detecting any BPM taps
                     isActive = False
+                    isMusicPlaying = False
 
                     # setting the fading flag OFF on inActive
                     fadingVolumeFlag = False
