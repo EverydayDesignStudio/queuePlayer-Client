@@ -360,7 +360,10 @@ def potController():
 
                     print("Potentiometer is turned OFF.")
                     # set the flags off so it's not playing the song or detecting any BPM taps
-                    isActive=False
+                    isActive = False
+
+                    # setting the fading flag OFF on inActive
+                    fadingVolumeFlag = False
 
                     # reset tap variables
                     bpmAdded = 0
@@ -381,7 +384,6 @@ def potController():
             # The client becomes 'active',
             # (1) should start listening to new bpm (set isActive to True)
             # (2) should be connected to the server
-                ### TODO: check these thesholds
             elif filtered_voltage > 0.1 and not isActive and serverConnCheck:
                 if (isVerboseFlagSet(FLAG_PotController)):
                     print("  $$ Case 2")
@@ -405,31 +407,30 @@ def potController():
             # If a song is being played and the pot value changes, this indicates the volume change.
             #     *** have this as a seperate thread maybe just to have better code modularity, no point being here anyways
             if isActive:
-                # pause reading the volume when the volume is fading in or out
-                if (not fadingVolumeFlag):
-                    # set to a new volume (read the pot) -- prevent sudden volume change
-                    currVolume = int(map_to_volume(filtered_voltage))
+                # set to a new volume (read the pot) -- prevent sudden volume change
+                currVolume = int(map_to_volume(filtered_voltage))
 
-                    # only update the volume when the new voltage is moved more than a certain threshold
-                    if(abs(prevVolume-currVolume) >= 5):
-                        if (isVerboseFlagSet(FLAG_PotController)):
-                            print("  $$ Case 4 -- Volume Change! {} -> {}".format(prevVolume, currVolume))
+                # only update the volume when the new voltage is moved more than a certain threshold
+                if(abs(prevVolume-currVolume) >= 5):
+                    if (isVerboseFlagSet(FLAG_PotController)):
+                        print("  $$ Case 4 -- Volume Change! {} -> {}".format(prevVolume, currVolume))
 
-                        prevVolume = currVolume
+                    prevVolume = currVolume
 
-                        devices = sp.devices()['devices']
-                        if (isVerboseFlagSet(FLAG_PotController)):
-                            print("Current devices: ", devices)
+                    devices = sp.devices()['devices']
+                    if (isVerboseFlagSet(FLAG_PotController)):
+                        print("Current devices: ", devices)
 
+                    # pause reading the volume when the volume is fading in or out
+                    if (not fadingVolumeFlag):
                         # set to fixed volume as currVolume can be continuously changing
                         print("PotController Changing Volume")
                         sp.volume(prevVolume, device_id)
-
-                else:
-                    if (isVerboseFlagSet(FLAG_PotController)):
-                        print("  $$ Case 5")
-                        print("  $$ Fade flag is set -- reading voltage to set the current volume is paused.")
-                        time.sleep(1)
+                    else:
+                        if (isVerboseFlagSet(FLAG_PotController)):
+                            print("  $$ Case 5")
+                            print("  $$ Fade flag is set -- setting the volume from the potentiometer is paused.")
+                            time.sleep(1)
 
         # Restart spotifyd with credentials if device is not found
         except spotipy.exceptions.SpotifyException as e:
@@ -626,6 +627,7 @@ def fadeInVolume(doFadeOut = False):
                 # TODO: check this logic -- see if this still performs fadein/out upon recovery
                 print("  *** Quit [Fade-Out] and setting the fadingout flag off.")
                 fadingVolumeFlag = False
+                requestQPInfo()
                 return
 
             except requests.exceptions.ReadTimeout:
@@ -647,15 +649,16 @@ def fadeInVolume(doFadeOut = False):
     ### ---- fade in ---- ###
 
     refVolume = 0  # Start from volume 0
+    currVolume_copy = currVolume
 
-    while refVolume < currVolume:
+    while refVolume < currVolume_copy:
 
         # Increment volume
         refVolume = int(refVolume * 2 + 1)
 
         # Ensure volume does not exceed target
-        if refVolume > currVolume:
-            refVolume = currVolume
+        if refVolume > currVolume_copy:
+            refVolume = currVolume_copy
 
         try:
             sp.volume(refVolume, device_id=device_id)
@@ -683,6 +686,7 @@ def fadeInVolume(doFadeOut = False):
             # TODO: check this logic -- see if this still performs fadein/out upon recovery
             print("  *** Quit [Fade-In] and setting the fadingout flag off.")
             fadingVolumeFlag = False
+            requestQPInfo()
             return
 
         except requests.exceptions.ReadTimeout:
