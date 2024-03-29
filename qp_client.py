@@ -392,13 +392,22 @@ def potController():
                     time.sleep(1)
 
                 isQPON = True
+                print("Potentiometer is turned ON.")
 
-                if (not isActive and serverConnCheck):
-                    # notify the server that this client is 'active'
-                    print("Potentiometer is turned ON.")
-                    isActive = True
-                    setClientActive()
-                    print("Client is set Active")
+            elif isQPON and not isActive:
+                if (isVerboseFlagSet(FLAG_PotController)):
+                    print("  $$ Case 2-2")
+                    time.sleep(1)
+
+                while (serverConnCheck is False):
+                    if (isVerboseFlagSet(FLAG_PotController)):
+                        print("Waiting for the server connection..")
+
+                    time.sleep(2)
+                # notify the server that this client is 'active'
+                isActive = True
+                setClientActive()
+                print("Client is now set Active")
 
             # This is when a client is recovered from a disconnection or device not found exception
             elif isQPON and serverConnCheck and len(clientStates) == 4 and not clientStates[clientID-1]:
