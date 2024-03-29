@@ -594,7 +594,8 @@ def fadeInVolume(doFadeOut = False):
                     print("  !! Spotify Token Expired in [fading out volume]")
                     refreshSpotifyAuthToken()
                 time.sleep(sleepTimeOnError)
-                requestQPInfo()
+                ## Do not add requestQPInfo() here -- should finish fadeout
+
 
             except requests.exceptions.ConnectTimeout:
                 print("  !! Connection timeout while [fading out volume].")
@@ -604,17 +605,22 @@ def fadeInVolume(doFadeOut = False):
                 if (retry_connection >= RETRY_MAX):
                     retryServerConnection()
 
+                # TODO: check this logic -- see if this still performs fadein/out upon recovery
+                print("  *** Quit [Fade-Out] and setting the fadingout flag off.")
+                fadingVolumeFlag = False
+                return
+
             except requests.exceptions.ReadTimeout:
                 print("  !! Read timeout while [fading out volume].")
                 print("  !! Try refreshing Spotify token.")
                 refreshSpotifyAuthToken()
                 time.sleep(sleepTimeOnError)
-                requestQPInfo()
+                ## Do not add requestQPInfo() here -- should finish fadeout
 
             except Exception as e:
                 print(f"  !! An error occurred while [fading out volume]: {str(e)}")
                 time.sleep(sleepTimeOnError)
-                requestQPInfo()
+                ## Do not add requestQPInfo() here -- should finish fadeout
 
             # Delay to prevent hitting API rate limits and to make fade in smoother
             time.sleep(0.2)
@@ -645,7 +651,7 @@ def fadeInVolume(doFadeOut = False):
                 print("  !! Spotify Token Expired in [fading in volume]")
                 refreshSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
-            requestQPInfo()
+            ## Do not add requestQPInfo() here -- should finish fadein
 
         except requests.exceptions.ConnectTimeout:
             print("  !! Connection timeout while [fading in volume].")
@@ -655,17 +661,22 @@ def fadeInVolume(doFadeOut = False):
             if (retry_connection >= RETRY_MAX):
                 retryServerConnection()
 
+            # TODO: check this logic -- see if this still performs fadein/out upon recovery
+            print("  *** Quit [Fade-In] and setting the fadingout flag off.")
+            fadingVolumeFlag = False
+            return
+
         except requests.exceptions.ReadTimeout:
             print("  !! Read timeout while [fading in volume].")
             print("  !! Try refreshing Spotify token.")
             refreshSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
-            requestQPInfo()
+            ## Do not add requestQPInfo() here -- should finish fadein
 
         except Exception as e:
             print(f"  !! An error occurred while [fading in volume]: {str(e)}")
             time.sleep(sleepTimeOnError)
-            requestQPInfo()
+            ## Do not add requestQPInfo() here -- should finish fadein
 
         # Delay to prevent hitting API rate limits and to make fade in smoother
         time.sleep(0.2)
