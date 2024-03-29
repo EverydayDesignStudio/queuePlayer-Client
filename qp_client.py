@@ -237,8 +237,8 @@ def restart_spotifyd():
         raise
 
     if (not deviceCheck):
-        print("$$ retrying.. {}".format(retry))
-        retry_main += 1
+        print("$$ retrying.. retry_main: {}".format(retry_main))
+        restart_script()
         time.sleep(sleepTimeOnError)
 
 
