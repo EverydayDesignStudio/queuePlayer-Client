@@ -396,12 +396,11 @@ def potController():
             ### elif filtered_voltage > 0.1 and not isQPON:
             # when (filtered_voltage >= VOLTAGE_THRESHOLD)
             else:
-                if (isVerboseFlagSet(FLAG_PotController)):
-                    print("  $$ Case 2")
-                    time.sleep(1)
 
                 ### V > Vt, but QP is not ON yet
                 if (not isQPON):
+                    if (isVerboseFlagSet(FLAG_PotController)):
+                        print("  $$ Case 2")
                     isQPON = True
                     print("Potentiometer is turned ON.")
 
@@ -1069,7 +1068,7 @@ def notifyTrackFinished(trackID):
 # A simple function to request the most updated QP Info without modifying anything.
 # Need this to recover from any type of disconnection.
 def requestQPInfo():
-    print("  $$ Pause the music and notify the server.")
+    print("  $$ Requesting the updated QP info from the server.")
     res = requests.post(baseUrl+"requestQPInfo", json={"clientID":clientID})
 
 
@@ -1096,7 +1095,7 @@ def playSongController():
 
     while True:
         try:
-            # QP is OFF
+            # QP is INACTIVE
             if not isActive:
                 if (isMusicPlaying):
                     if (isVerboseFlagSet(FLAG_PlaySongController)):
@@ -1121,7 +1120,7 @@ def playSongController():
                     prevVolume = 0
                     currVolume = 0
 
-            # QP is ON
+            # QP is ACTIVE
             else:
                 if (startTrackTimestamp > 0):
                     elapsed_time = (time.time() - startTrackTimestamp) * 1000
