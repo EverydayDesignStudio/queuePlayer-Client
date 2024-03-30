@@ -145,10 +145,11 @@ nextTrackRequested = False
 playback=None
 
 #fail-safe recovery
-retry_main = 0
-retry_connection = 0
-RETRY_MAX = 5
-sleepTimeOnError = 3        # when there is an exception, pause for x seconds
+retry_main = 0              # retry count before restarting the entire script
+retry_connection = 0        # retry count for server connection timeout
+retry_DNF = 0               # retry count for Device Not Found error
+RETRY_MAX = 3
+sleepTimeOnError = 2        # when there is an exception, pause for x seconds
 
 ### Verbose and flags for each thread to print lines for debugging
 VERBOSE = True
