@@ -372,7 +372,7 @@ def potController():
     global prevVolume, currVolume, fadingVolumeFlag
 
     #Voltage variables
-    window_size = 5
+    window_size = 3
     voltage_readings = [0] * window_size  # Initialize with zeros
 
     if (isVerboseFlagSet(FLAG_PotController)):
