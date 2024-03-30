@@ -213,45 +213,10 @@ def compareDeviceID():
     return device_id_tmp == device_id
 
 
-# Function to restart spotifyd -- checking the device connection
-def restart_spotifyd():
-    global retry_main, RETRY_MAX
-
-    try:
-        print("Device not found. Reconnecting to Spotify...")
-        subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
-        subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
-        time.sleep(5)  # Wait for Spotifyd to restart
-
-        deviceCheck = compareDeviceID()
-
-        if (not deviceCheck):
-            print("$$ retrying.. retry_main: {}".format(retry_main))
-            restart_script()
-            time.sleep(sleepTimeOnError)
-
-    except spotipy.exceptions.SpotifyException as e:
-        if e.http_status == 404:
-            if "Device not found" in str(e):
-                print("  !! Device not found in [restart_spotifyd].")
-            else:
-                print("  !! Spotify 404 error in [restart_spotifyd].")
-        if e.http_status == 401:
-            print("  !! Spotify Token Expired when restarting Spotifyd")
-
-        time.sleep(sleepTimeOnError)
-        raise spotipy.exceptions.SpotifyException from e
-
-    except Exception as e:
-        print(f"  !! An error occurred in [restart_spotifyd] while restarting Spotifyd: {str(e)}")
-        time.sleep(sleepTimeOnError)
-        raise
-
-
 def retryServerConnection():
-    global retry_connection, retry_main
+    global retry_connection
 
-    if (retry_main < RETRY_MAX):
+    if (retry_connection < RETRY_MAX):
         try:
             print ("  !! RETRY MAX reached. Try reconnecting to the server..")
             sio.disconnect()
@@ -259,20 +224,27 @@ def retryServerConnection():
             #sio.connect('https://qp-master-server.herokuapp.com/')
             socketConnection()
         except:
-            restart_script()
+            retry_connection += 1
             raise
 
         retry_connection = 0
+
     else:
+        retry_connection = 0
         restart_script()
 
 def restart_script():
     global retry_main
 
+    print(" ## Restart Script Called.")
+
     if (retry_main >= RETRY_MAX):
+        print(" ## Retry_main count (", retry_main ,") reached RETRY_MAX of ", RETRY_MAX)
+        print(" ## Restarting the qp_client.py..")
+
         # Add any cleanup or state reset logic here
         sio.disconnect()
-        time.sleep(5)  # Optional delay before restarting to avoid immediate restart loop
+        time.sleep(3)  # Optional delay before restarting to avoid immediate restart loop
         print("Restarting the script...")
         python = sys.executable
         os.execl(python, python, *sys.argv)
@@ -285,6 +257,7 @@ def restart_script():
 
     else:
         retry_main += 1
+        print("Retry_main is now: ", retry_main")
 
 # acquires an authenticated spotify token
 def getSpotifyAuthToken():
@@ -305,6 +278,77 @@ def refreshSpotifyAuthToken():
     spToken = token_info['access_token']
     sp = spotipy.Spotify(auth=spToken)
 
+
+# Function to restart spotifyd -- checking the device connection
+def restart_spotifyd():
+    global retry_main, RETRY_MAX
+
+    try:
+        print("Device not found. Reconnecting to Spotify...")
+        subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
+        subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
+        time.sleep(5)  # Wait for Spotifyd to restart
+
+        deviceCheck = compareDeviceID()
+
+        if (not deviceCheck):
+            print("$$ retrying.. retry_main: {}".format(retry_main))
+
+    except spotipy.exceptions.SpotifyException as e:
+        if e.http_status == 404:
+            if "Device not found" in str(e):
+                print("  !! Device not found in [restart_spotifyd].")
+            else:
+                print("  !! Spotify 404 error in [restart_spotifyd].")
+        if e.http_status == 401:
+            print("  !! Spotify Token Expired when restarting Spotifyd")
+
+        time.sleep(sleepTimeOnError)
+        raise spotipy.exceptions.SpotifyException from e
+
+    except Exception as e:
+        print(f"  !! An error occurred in [restart_spotifyd] while restarting Spotifyd: {str(e)}")
+        time.sleep(sleepTimeOnError)
+        raise
+
+def handleSpotifyException(e, methodNameStr):
+    global retry_DNF, RETRY_MAX
+
+    print("!!@ Handling Spotify Exception..")
+
+    if e.http_status == 404:
+        if "Device not found" in str(e):
+            print("  !! Device not found in [{}].".format(methodNameStr))
+        else:
+            print("  !! Spotify 404 error in [{}].".format(methodNameStr))
+    if e.http_status == 401:
+        print("  !! Spotify Token Expired in [{}]".format(methodNameStr))
+
+    try:
+        print("  !! We're on {} out of {} tries.".format(retry_DNF, RETRY_MAX))
+        if (retry_DNF < RETRY_MAX):
+            print("  !! Case 1: Try refreshing the Spotify Token..")
+            refreshSpotifyAuthToken()
+        else:
+            print("  !! Case 2: Max DeviceNotFound tries reached. Try restarting Spotifyd..")
+            ### restart spotifyd
+            subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
+            subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
+            retry_DNF = 0
+
+        time.sleep(sleepTimeOnError)
+        deviceCheck = compareDeviceID()
+        if (deviceCheck):
+            print("  !! Device Check Passed!")
+            return
+        else:
+            print("  !! Device Check Failed.")
+            retry_DNF += 1
+
+    except:
+        print("  !! Case 3: Exception raised. Raise [DNF] and [retry_main] counters.")
+        retry_DNF += 1
+        restart_script()
 
 # ----------------------------------------------------------
 # Section 1: Client State Control
@@ -469,17 +513,7 @@ def potController():
 
         # Restart spotifyd with credentials if device is not found
         except spotipy.exceptions.SpotifyException as e:
-            # Check for "device not found" error
-            if e.http_status == 404:
-                if "Device not found" in str(e):
-                    print("  !! Device not found in [PotController].")
-                else:
-                    print("  !! Spotify 404 error in [PotController].")
-            elif e.http_status == 401:
-                print("  !! Spotify Token Expired in [PotController]")
-            refreshSpotifyAuthToken()
-            # restart_spotifyd()
-            time.sleep(sleepTimeOnError)
+            handleSpotifyException(e, "PotController")
             requestQPInfo()
 
         except requests.exceptions.ConnectTimeout:
@@ -643,19 +677,8 @@ def fadeInVolume(doFadeOut = False):
 
             # Restart spotifyd with credentials if device is not found
             except spotipy.exceptions.SpotifyException as e:
-                # Check for "device not found" error
-                if e.http_status == 404:
-                    if "Device not found" in str(e):
-                        print("  !! Device not found in [fading out volume].")
-                    else:
-                        print("  !! Spotify 404 error in [fading out volume].")
-                elif e.http_status == 401:
-                    print("  !! Spotify Token Expired in [fading out volume]")
-                refreshSpotifyAuthToken()
-                # restart_spotifyd()
-                time.sleep(sleepTimeOnError)
+                handleSpotifyException(e, "Fade-Out Volume")
                 ## Do not add requestQPInfo() here -- should finish fadeout
-
 
             except requests.exceptions.ConnectTimeout:
                 print("  !! Connection timeout while [fading out volume].")
@@ -706,17 +729,7 @@ def fadeInVolume(doFadeOut = False):
 
         # Restart spotifyd with credentials if device is not found
         except spotipy.exceptions.SpotifyException as e:
-            # Check for "device not found" error
-            if e.http_status == 404:
-                if "Device not found" in str(e):
-                    print("  !! Device not found in [fading in volume].")
-                else:
-                    print("  !! Spotify 404 error in [fading in volume].")
-            elif e.http_status == 401:
-                print("  !! Spotify Token Expired in [fading in volume]")
-            refreshSpotifyAuthToken()
-            # restart_spotifyd()
-            time.sleep(sleepTimeOnError)
+            handleSpotifyException(e, "Fade-In Volume")
             ## Do not add requestQPInfo() here -- should finish fadein
 
         except requests.exceptions.ConnectTimeout:
@@ -1211,17 +1224,7 @@ def playSongController():
                         isEarlyTransition = False
 
         except spotipy.exceptions.SpotifyException as e:
-            # Check for "device not found" error
-            if e.http_status == 404:
-                if "Device not found" in str(e):
-                    print("  !! Device not found in [PlaySongController].")
-                else:
-                    print("  !! Spotify 404 error in [PlaySongController].")
-            elif e.http_status == 401:
-                print("  !! Spotify Token Expired in [PlaySongController].")
-            refreshSpotifyAuthToken()
-            # restart_spotifyd()
-            time.sleep(sleepTimeOnError)
+            handleSpotifyException(e, "PlaySongController")
             requestQPInfo()
 
         except requests.exceptions.ConnectTimeout:
@@ -1424,17 +1427,7 @@ def on_broadcast(data):
 
             # Restart spotifyd with credentials if device is not found
             except spotipy.exceptions.SpotifyException as e:
-                # Check for "device not found" error
-                if e.http_status == 404:
-                    if "Device not found" in str(e):
-                        print("  !! Device not found in [broadcast].")
-                    else:
-                        print("  !! Spotify 404 error in [broadcast].")
-                elif e.http_status == 401:
-                    print("  !! Spotify Token Expired in [broadcast]")
-                refreshSpotifyAuthToken()
-                # restart_spotifyd()
-                time.sleep(sleepTimeOnError)
+                handleSpotifyException(e, "Broadcast")
                 requestQPInfo()
 
             except Exception as e:
