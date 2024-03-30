@@ -90,6 +90,9 @@ spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-
 # spotify_redirect_uri = 'http://localhost:8000/callback'
 spotify_redirect_uri = 'https://example.com/callback/'
 
+# Create a lock
+spotify_lock = threading.Lock()
+
 # Global check variables
 # These flags indicate:
 isQPON = False           # a flag represents the reading the potentiometer voltage
@@ -199,7 +202,8 @@ def compareDeviceID():
     device_id_tmp = ''
 
     try:
-        devices = sp.devices()
+        with spotify_lock:
+            devices = sp.devices()
         print("@@ devices: ")
         print(devices)
         if (len(devices['devices']) > 0):
@@ -496,7 +500,8 @@ def potController():
 
                             prevVolume = currVolume
 
-                            devices = sp.devices()['devices']
+                            with spotify_lock:
+                                devices = sp.devices()['devices']
                             if (isVerboseFlagSet(FLAG_PotController)):
                                 print("Current devices: ", devices)
 
@@ -504,7 +509,8 @@ def potController():
                             if (not fadingVolumeFlag):
                                 # set to fixed volume as currVolume can be continuously changing
                                 print("PotController Changing Volume")
-                                sp.volume(prevVolume, device_id)
+                                with spotify_lock:
+                                    sp.volume(prevVolume, device_id)
                             else:
                                 if (isVerboseFlagSet(FLAG_PotController)):
                                     print("  $$ Case 5")
@@ -673,7 +679,8 @@ def fadeInVolume(doFadeOut = False):
                 refVolume = 0
 
             try:
-                sp.volume(refVolume, device_id=device_id)
+                with spotify_lock:
+                    sp.volume(refVolume, device_id=device_id)
 
             # Restart spotifyd with credentials if device is not found
             except spotipy.exceptions.SpotifyException as e:
@@ -725,7 +732,8 @@ def fadeInVolume(doFadeOut = False):
             refVolume = currVolume_copy
 
         try:
-            sp.volume(refVolume, device_id=device_id)
+            with spotify_lock:
+                sp.volume(refVolume, device_id=device_id)
 
         # Restart spotifyd with credentials if device is not found
         except spotipy.exceptions.SpotifyException as e:
@@ -1134,8 +1142,9 @@ def playSongController():
                     currVolume = 0
 
                     # Add a guard before calling the Apotify API
-                    devices = sp.devices()['devices']
-                    sp.pause_playback(device_id=device_id)
+                    with spotify_lock:
+                        devices = sp.devices()['devices']
+                        sp.pause_playback(device_id=device_id)
 
                 # even if the music is not playing, clean up the variables
                 else:
@@ -1193,8 +1202,9 @@ def playSongController():
                             print("  $$ Start playback at that time.")
 
                         # Add a guard before calling the Apotify API
-                        devices = sp.devices()['devices']
-                        sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
+                        with spotify_lock:
+                            devices = sp.devices()['devices']
+                            sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
                         # # No need to fade in volume when there is no transition
                         # fadeInVolume()
 
@@ -1217,8 +1227,9 @@ def playSongController():
                         trackURIs = ["spotify:track:"+currTrackID]
 
                         # Add a guard before calling the Apotify API
-                        devices = sp.devices()['devices']
-                        sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
+                        with spotify_lock:
+                            devices = sp.devices()['devices']
+                            sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
 
                         fadeInVolume(True)
                         isEarlyTransition = False
@@ -1406,7 +1417,8 @@ def on_broadcast(data):
         newTrackInfo = None
         while (newTrackInfo is None):
             try:
-                newTrackInfo = sp.track(currTrackID)
+                with spotify_lock:
+                    newTrackInfo = sp.track(currTrackID)
 
             except (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout):
                 print("  !! Connection or Read timeout while requesting track info.")
