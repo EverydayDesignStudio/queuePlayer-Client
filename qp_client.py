@@ -913,11 +913,14 @@ def queueLightController():
 
     while True:
         try:
-            if (isActive and updateQueueLight):
-                if (isVerboseFlagSet(FLAG_QueueLightController)):
-                    print("  $$ Update Queue Light signal received.")
+            if isActive and updateQueueLight:
+                    if (isVerboseFlagSet(FLAG_QueueLightController)):
+                        print("  $$ Update Queue Light signal received.")
 
-                colorArrayBuilder(lightInfo)
+                    colorArrayBuilder(lightInfo)
+                    updateQueueLight=False
+            elif not isActive and updateQueueLight:
+                # if updateQueueLight is on but the QP is inActive, ignore the flag
                 updateQueueLight=False
         except Exception as e:
             print(f"  !! An unknown error occurred in [queueLightController]: {str(e)}")
@@ -1470,8 +1473,14 @@ def on_broadcast(data):
         # nextTrackRequested = False
 
     else:
-
         print("[Broadcast] ## Case 3: Same Track in play. I'm already on this track.")
+
+        ### TODO: may not need this if the potentiometer reading works well on recovery.
+        currQueuedTrackIDs = json_data["queuedTrackIDs"]
+        lightInfo = json_data["lightInfo"]
+        if (isVerboseFlagSet(FLAG_QueueLightController)):
+            print("  $$ [Broadcast - Case 3] Setting the queueLight flag.")
+        updateQueueLight = True
 
 
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
