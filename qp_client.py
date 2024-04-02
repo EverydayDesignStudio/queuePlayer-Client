@@ -90,6 +90,9 @@ spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-
 # spotify_redirect_uri = 'http://localhost:8000/callback'
 spotify_redirect_uri = 'https://example.com/callback/'
 
+# Create a lock
+spotify_lock = threading.Lock()
+
 # Global check variables
 # These flags indicate:
 isQPON = False           # a flag represents the reading the potentiometer voltage
@@ -145,10 +148,11 @@ nextTrackRequested = False
 playback=None
 
 #fail-safe recovery
-retry_main = 0
-retry_connection = 0
-RETRY_MAX = 5
-sleepTimeOnError = 3        # when there is an exception, pause for x seconds
+retry_main = 0              # retry count before restarting the entire script
+retry_connection = 0        # retry count for server connection timeout
+retry_DNF = 0               # retry count for Device Not Found error
+RETRY_MAX = 3
+sleepTimeOnError = 2        # when there is an exception, pause for x seconds
 
 ### Verbose and flags for each thread to print lines for debugging
 VERBOSE = True
@@ -198,7 +202,8 @@ def compareDeviceID():
     device_id_tmp = ''
 
     try:
-        devices = sp.devices()
+        with spotify_lock:
+            devices = sp.devices()
         print("@@ devices: ")
         print(devices)
         if (len(devices['devices']) > 0):
@@ -212,42 +217,10 @@ def compareDeviceID():
     return device_id_tmp == device_id
 
 
-# Function to restart spotifyd -- checking the device connection
-def restart_spotifyd():
-    global retry_main, RETRY_MAX
-
-    try:
-        print("Device not found. Reconnecting to Spotify...")
-        subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
-        subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
-        time.sleep(5)  # Wait for Spotifyd to restart
-
-        deviceCheck = compareDeviceID()
-
-    except spotipy.exceptions.SpotifyException as e:
-        if e.http_status == 404 and "Device not found" in str(e):
-            print("  !! Device not found in [restart_spotifyd]. Restarting spotifyd...")
-        if e.http_status == 401:
-            print("  !! Spotify Token Expired when restarting Spotifyd")
-
-        time.sleep(sleepTimeOnError)
-        raise spotipy.exceptions.SpotifyException from e
-
-    except Exception as e:
-        print(f"  !! An error occurred in [restart_spotifyd] while restarting Spotifyd: {str(e)}")
-        time.sleep(sleepTimeOnError)
-        raise
-
-    if (not deviceCheck):
-        print("$$ retrying.. retry_main: {}".format(retry_main))
-        restart_script()
-        time.sleep(sleepTimeOnError)
-
-
 def retryServerConnection():
-    global retry_connection, retry_main
+    global retry_connection
 
-    if (retry_main < RETRY_MAX):
+    if (retry_connection < RETRY_MAX):
         try:
             print ("  !! RETRY MAX reached. Try reconnecting to the server..")
             sio.disconnect()
@@ -255,20 +228,27 @@ def retryServerConnection():
             #sio.connect('https://qp-master-server.herokuapp.com/')
             socketConnection()
         except:
-            restart_script()
+            retry_connection += 1
             raise
 
         retry_connection = 0
+
     else:
+        retry_connection = 0
         restart_script()
 
 def restart_script():
     global retry_main
 
+    print(" ## Restart Script Called.")
+
     if (retry_main >= RETRY_MAX):
+        print(" ## Retry_main count (", retry_main ,") reached RETRY_MAX of ", RETRY_MAX)
+        print(" ## Restarting the qp_client.py..")
+
         # Add any cleanup or state reset logic here
         sio.disconnect()
-        time.sleep(5)  # Optional delay before restarting to avoid immediate restart loop
+        time.sleep(3)  # Optional delay before restarting to avoid immediate restart loop
         print("Restarting the script...")
         python = sys.executable
         os.execl(python, python, *sys.argv)
@@ -281,6 +261,7 @@ def restart_script():
 
     else:
         retry_main += 1
+        print("Retry_main is now: ", retry_main")
 
 # acquires an authenticated spotify token
 def getSpotifyAuthToken():
@@ -302,6 +283,77 @@ def refreshSpotifyAuthToken():
     sp = spotipy.Spotify(auth=spToken)
 
 
+# Function to restart spotifyd -- checking the device connection
+def restart_spotifyd():
+    global retry_main, RETRY_MAX
+
+    try:
+        print("Device not found. Reconnecting to Spotify...")
+        subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
+        subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
+        time.sleep(5)  # Wait for Spotifyd to restart
+
+        deviceCheck = compareDeviceID()
+
+        if (not deviceCheck):
+            print("$$ retrying.. retry_main: {}".format(retry_main))
+
+    except spotipy.exceptions.SpotifyException as e:
+        if e.http_status == 404:
+            if "Device not found" in str(e):
+                print("  !! Device not found in [restart_spotifyd].")
+            else:
+                print("  !! Spotify 404 error in [restart_spotifyd].")
+        if e.http_status == 401:
+            print("  !! Spotify Token Expired when restarting Spotifyd")
+
+        time.sleep(sleepTimeOnError)
+        raise spotipy.exceptions.SpotifyException from e
+
+    except Exception as e:
+        print(f"  !! An error occurred in [restart_spotifyd] while restarting Spotifyd: {str(e)}")
+        time.sleep(sleepTimeOnError)
+        raise
+
+def handleSpotifyException(e, methodNameStr):
+    global retry_DNF, RETRY_MAX
+
+    print("!!@ Handling Spotify Exception..")
+
+    if e.http_status == 404:
+        if "Device not found" in str(e):
+            print("  !! Device not found in [{}].".format(methodNameStr))
+        else:
+            print("  !! Spotify 404 error in [{}].".format(methodNameStr))
+    if e.http_status == 401:
+        print("  !! Spotify Token Expired in [{}]".format(methodNameStr))
+
+    try:
+        print("  !! We're on {} out of {} tries.".format(retry_DNF, RETRY_MAX))
+        if (retry_DNF < RETRY_MAX):
+            print("  !! Case 1: Try refreshing the Spotify Token..")
+            refreshSpotifyAuthToken()
+        else:
+            print("  !! Case 2: Max DeviceNotFound tries reached. Try restarting Spotifyd..")
+            ### restart spotifyd
+            subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
+            subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
+            retry_DNF = 0
+
+        time.sleep(sleepTimeOnError)
+        deviceCheck = compareDeviceID()
+        if (deviceCheck):
+            print("  !! Device Check Passed!")
+            return
+        else:
+            print("  !! Device Check Failed.")
+            retry_DNF += 1
+
+    except:
+        print("  !! Case 3: Exception raised. Raise [DNF] and [retry_main] counters.")
+        retry_DNF += 1
+        restart_script()
+
 # ----------------------------------------------------------
 # Section 1: Client State Control
 
@@ -320,7 +372,7 @@ def potController():
     global prevVolume, currVolume, fadingVolumeFlag
 
     #Voltage variables
-    window_size = 5
+    window_size = 3
     voltage_readings = [0] * window_size  # Initialize with zeros
 
     if (isVerboseFlagSet(FLAG_PotController)):
@@ -396,12 +448,11 @@ def potController():
             ### elif filtered_voltage > 0.1 and not isQPON:
             # when (filtered_voltage >= VOLTAGE_THRESHOLD)
             else:
-                if (isVerboseFlagSet(FLAG_PotController)):
-                    print("  $$ Case 2")
-                    time.sleep(1)
 
                 ### V > Vt, but QP is not ON yet
                 if (not isQPON):
+                    if (isVerboseFlagSet(FLAG_PotController)):
+                        print("  $$ Case 2")
                     isQPON = True
                     print("Potentiometer is turned ON.")
 
@@ -449,7 +500,8 @@ def potController():
 
                             prevVolume = currVolume
 
-                            devices = sp.devices()['devices']
+                            with spotify_lock:
+                                devices = sp.devices()['devices']
                             if (isVerboseFlagSet(FLAG_PotController)):
                                 print("Current devices: ", devices)
 
@@ -457,7 +509,8 @@ def potController():
                             if (not fadingVolumeFlag):
                                 # set to fixed volume as currVolume can be continuously changing
                                 print("PotController Changing Volume")
-                                sp.volume(prevVolume, device_id)
+                                with spotify_lock:
+                                    sp.volume(prevVolume, device_id)
                             else:
                                 if (isVerboseFlagSet(FLAG_PotController)):
                                     print("  $$ Case 5")
@@ -466,14 +519,7 @@ def potController():
 
         # Restart spotifyd with credentials if device is not found
         except spotipy.exceptions.SpotifyException as e:
-            # Check for "device not found" error
-            if e.http_status == 404 and "Device not found" in str(e):
-                print("  !! Device not found in [PotController]. Restarting spotifyd...")
-                restart_spotifyd()
-            elif e.http_status == 401:
-                print("  !! Spotify Token Expired in [PotController]")
-                refreshSpotifyAuthToken()
-            time.sleep(sleepTimeOnError)
+            handleSpotifyException(e, "PotController")
             requestQPInfo()
 
         except requests.exceptions.ConnectTimeout:
@@ -633,20 +679,13 @@ def fadeInVolume(doFadeOut = False):
                 refVolume = 0
 
             try:
-                sp.volume(refVolume, device_id=device_id)
+                with spotify_lock:
+                    sp.volume(refVolume, device_id=device_id)
 
             # Restart spotifyd with credentials if device is not found
             except spotipy.exceptions.SpotifyException as e:
-                # Check for "device not found" error
-                if e.http_status == 404 and "Device not found" in str(e):
-                    print("  !! Device not found when [fading out volume]. Restarting spotifyd...")
-                    restart_spotifyd()
-                elif e.http_status == 401:
-                    print("  !! Spotify Token Expired in [fading out volume]")
-                    refreshSpotifyAuthToken()
-                time.sleep(sleepTimeOnError)
+                handleSpotifyException(e, "Fade-Out Volume")
                 ## Do not add requestQPInfo() here -- should finish fadeout
-
 
             except requests.exceptions.ConnectTimeout:
                 print("  !! Connection timeout while [fading out volume].")
@@ -693,18 +732,12 @@ def fadeInVolume(doFadeOut = False):
             refVolume = currVolume_copy
 
         try:
-            sp.volume(refVolume, device_id=device_id)
+            with spotify_lock:
+                sp.volume(refVolume, device_id=device_id)
 
         # Restart spotifyd with credentials if device is not found
         except spotipy.exceptions.SpotifyException as e:
-            # Check for "device not found" error
-            if e.http_status == 404 and "Device not found" in str(e):
-                print("  !! Device not found when [fading in volume]. Restarting spotifyd...")
-                restart_spotifyd()
-            elif e.http_status == 401:
-                print("  !! Spotify Token Expired in [fading in volume]")
-                refreshSpotifyAuthToken()
-            time.sleep(sleepTimeOnError)
+            handleSpotifyException(e, "Fade-In Volume")
             ## Do not add requestQPInfo() here -- should finish fadein
 
         except requests.exceptions.ConnectTimeout:
@@ -880,11 +913,14 @@ def queueLightController():
 
     while True:
         try:
-            if (isActive and updateQueueLight):
-                if (isVerboseFlagSet(FLAG_QueueLightController)):
-                    print("  $$ Update Queue Light signal received.")
+            if isActive and updateQueueLight:
+                    if (isVerboseFlagSet(FLAG_QueueLightController)):
+                        print("  $$ Update Queue Light signal received.")
 
-                colorArrayBuilder(lightInfo)
+                    colorArrayBuilder(lightInfo)
+                    updateQueueLight=False
+            elif not isActive and updateQueueLight:
+                # if updateQueueLight is on but the QP is inActive, ignore the flag
                 updateQueueLight=False
         except Exception as e:
             print(f"  !! An unknown error occurred in [queueLightController]: {str(e)}")
@@ -1069,7 +1105,7 @@ def notifyTrackFinished(trackID):
 # A simple function to request the most updated QP Info without modifying anything.
 # Need this to recover from any type of disconnection.
 def requestQPInfo():
-    print("  $$ Pause the music and notify the server.")
+    print("  $$ Requesting the updated QP info from the server.")
     res = requests.post(baseUrl+"requestQPInfo", json={"clientID":clientID})
 
 
@@ -1096,7 +1132,7 @@ def playSongController():
 
     while True:
         try:
-            # QP is OFF
+            # QP is INACTIVE
             if not isActive:
                 if (isMusicPlaying):
                     if (isVerboseFlagSet(FLAG_PlaySongController)):
@@ -1109,8 +1145,9 @@ def playSongController():
                     currVolume = 0
 
                     # Add a guard before calling the Apotify API
-                    devices = sp.devices()['devices']
-                    sp.pause_playback(device_id=device_id)
+                    with spotify_lock:
+                        devices = sp.devices()['devices']
+                        sp.pause_playback(device_id=device_id)
 
                 # even if the music is not playing, clean up the variables
                 else:
@@ -1121,7 +1158,7 @@ def playSongController():
                     prevVolume = 0
                     currVolume = 0
 
-            # QP is ON
+            # QP is ACTIVE
             else:
                 if (startTrackTimestamp > 0):
                     elapsed_time = (time.time() - startTrackTimestamp) * 1000
@@ -1168,8 +1205,9 @@ def playSongController():
                             print("  $$ Start playback at that time.")
 
                         # Add a guard before calling the Apotify API
-                        devices = sp.devices()['devices']
-                        sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
+                        with spotify_lock:
+                            devices = sp.devices()['devices']
+                            sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
                         # # No need to fade in volume when there is no transition
                         # fadeInVolume()
 
@@ -1192,21 +1230,15 @@ def playSongController():
                         trackURIs = ["spotify:track:"+currTrackID]
 
                         # Add a guard before calling the Apotify API
-                        devices = sp.devices()['devices']
-                        sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
+                        with spotify_lock:
+                            devices = sp.devices()['devices']
+                            sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
 
                         fadeInVolume(True)
                         isEarlyTransition = False
 
         except spotipy.exceptions.SpotifyException as e:
-            # Check for "device not found" error
-            if e.http_status == 404 and "Device not found" in str(e):
-                print("  !! Device not found in [PlaySongController] Restarting spotifyd...")
-                restart_spotifyd()
-            elif e.http_status == 401:
-                print("  !! Spotify Token Expired in [PlaySongController].")
-                refreshSpotifyAuthToken()
-            time.sleep(sleepTimeOnError)
+            handleSpotifyException(e, "PlaySongController")
             requestQPInfo()
 
         except requests.exceptions.ConnectTimeout:
@@ -1388,7 +1420,8 @@ def on_broadcast(data):
         newTrackInfo = None
         while (newTrackInfo is None):
             try:
-                newTrackInfo = sp.track(currTrackID)
+                with spotify_lock:
+                    newTrackInfo = sp.track(currTrackID)
 
             except (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout):
                 print("  !! Connection or Read timeout while requesting track info.")
@@ -1409,15 +1442,7 @@ def on_broadcast(data):
 
             # Restart spotifyd with credentials if device is not found
             except spotipy.exceptions.SpotifyException as e:
-                # Check for "device not found" error
-                if e.http_status == 404 and "Device not found" in str(e):
-                    print("  !! Device not found in [broadcast]. Restarting spotifyd...")
-                    restart_spotifyd()
-                elif e.http_status == 401:
-                    print("  !! Spotify Token Expired in [broadcast]")
-                    refreshSpotifyAuthToken()
-
-                time.sleep(sleepTimeOnError)
+                handleSpotifyException(e, "Broadcast")
                 requestQPInfo()
 
             except Exception as e:
@@ -1449,6 +1474,13 @@ def on_broadcast(data):
 
     else:
         print("[Broadcast] ## Case 3: Same Track in play. I'm already on this track.")
+
+        ### TODO: may not need this if the potentiometer reading works well on recovery.
+        currQueuedTrackIDs = json_data["queuedTrackIDs"]
+        lightInfo = json_data["lightInfo"]
+        if (isVerboseFlagSet(FLAG_QueueLightController)):
+            print("  $$ [Broadcast - Case 3] Setting the queueLight flag.")
+        updateQueueLight = True
 
 
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
