@@ -261,7 +261,7 @@ def restart_script():
 
     else:
         retry_main += 1
-        print("Retry_main is now: ", retry_main")
+        print("Retry_main is now: ", retry_main)
 
 # acquires an authenticated spotify token
 def getSpotifyAuthToken():
