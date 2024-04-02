@@ -1208,11 +1208,8 @@ def playSongController():
                         with spotify_lock:
                             devices = sp.devices()['devices']
                             sp.start_playback(device_id=device_id, uris=trackURIs, position_ms=elapsedTrackTime)
-                        # # No need to fade in volume when there is no transition
-                        # fadeInVolume()
-
-                        # indicate the song is now playing
-                        isMusicPlaying=True
+                            # indicate the song is now playing
+                            isMusicPlaying=True
 
                 # if music is playing,
                 else:
