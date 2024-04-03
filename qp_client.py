@@ -283,38 +283,10 @@ def refreshSpotifyAuthToken():
     sp = spotipy.Spotify(auth=spToken)
 
 
-# Function to restart spotifyd -- checking the device connection
-def restart_spotifyd():
-    global retry_main, RETRY_MAX
-
-    try:
-        print("Device not found. Reconnecting to Spotify...")
-        subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
-        subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
-        time.sleep(5)  # Wait for Spotifyd to restart
-
-        deviceCheck = compareDeviceID()
-
-        if (not deviceCheck):
-            print("$$ retrying.. retry_main: {}".format(retry_main))
-
-    except spotipy.exceptions.SpotifyException as e:
-        if e.http_status == 404:
-            if "Device not found" in str(e):
-                print("  !! Device not found in [restart_spotifyd].")
-            else:
-                print("  !! Spotify 404 error in [restart_spotifyd].")
-        if e.http_status == 401:
-            print("  !! Spotify Token Expired when restarting Spotifyd")
-
-        time.sleep(sleepTimeOnError)
-        raise spotipy.exceptions.SpotifyException from e
-
-    except Exception as e:
-        print(f"  !! An error occurred in [restart_spotifyd] while restarting Spotifyd: {str(e)}")
-        time.sleep(sleepTimeOnError)
-        raise
-
+# Handle spotify exceptions
+#   - First, it refreshes the Spotify token and retry
+#   - If it doesn't work after 3 tries, restart the spotifyd
+#   - If it still doesn't work, try calling restart_script()
 def handleSpotifyException(e, methodNameStr):
     global retry_DNF, RETRY_MAX
 
