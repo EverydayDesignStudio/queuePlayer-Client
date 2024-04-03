@@ -1132,20 +1132,30 @@ def playSongController():
 
             # QP is ACTIVE
             else:
-                if (startTrackTimestamp > 0):
+
+                if (startTrackTimestamp > 0 and currTrackID != ''):
                     elapsed_time = (time.time() - startTrackTimestamp) * 1000
                     elapsedTrackTime = int(elapsed_time)
 
-                if (currTrackID == ''):
+                    if (isVerboseFlagSet(FLAG_PlaySongController)):
+                        print(f"Total Track Time: ", ms_to_min_sec_string(totalTrackTime))
+                        print(f"Elapsed Track Time: ", ms_to_min_sec_string(elapsedTrackTime))
+                        time.sleep(1)
+
+                elif (startTrackTimestamp < 0):
+                    if (isVerboseFlagSet(FLAG_PlaySongController)):
+                        print("  $$ QP is ON but has no info on when the song started.")
+                    time.sleep(1)
+                    continue
+
+                elif (currTrackID == ''):
                     if (isVerboseFlagSet(FLAG_PlaySongController)):
                         print("  $$ QP is ON but has no trackID yet.")
-                        time.sleep(1)
-                        continue
-
-                if (isVerboseFlagSet(FLAG_PlaySongController)):
-                    print(f"Total Track Time: ", ms_to_min_sec_string(totalTrackTime))
-                    print(f"Elapsed Track Time: ", ms_to_min_sec_string(elapsedTrackTime))
                     time.sleep(1)
+                    continue
+                else:
+                    print("  Unknown condition caught in [PlaysongController], ##1. Raise.")
+                    raise
 
                 # when the song ends, notify the server and start fading out
                 #  ** this condition is not dependant on the music playing, so should be able to handle late recovery
