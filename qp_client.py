@@ -1455,12 +1455,12 @@ def on_broadcast(data):
     else:
         print("[Broadcast] ## Case 3: Same Track in play. I'm already on this track.")
 
-        ### TODO: may not need this if the potentiometer reading works well on recovery.
-        currQueuedTrackIDs = json_data["queuedTrackIDs"]
-        lightInfo = json_data["lightInfo"]
-        if (isVerboseFlagSet(FLAG_QueueLightController)):
-            print("  $$ [Broadcast - Case 3] Setting the queueLight flag.")
-        updateQueueLight = True
+        # ### TODO: may not need this if the potentiometer reading works well on recovery.
+        # currQueuedTrackIDs = json_data["queuedTrackIDs"]
+        # lightInfo = json_data["lightInfo"]
+        # if (isVerboseFlagSet(FLAG_QueueLightController)):
+        #     print("  $$ [Broadcast - Case 3] Setting the queueLight flag.")
+        # updateQueueLight = True
 
 
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
