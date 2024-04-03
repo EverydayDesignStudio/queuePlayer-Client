@@ -1285,15 +1285,16 @@ def on_connect():
 
 
 def on_disconnect():
-    global serverConnCheck, isActive, currTrackID, nextTrackRequested
+    global serverConnCheck, isActive, currTrackID, nextTrackRequested, startTrackTimestamp
 
     serverConnCheck = False
     isActive = False
 
-    # # reset the trackID so when the client is recovered, it can resume
-    # currTrackID = ''
+    # reset the trackID so when the client is recovered, it can resume
+    currTrackID = ''
     isMusicPlaying = False
     nextTrackRequested = False
+    startTrackTimestamp = -1
 
     print('Disconnected from server')
 
