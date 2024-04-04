@@ -1335,138 +1335,140 @@ def on_broadcast(data):
     print(json.dumps(json_data, indent = 2))
     print("    Current client states: ", clientStates)
 
-    # track changes
-    if (json_data["currentTrack"]["trackID"] != currTrackID):
-        print("[Broadcast] ## Case 1: New TrackID Received!")
+    if isActive:
+        # track changes
+        if (json_data["currentTrack"]["trackID"] != currTrackID):
+            print("[Broadcast] ## Case 1: New TrackID Received!")
 
-        if (currBPM != json_data["currentTrack"]["bpm"]):
+            if (currBPM != json_data["currentTrack"]["bpm"]):
+                if (isVerboseFlagSet(FLAG_SocketMessages)):
+                    print("  $$ [Broadcast] New BPM! {} -> {}".format(currBPM, json_data["currentTrack"]["bpm"]))
+
+                currBPM = json_data["currentTrack"]["bpm"]
+                isBPMChanged = True
+
+            # if the Server's startTrackTimestamp (indicates when the next song should start)
+            #    is less (<) than the Client's startTrackTimestamp + the total track time,
+            #       (startTrackTimestamp + totalTrackTime)
+            # it means there is an early transition to the next song.
+            if (json_data["currentTrack"]["startTrackTimestamp"] - startTrackTimestamp > 5 and
+                json_data["currentTrack"]["startTrackTimestamp"] < startTrackTimestamp + (totalTrackTime / 1000)):
+                if (isVerboseFlagSet(FLAG_SocketMessages)):
+                    print("  $$ [Broadcast] Early Transition detected!")
+                    print("  $$   (Server) startTrackTimestamp: ", json_data["currentTrack"]["startTrackTimestamp"])
+                    print("  $$   (Client) startTrackTimestamp: ", startTrackTimestamp)
+                    print("  $$   totalTrackTime: {} ({})".format(totalTrackTime, ms_to_min_sec_string(totalTrackTime)))
+                    print("  $$    --> {} (Server's STTS) <? {} (Client's STTS + totalTrackTime) : ".format(json_data["currentTrack"]["startTrackTimestamp"], startTrackTimestamp + (totalTrackTime/1000)))
+
+                isEarlyTransition = True
+            else:
+                isEarlyTransition = False
+
+            currTrackID = json_data["currentTrack"]["trackID"]
+            currCluster = json_data["currentTrack"]["cluster_number"]
+
+            startTrackTimestamp = json_data["currentTrack"]["startTrackTimestamp"]
+
             if (isVerboseFlagSet(FLAG_SocketMessages)):
-                print("  $$ [Broadcast] New BPM! {} -> {}".format(currBPM, json_data["currentTrack"]["bpm"]))
+                print("  $$ [Broadcast] Update Track Info: ")
+                print("  $$   startTrackTimestamp: ", startTrackTimestamp)
+                print("  $$   TrackID: ", currTrackID)
+                print("  $$   Cluster: ", currCluster)
 
-            currBPM = json_data["currentTrack"]["bpm"]
-            isBPMChanged = True
+            lightInfo = json_data["lightInfo"]
 
-        # if the Server's startTrackTimestamp (indicates when the next song should start)
-        #    is less (<) than the Client's startTrackTimestamp + the total track time,
-        #       (startTrackTimestamp + totalTrackTime)
-        # it means there is an early transition to the next song.
-        if (json_data["currentTrack"]["startTrackTimestamp"] - startTrackTimestamp > 5 and
-            json_data["currentTrack"]["startTrackTimestamp"] < startTrackTimestamp + (totalTrackTime / 1000)):
+            if (isVerboseFlagSet(FLAG_QueueLightController)):
+                print("  $$ [Broadcast - Case 1] Setting the queueLight flag.")
+            updateQueueLight = True
+
+            # change the ring light only when the current track is added by tapping (by anyone)
+            #    or the ring color is actually different -- this is for the clients who joins the queue
+            #
+            if (lightInfo["queueLight1"]["isNewBPM"] or ringLightColor != lightInfo["queueLight1"]["ringLight"]):
+                ringLightColor = lightInfo["queueLight1"]["ringLight"]
+
+                if (isVerboseFlagSet(FLAG_RingLightController)):
+                    print("  $$ [Broadcast] RingLightColor updated!")
+                    print("  $$   Ring light is now: ", ringLightColor)
+
+                # verbose for testing
+                clientX = 0
+                if (ringLightColor == YELLOW):
+                    clientX = 1
+                elif (ringLightColor == GREEN):
+                    clientX = 2
+                elif (ringLightColor == VIOLET):
+                    clientX = 3
+                elif (ringLightColor == ORANGE):
+                    clientX = 4
+                print("##  This track is tapped by Client {}. Change the ring light.".format(clientX))
+
+            newTrackInfo = None
+            while (newTrackInfo is None):
+                try:
+                    with spotify_lock:
+                        newTrackInfo = sp.track(currTrackID)
+
+                except (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout):
+                    print("  !! Connection or Read timeout while requesting track info.")
+                    print("  !! Retrying after a few seconds..")
+                    retry_connection += 1
+                    time.sleep(sleepTimeOnError)
+
+                    if (retry_connection >= RETRY_MAX):
+                        refreshSpotifyAuthToken()
+                        retryServerConnection()
+
+                    requestQPInfo()
+
+                #Last Resort is to restart script
+                # except requests.exceptions.ReadTimeout:
+                    # print("Minor Setback. Restarting the script...")
+                    # restart_script()
+
+                # Restart spotifyd with credentials if device is not found
+                except spotipy.exceptions.SpotifyException as e:
+                    handleSpotifyException(e, "Broadcast")
+                    requestQPInfo()
+
+                except Exception as e:
+                    print(f"  !! An error occurred in [broadcast]: {str(e)}")
+                    time.sleep(sleepTimeOnError)
+                    restart_script()
+                    requestQPInfo()
+
+            currTrackInfo = newTrackInfo
+            totalTrackTime = newTrackInfo['duration_ms']
+
             if (isVerboseFlagSet(FLAG_SocketMessages)):
-                print("  $$ [Broadcast] Early Transition detected!")
-                print("  $$   (Server) startTrackTimestamp: ", json_data["currentTrack"]["startTrackTimestamp"])
-                print("  $$   (Client) startTrackTimestamp: ", startTrackTimestamp)
-                print("  $$   totalTrackTime: {} ({})".format(totalTrackTime, ms_to_min_sec_string(totalTrackTime)))
-                print("  $$    --> {} (Server's STTS) <? {} (Client's STTS + totalTrackTime) : ".format(json_data["currentTrack"]["startTrackTimestamp"], startTrackTimestamp + (totalTrackTime/1000)))
+                print("  $$ [Broadcast] New Track Info: ")
+                # print(currTrackInfo)
 
-            isEarlyTransition = True
+            nextTrackRequested = False
+
+        # When the queue changes, leave the track info and update the light info only
+        elif (json_data["queuedTrackIDs"] != currQueuedTrackIDs):
+            print("[Broadcast] ## Case 2: Same Track in play, but the Queue is updated.")
+
+            currQueuedTrackIDs = json_data["queuedTrackIDs"]
+            lightInfo = json_data["lightInfo"]
+            if (isVerboseFlagSet(FLAG_QueueLightController)):
+                print("  $$ [Broadcast - Case 2] Setting the queueLight flag.")
+            updateQueueLight = True
+            # # may need this here
+            # nextTrackRequested = False
+
         else:
-            isEarlyTransition = False
+            print("[Broadcast] ## Case 3: Same Track in play. I'm already on this track.")
 
-        currTrackID = json_data["currentTrack"]["trackID"]
-        currCluster = json_data["currentTrack"]["cluster_number"]
-
-        startTrackTimestamp = json_data["currentTrack"]["startTrackTimestamp"]
-
-        if (isVerboseFlagSet(FLAG_SocketMessages)):
-            print("  $$ [Broadcast] Update Track Info: ")
-            print("  $$   startTrackTimestamp: ", startTrackTimestamp)
-            print("  $$   TrackID: ", currTrackID)
-            print("  $$   Cluster: ", currCluster)
-
-        lightInfo = json_data["lightInfo"]
-
-        if (isVerboseFlagSet(FLAG_QueueLightController)):
-            print("  $$ [Broadcast - Case 1] Setting the queueLight flag.")
-        updateQueueLight = True
-
-        # change the ring light only when the current track is added by tapping (by anyone)
-        #    or the ring color is actually different -- this is for the clients who joins the queue
-        #
-        if (lightInfo["queueLight1"]["isNewBPM"] or ringLightColor != lightInfo["queueLight1"]["ringLight"]):
-            ringLightColor = lightInfo["queueLight1"]["ringLight"]
-
-            if (isVerboseFlagSet(FLAG_RingLightController)):
-                print("  $$ [Broadcast] RingLightColor updated!")
-                print("  $$   Ring light is now: ", ringLightColor)
-
-            # verbose for testing
-            clientX = 0
-            if (ringLightColor == YELLOW):
-                clientX = 1
-            elif (ringLightColor == GREEN):
-                clientX = 2
-            elif (ringLightColor == VIOLET):
-                clientX = 3
-            elif (ringLightColor == ORANGE):
-                clientX = 4
-            print("##  This track is tapped by Client {}. Change the ring light.".format(clientX))
-
-        newTrackInfo = None
-        while (newTrackInfo is None):
-            try:
-                with spotify_lock:
-                    newTrackInfo = sp.track(currTrackID)
-
-            except (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout):
-                print("  !! Connection or Read timeout while requesting track info.")
-                print("  !! Retrying after a few seconds..")
-                retry_connection += 1
-                time.sleep(sleepTimeOnError)
-
-                if (retry_connection >= RETRY_MAX):
-                    refreshSpotifyAuthToken()
-                    retryServerConnection()
-
-                requestQPInfo()
-
-            #Last Resort is to restart script
-            # except requests.exceptions.ReadTimeout:
-                # print("Minor Setback. Restarting the script...")
-                # restart_script()
-
-            # Restart spotifyd with credentials if device is not found
-            except spotipy.exceptions.SpotifyException as e:
-                handleSpotifyException(e, "Broadcast")
-                requestQPInfo()
-
-            except Exception as e:
-                print(f"  !! An error occurred in [broadcast]: {str(e)}")
-                time.sleep(sleepTimeOnError)
-                restart_script()
-                requestQPInfo()
-
-        currTrackInfo = newTrackInfo
-        totalTrackTime = newTrackInfo['duration_ms']
-
-        if (isVerboseFlagSet(FLAG_SocketMessages)):
-            print("  $$ [Broadcast] New Track Info: ")
-            # print(currTrackInfo)
-
-        nextTrackRequested = False
-
-    # When the queue changes, leave the track info and update the light info only
-    elif (json_data["queuedTrackIDs"] != currQueuedTrackIDs):
-        print("[Broadcast] ## Case 2: Same Track in play, but the Queue is updated.")
-
-        currQueuedTrackIDs = json_data["queuedTrackIDs"]
-        lightInfo = json_data["lightInfo"]
-        if (isVerboseFlagSet(FLAG_QueueLightController)):
-            print("  $$ [Broadcast - Case 2] Setting the queueLight flag.")
-        updateQueueLight = True
-        # # may need this here
-        # nextTrackRequested = False
-
+            # ### TODO: may not need this if the potentiometer reading works well on recovery.
+            # currQueuedTrackIDs = json_data["queuedTrackIDs"]
+            # lightInfo = json_data["lightInfo"]
+            # if (isVerboseFlagSet(FLAG_QueueLightController)):
+            #     print("  $$ [Broadcast - Case 3] Setting the queueLight flag.")
+            # updateQueueLight = True
     else:
-        print("[Broadcast] ## Case 3: Same Track in play. I'm already on this track.")
-
-        # ### TODO: may not need this if the potentiometer reading works well on recovery.
-        # currQueuedTrackIDs = json_data["queuedTrackIDs"]
-        # lightInfo = json_data["lightInfo"]
-        # if (isVerboseFlagSet(FLAG_QueueLightController)):
-        #     print("  $$ [Broadcast - Case 3] Setting the queueLight flag.")
-        # updateQueueLight = True
-
+        print("[Broadcast] ## Case 4: Received JSON but I'm currently inactive.")
 
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
 
