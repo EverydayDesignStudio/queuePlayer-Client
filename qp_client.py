@@ -307,24 +307,29 @@ def handleSpotifyException(e, methodNameStr):
             refreshSpotifyAuthToken()
         else:
             print("  !! Case 2: Max DeviceNotFound tries reached. Try restarting Spotifyd..")
-            ### restart spotifyd
-            subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
-            subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
-            retry_DNF = 0
+            # ### restart spotifyd
+            # subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
+            # subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
+            subprocess.run(["sudo", "systemctl", "restart", "spotifyd.service"], check=True)
+            resetRetryDNF = True
 
         time.sleep(sleepTimeOnError)
         deviceCheck = compareDeviceID()
         if (deviceCheck):
             print("  !! Device Check Passed!")
+            retry_DNF = 0
             return
         else:
             print("  !! Device Check Failed.")
             retry_DNF += 1
+            raise
 
     except:
         print("  !! Case 3: Exception raised. Raise [DNF] and [retry_main] counters.")
-        retry_DNF += 1
-        restart_script()
+        
+        if (retry_DNF > RETRY_MAX):
+            restart_script()
+            retry_DNF = 0
 
 # ----------------------------------------------------------
 # Section 1: Client State Control
