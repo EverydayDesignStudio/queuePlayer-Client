@@ -346,7 +346,7 @@ def setClientInactive():
 def potController():
     global sp, serverConnCheck, device_id, clientStates, retry_connection
     global isQPON, isActive, isMusicPlaying, isFadingToBlack
-    global prevVolume, currVolume, fadingVolumeFlag
+    global prevVolume, currVolume, fadingVolumeFlag, currTrackID, currTrackInfos
 
     #Voltage variables
     window_size = 3
@@ -377,10 +377,10 @@ def potController():
             # filtered_voltage = current_voltage
             if (isVerboseFlagSet(FLAG_PotController)):
                 if (currTrackInfo is not None):
-                    print("  $$ Filtered voltage: {}, isQPON: {}, isActive: {}, isMusicPlaying:{}, currTracID: {} ({})".format(filtered_voltage, isQPON, isActive, isMusicPlaying, currTrackID, currTrackInfo["name"]))
+                    print("  $$ Filtered voltage: {}, isQPON: {}, isActive: {}, isMusicPlaying:{}, currTrackID: {} ({})".format(filtered_voltage, isQPON, isActive, isMusicPlaying, currTrackID, currTrackInfo["name"]))
                 else:
                     print("  $$ Filtered voltage: {}, isQPON: {}, isActive: {}, isMusicPlaying:{}, currTrackID: {}".format(filtered_voltage, isQPON, isActive, isMusicPlaying, currTrackID))
-               time.sleep(1)
+                stime.sleep(1)
 
             # The voltage is lower than the 'active' threshold. The client is now 'inactive'.
             #  (1) pause the playback for this client
