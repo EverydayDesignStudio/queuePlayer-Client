@@ -376,7 +376,7 @@ def potController():
             filtered_voltage = running_average(voltage_readings)
             # filtered_voltage = current_voltage
             if (isVerboseFlagSet(FLAG_PotController)):
-               print("  $$ Filtered voltage: {}, isQPON: {}, isActive: {}, isMusicPlaying:{}".format(filtered_voltage, isQPON, isActive, isMusicPlaying))
+               print("  $$ Filtered voltage: {}, isQPON: {}, isActive: {}, isMusicPlaying:{}, currTrackName: {}({})".format(filtered_voltage, isQPON, isActive, isMusicPlaying, currTrackName, currTrackID))
                time.sleep(1)
 
             # The voltage is lower than the 'active' threshold. The client is now 'inactive'.
