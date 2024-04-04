@@ -326,7 +326,7 @@ def handleSpotifyException(e, methodNameStr):
 
     except:
         print("  !! Case 3: Exception raised. Raise [DNF] and [retry_main] counters.")
-        
+
         if (retry_DNF > RETRY_MAX):
             restart_script()
             retry_DNF = 0
@@ -394,6 +394,12 @@ def potController():
                     # set the flags off so it's not playing the song or detecting any BPM taps
                     isQPON = False
                     isActive = False
+
+                    # forget the track info
+                    currTrackID = ''
+                    currBPM = -1
+                    nextTrackRequested = False
+                    startTrackTimestamp = -1
 
                     # setting the fading flag OFF on inActive
                     fadingVolumeFlag = False
