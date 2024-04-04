@@ -308,9 +308,9 @@ def handleSpotifyException(e, methodNameStr):
         else:
             print("  !! Case 2: Max DeviceNotFound tries reached. Try restarting Spotifyd..")
             # ### restart spotifyd
-            # subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
-            # subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
-            subprocess.run(["sudo", "systemctl", "restart", "spotifyd.service"], check=True)
+            subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
+            subprocess.run(["/home/pi/spotifyd", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
+            # subprocess.run(["sudo", "systemctl", "restart", "/etc/systemd/user/spotifyd.service"], check=True)
             resetRetryDNF = True
 
         time.sleep(sleepTimeOnError)
