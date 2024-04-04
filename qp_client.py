@@ -283,38 +283,10 @@ def refreshSpotifyAuthToken():
     sp = spotipy.Spotify(auth=spToken)
 
 
-# Function to restart spotifyd -- checking the device connection
-def restart_spotifyd():
-    global retry_main, RETRY_MAX
-
-    try:
-        print("Device not found. Reconnecting to Spotify...")
-        subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
-        subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
-        time.sleep(5)  # Wait for Spotifyd to restart
-
-        deviceCheck = compareDeviceID()
-
-        if (not deviceCheck):
-            print("$$ retrying.. retry_main: {}".format(retry_main))
-
-    except spotipy.exceptions.SpotifyException as e:
-        if e.http_status == 404:
-            if "Device not found" in str(e):
-                print("  !! Device not found in [restart_spotifyd].")
-            else:
-                print("  !! Spotify 404 error in [restart_spotifyd].")
-        if e.http_status == 401:
-            print("  !! Spotify Token Expired when restarting Spotifyd")
-
-        time.sleep(sleepTimeOnError)
-        raise spotipy.exceptions.SpotifyException from e
-
-    except Exception as e:
-        print(f"  !! An error occurred in [restart_spotifyd] while restarting Spotifyd: {str(e)}")
-        time.sleep(sleepTimeOnError)
-        raise
-
+# Handle spotify exceptions
+#   - First, it refreshes the Spotify token and retry
+#   - If it doesn't work after 3 tries, restart the spotifyd
+#   - If it still doesn't work, try calling restart_script()
 def handleSpotifyException(e, methodNameStr):
     global retry_DNF, RETRY_MAX
 
@@ -335,24 +307,29 @@ def handleSpotifyException(e, methodNameStr):
             refreshSpotifyAuthToken()
         else:
             print("  !! Case 2: Max DeviceNotFound tries reached. Try restarting Spotifyd..")
-            ### restart spotifyd
-            subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
-            subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
-            retry_DNF = 0
+            # ### restart spotifyd
+            # subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
+            # subprocess.run(["/home/pi/spotifyd", "--no-daemon", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
+            subprocess.run(["sudo", "systemctl", "restart", "spotifyd.service"], check=True)
+            resetRetryDNF = True
 
         time.sleep(sleepTimeOnError)
         deviceCheck = compareDeviceID()
         if (deviceCheck):
             print("  !! Device Check Passed!")
+            retry_DNF = 0
             return
         else:
             print("  !! Device Check Failed.")
             retry_DNF += 1
+            raise
 
     except:
         print("  !! Case 3: Exception raised. Raise [DNF] and [retry_main] counters.")
-        retry_DNF += 1
-        restart_script()
+        
+        if (retry_DNF > RETRY_MAX):
+            restart_script()
+            retry_DNF = 0
 
 # ----------------------------------------------------------
 # Section 1: Client State Control
@@ -1160,20 +1137,30 @@ def playSongController():
 
             # QP is ACTIVE
             else:
-                if (startTrackTimestamp > 0):
+
+                if (startTrackTimestamp > 0 and currTrackID != ''):
                     elapsed_time = (time.time() - startTrackTimestamp) * 1000
                     elapsedTrackTime = int(elapsed_time)
 
-                if (currTrackID == ''):
+                    if (isVerboseFlagSet(FLAG_PlaySongController)):
+                        print(f"Total Track Time: ", ms_to_min_sec_string(totalTrackTime))
+                        print(f"Elapsed Track Time: ", ms_to_min_sec_string(elapsedTrackTime))
+                        time.sleep(1)
+
+                elif (startTrackTimestamp < 0):
+                    if (isVerboseFlagSet(FLAG_PlaySongController)):
+                        print("  $$ QP is ON but has no info on when the song started.")
+                    time.sleep(1)
+                    continue
+
+                elif (currTrackID == ''):
                     if (isVerboseFlagSet(FLAG_PlaySongController)):
                         print("  $$ QP is ON but has no trackID yet.")
-                        time.sleep(1)
-                        continue
-
-                if (isVerboseFlagSet(FLAG_PlaySongController)):
-                    print(f"Total Track Time: ", ms_to_min_sec_string(totalTrackTime))
-                    print(f"Elapsed Track Time: ", ms_to_min_sec_string(elapsedTrackTime))
                     time.sleep(1)
+                    continue
+                else:
+                    print("  Unknown condition caught in [PlaysongController], ##1. Raise.")
+                    raise
 
                 # when the song ends, notify the server and start fading out
                 #  ** this condition is not dependant on the music playing, so should be able to handle late recovery
@@ -1313,15 +1300,16 @@ def on_connect():
 
 
 def on_disconnect():
-    global serverConnCheck, isActive, currTrackID, nextTrackRequested
+    global serverConnCheck, isActive, currTrackID, nextTrackRequested, startTrackTimestamp
 
     serverConnCheck = False
     isActive = False
 
-    # # reset the trackID so when the client is recovered, it can resume
-    # currTrackID = ''
+    # reset the trackID so when the client is recovered, it can resume
+    currTrackID = ''
     isMusicPlaying = False
     nextTrackRequested = False
+    startTrackTimestamp = -1
 
     print('Disconnected from server')
 
@@ -1472,12 +1460,12 @@ def on_broadcast(data):
     else:
         print("[Broadcast] ## Case 3: Same Track in play. I'm already on this track.")
 
-        ### TODO: may not need this if the potentiometer reading works well on recovery.
-        currQueuedTrackIDs = json_data["queuedTrackIDs"]
-        lightInfo = json_data["lightInfo"]
-        if (isVerboseFlagSet(FLAG_QueueLightController)):
-            print("  $$ [Broadcast - Case 3] Setting the queueLight flag.")
-        updateQueueLight = True
+        # ### TODO: may not need this if the potentiometer reading works well on recovery.
+        # currQueuedTrackIDs = json_data["queuedTrackIDs"]
+        # lightInfo = json_data["lightInfo"]
+        # if (isVerboseFlagSet(FLAG_QueueLightController)):
+        #     print("  $$ [Broadcast - Case 3] Setting the queueLight flag.")
+        # updateQueueLight = True
 
 
     print("///////////////////////////////////////////////////////////////////////////////////////////////////////////")
