@@ -276,11 +276,17 @@ def refreshSpotifyAuthToken():
     global sp, spotify_username, client_id, client_secret, spotify_redirect_uri, spotify_scope, spToken
 
     print("Refreshing a Spotify Token..")
-    cache_path = ".cache-" + spotify_username
-    sp_oauth = oauth2.SpotifyOAuth(client_id, client_secret, spotify_redirect_uri, scope=spotify_scope, cache_path=cache_path)
-    token_info = sp_oauth.get_cached_token()
-    spToken = token_info['access_token']
-    sp = spotipy.Spotify(auth=spToken)
+    try:
+        cache_path = ".cache-" + spotify_username
+        sp_oauth = oauth2.SpotifyOAuth(client_id, client_secret, spotify_redirect_uri, scope=spotify_scope, cache_path=cache_path)
+        token_info = sp_oauth.get_cached_token()
+        spToken = token_info['access_token']
+        sp = spotipy.Spotify(auth=spToken)
+    except Exception as e:
+        print(f"  !! An error occurred in [refresh Spotify Token]: {str(e)}")
+        time.sleep(sleepTimeOnError)
+        print("    Try acquiring a new Spotify Token..")
+        getSpotifyAuthToken()
 
 
 # Handle spotify exceptions
@@ -1304,10 +1310,16 @@ def on_connect():
     # sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=False))
 
     ### SPOTIFY AUTH
-    try:
-        refreshSpotifyAuthToken()
-    except:
-        getSpotifyAuthToken()
+    while sp is None:
+        try:
+            if (spToken is None):
+                getSpotifyAuthToken()
+            else:
+                refreshSpotifyAuthToken()
+        except Exception as e:
+            print(f"  !! An error occurred while [initializing the Spotify Object]: {str(e)}")
+            time.sleep(sleepTimeOnError)
+            restart_script()
 
 
 def on_disconnect():
