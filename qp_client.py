@@ -148,6 +148,7 @@ nextTrackRequested = False
 playback=None
 
 #fail-safe recovery
+qpThreads = []
 retry_main = 0              # retry count before restarting the entire script
 retry_connection = 0        # retry count for server connection timeout
 retry_DNF = 0               # retry count for Device Not Found error
@@ -238,17 +239,27 @@ def retryServerConnection():
         restart_script()
 
 def restart_script():
-    global retry_main
+    global retry_main, qpThreads
 
     print(" ## Restart Script Called.")
 
     if (retry_main >= RETRY_MAX):
         print(" ## Retry_main count (", retry_main ,") reached RETRY_MAX of ", RETRY_MAX)
         print(" ## Restarting the qp_client.py..")
+        retry_main = 0
 
+        # Stop and join threads
+        print(" ## Stopping all threads..")
+        for thread in qpThreads:
+            if thread is not None and thread.is_alive():
+                thread.join()
+
+        print(" ## All threads are safely terminated.")
+
+        print(" ## Disconnecting from the server..")
         # Add any cleanup or state reset logic here
         sio.disconnect()
-        time.sleep(3)  # Optional delay before restarting to avoid immediate restart loop
+        time.sleep(sleepTimeOnError)  # Optional delay before restarting to avoid immediate restart loop
         print("Restarting the script...")
         python = sys.executable
         os.execl(python, python, *sys.argv)
@@ -276,11 +287,17 @@ def refreshSpotifyAuthToken():
     global sp, spotify_username, client_id, client_secret, spotify_redirect_uri, spotify_scope, spToken
 
     print("Refreshing a Spotify Token..")
-    cache_path = ".cache-" + spotify_username
-    sp_oauth = oauth2.SpotifyOAuth(client_id, client_secret, spotify_redirect_uri, scope=spotify_scope, cache_path=cache_path)
-    token_info = sp_oauth.get_cached_token()
-    spToken = token_info['access_token']
-    sp = spotipy.Spotify(auth=spToken)
+    try:
+        cache_path = ".cache-" + spotify_username
+        sp_oauth = oauth2.SpotifyOAuth(client_id, client_secret, spotify_redirect_uri, scope=spotify_scope, cache_path=cache_path)
+        token_info = sp_oauth.get_cached_token()
+        spToken = token_info['access_token']
+        sp = spotipy.Spotify(auth=spToken)
+    except Exception as e:
+        print(f"  !! An error occurred in [refresh Spotify Token]: {str(e)}")
+        time.sleep(sleepTimeOnError)
+        print("    Try acquiring a new Spotify Token..")
+        getSpotifyAuthToken()
 
 
 # Handle spotify exceptions
@@ -288,7 +305,7 @@ def refreshSpotifyAuthToken():
 #   - If it doesn't work after 3 tries, restart the spotifyd
 #   - If it still doesn't work, try calling restart_script()
 def handleSpotifyException(e, methodNameStr):
-    global retry_DNF, RETRY_MAX
+    global sp, retry_DNF, RETRY_MAX
 
     print("!!@ Handling Spotify Exception..")
 
@@ -318,6 +335,8 @@ def handleSpotifyException(e, methodNameStr):
         if (deviceCheck):
             print("  !! Device Check Passed!")
             retry_DNF = 0
+            with spotify_lock:
+                sp.volume(prevVolume, device_id)
             return
         else:
             print("  !! Device Check Failed.")
@@ -1302,10 +1321,16 @@ def on_connect():
     # sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=False))
 
     ### SPOTIFY AUTH
-    try:
-        refreshSpotifyAuthToken()
-    except:
-        getSpotifyAuthToken()
+    while sp is None:
+        try:
+            if (spToken is None):
+                getSpotifyAuthToken()
+            else:
+                refreshSpotifyAuthToken()
+        except Exception as e:
+            print(f"  !! An error occurred while [initializing the Spotify Object]: {str(e)}")
+            time.sleep(sleepTimeOnError)
+            restart_script()
 
 
 def on_disconnect():
@@ -1483,9 +1508,10 @@ def on_broadcast(data):
 
 
 def main():
-    global retry_main
+    global retry_main, qpThreads
 
     retry_main = 0
+    qpThreads = []
 
     print("[Main] Start of script.")
 
@@ -1505,48 +1531,56 @@ def main():
                 thread_TapSensor = threading.Thread(target=tapSensor(channel))
             if not thread_TapSensor.is_alive():
                 thread_TapSensor.start()
+                qpThreads.append(thread_TapSensor)
 
             # PlaySong
             if (thread_PlaySong is None):
                 thread_PlaySong = threading.Thread(target=playSongController)
             if not thread_PlaySong.is_alive():
                 thread_PlaySong.start()
+                qpThreads.append(thread_PlaySong)
 
             # Potentiometer
             if (thread_Potentiometer is None):
                 thread_Potentiometer = threading.Thread(target=potController)
             if not thread_Potentiometer.is_alive():
                 thread_Potentiometer.start()
+                qpThreads.append(thread_Potentiometer)
 
             # TapController
             if (thread_TapController is None):
                 thread_TapController = threading.Thread(target=tapController)
             if not thread_TapController.is_alive():
                 thread_TapController.start()
+                qpThreads.append(thread_TapController)
 
             # Queue Light
             if (thread_QueueLight is None):
                 thread_QueueLight = threading.Thread(target=queueLightController)
             if not thread_QueueLight.is_alive():
                 thread_QueueLight.start()
+                qpThreads.append(thread_QueueLight)
 
             # Ring Light
             if (thread_RingLight is None):
                 thread_RingLight = threading.Thread(target=ringLightController)
             if not thread_RingLight.is_alive():
                 thread_RingLight.start()
+                qpThreads.append(thread_RingLight)
 
             # Indicator Light
             if (thread_IndicatorLight is None):
                 thread_IndicatorLight = threading.Thread(target=indicatorLightController)
             if not thread_IndicatorLight.is_alive():
                 thread_IndicatorLight.start()
+                qpThreads.append(thread_IndicatorLight)
 
             # Fade-out to Black
             if (thread_Fadeout is None):
                 thread_Fadeout = threading.Thread(target=fadeoutController)
             if not thread_Fadeout.is_alive():
                 thread_Fadeout.start()
+                qpThreads.append(thread_Fadeout)
 
             #sio.connect('https://qp-master-server.herokuapp.com/')
             socketConnection()
