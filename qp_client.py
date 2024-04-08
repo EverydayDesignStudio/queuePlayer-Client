@@ -380,7 +380,7 @@ def potController():
                     print("  $$ Filtered voltage: {}, isQPON: {}, isActive: {}, isMusicPlaying:{}, currTrackID: {} ({})".format(filtered_voltage, isQPON, isActive, isMusicPlaying, currTrackID, currTrackInfo["name"]))
                 else:
                     print("  $$ Filtered voltage: {}, isQPON: {}, isActive: {}, isMusicPlaying:{}, currTrackID: {}".format(filtered_voltage, isQPON, isActive, isMusicPlaying, currTrackID))
-                stime.sleep(1)
+                time.sleep(1)
 
             # The voltage is lower than the 'active' threshold. The client is now 'inactive'.
             #  (1) pause the playback for this client
