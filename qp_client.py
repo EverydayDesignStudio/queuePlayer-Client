@@ -288,7 +288,7 @@ def refreshSpotifyAuthToken():
 #   - If it doesn't work after 3 tries, restart the spotifyd
 #   - If it still doesn't work, try calling restart_script()
 def handleSpotifyException(e, methodNameStr):
-    global retry_DNF, RETRY_MAX
+    global sp, retry_DNF, RETRY_MAX
 
     print("!!@ Handling Spotify Exception..")
 
@@ -318,6 +318,8 @@ def handleSpotifyException(e, methodNameStr):
         if (deviceCheck):
             print("  !! Device Check Passed!")
             retry_DNF = 0
+            with spotify_lock:
+                sp.volume(prevVolume, device_id)
             return
         else:
             print("  !! Device Check Failed.")
