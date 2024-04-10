@@ -1311,8 +1311,8 @@ def on_connect():
     elif (clientID == 4):
         ### OLO2
         clientColor = ORANGE
-        client_id='bdfdc0993dcc4b9fbff8aac081cad246'
-        client_secret='969f0ef8c11d49429e985aab6dd6ff0c'
+        client_id='2b7657206b1b42d88fbff984be2ed59f'
+        client_secret='7dfc055efd1843459c7ce5f60a91e769'
         spotify_username='7w8j8bkw92mlnz5mwr3lou55g'
         #device_id='651d47833f4c935fadd4a03e43cd5a4c3ec0d170'
         #device_id = '217a37cc1f6f9c7937afbfa6f50424b7d937620f'
