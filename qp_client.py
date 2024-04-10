@@ -16,6 +16,7 @@ import subprocess
 import spotipy
 import spotipy.util as util
 import spotipy.oauth2 as oauth2
+from spotipy.oauth2 import SpotifyOAuth
 from spotipy.exceptions import SpotifyException
 
 import sys
@@ -279,8 +280,22 @@ def getSpotifyAuthToken():
     global sp, spotify_username, client_id, client_secret, spotify_redirect_uri, spotify_scope, spToken
 
     print("Acquiring a Spotify Token..")
-    spToken = util.prompt_for_user_token(username=spotify_username, scope=spotify_scope, client_id = client_id, client_secret = client_secret, redirect_uri = spotify_redirect_uri)
-    sp = spotipy.Spotify(auth=spToken)
+
+    # spToken = util.prompt_for_user_token(username=spotify_username, scope=spotify_scope, client_id = client_id, client_secret = client_secret, redirect_uri = spotify_redirect_uri)
+    # sp = spotipy.Spotify(auth=spToken)
+    retry_auth = 0
+    while sp is None:
+        try:
+            sp = spotify.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, open_browser=False))
+        except Exception as e:
+            print(f"  !! An error occurred while [setting up the Spotify Object]: {str(e)}")
+            time.sleep(sleepTimeOnError)
+            if (retry_auth > RETRY_MAX):
+                retry_auth = 0
+                restart_script()
+            else:
+                retry_auth += 1
+                print("    Try acquiring a Spotify token again..")
 
 # returns a fresh token
 def refreshSpotifyAuthToken():
@@ -321,7 +336,9 @@ def handleSpotifyException(e, methodNameStr):
         print("  !! We're on {} out of {} tries.".format(retry_DNF, RETRY_MAX))
         if (retry_DNF < RETRY_MAX):
             print("  !! Case 1: Try refreshing the Spotify Token..")
-            refreshSpotifyAuthToken()
+            # refreshSpotifyAuthToken()
+            getSpotifyAuthToken()
+
         else:
             print("  !! Case 2: Max DeviceNotFound tries reached. Try restarting Spotifyd..")
             # ### restart spotifyd
@@ -538,7 +555,8 @@ def potController():
         except requests.exceptions.ReadTimeout:
             print("  !! Read timeout in [PotController].")
             print("  !! Try refreshing Spotify token.")
-            refreshSpotifyAuthToken()
+            # refreshSpotifyAuthToken()
+            getSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
             requestQPInfo()
 
@@ -709,7 +727,8 @@ def fadeInVolume(doFadeOut = False):
             except requests.exceptions.ReadTimeout:
                 print("  !! Read timeout while [fading out volume].")
                 print("  !! Try refreshing Spotify token.")
-                refreshSpotifyAuthToken()
+                # refreshSpotifyAuthToken()
+                getSpotifyAuthToken()
                 time.sleep(sleepTimeOnError)
                 ## Do not add requestQPInfo() here -- should finish fadeout
 
@@ -762,7 +781,8 @@ def fadeInVolume(doFadeOut = False):
         except requests.exceptions.ReadTimeout:
             print("  !! Read timeout while [fading in volume].")
             print("  !! Try refreshing Spotify token.")
-            refreshSpotifyAuthToken()
+            # refreshSpotifyAuthToken()
+            getSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
             ## Do not add requestQPInfo() here -- should finish fadein
 
@@ -1264,7 +1284,8 @@ def playSongController():
         except requests.exceptions.ReadTimeout:
             print("  !! Read timeout in [PlaySongController].")
             print("  !! Try refreshing Spotify token.")
-            refreshSpotifyAuthToken()
+            # refreshSpotifyAuthToken()
+            getSpotifyAuthToken()
             time.sleep(sleepTimeOnError)
             requestQPInfo()
 
@@ -1321,16 +1342,21 @@ def on_connect():
     # sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=False))
 
     ### SPOTIFY AUTH
-    while sp is None:
-        try:
-            if (spToken is None):
-                getSpotifyAuthToken()
-            else:
-                refreshSpotifyAuthToken()
-        except Exception as e:
-            print(f"  !! An error occurred while [initializing the Spotify Object]: {str(e)}")
-            time.sleep(sleepTimeOnError)
-            restart_script()
+    getSpotifyAuthToken()
+
+    # while sp is None:
+    #     try:
+    #         if (spToken is None):
+    #             getSpotifyAuthToken()
+    #         else:
+    #             refreshSpotifyAuthToken()
+    #     except Exception as e:
+    #         print(f"  !! An error occurred while [initializing the Spotify Object]: {str(e)}")
+    #         time.sleep(sleepTimeOnError)
+    #         retry_auth += 1
+    #         if retry_auth > RETRY_MAX:
+    #             retry_auth = 0
+    #             restart_script()
 
 
 def on_disconnect():
@@ -1450,7 +1476,8 @@ def on_broadcast(data):
                     time.sleep(sleepTimeOnError)
 
                     if (retry_connection >= RETRY_MAX):
-                        refreshSpotifyAuthToken()
+                        # refreshSpotifyAuthToken()
+                        getSpotifyAuthToken()
                         retryServerConnection()
 
                     requestQPInfo()
