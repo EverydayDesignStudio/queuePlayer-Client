@@ -15,8 +15,8 @@ import subprocess
 
 import spotipy
 import spotipy.util as util
-import spotipy.oauth2 as oauth2
 from spotipy.oauth2 import SpotifyOAuth
+from spotipy.oauth2 import CacheFileHandler
 from spotipy.exceptions import SpotifyException
 
 import sys
@@ -82,7 +82,6 @@ clientColor = (0, 0, 0, 0)
 
 ### Spotify Objects
 sp = None                  # Spotipy Object
-spToken = None             # Spotify Authentication Token
 client_id = None
 client_secret = None
 spotify_username = None
@@ -90,6 +89,8 @@ device_id = None           # raspberry pi's device ID that is linked to the Spot
 spotify_scope='user-library-read,user-modify-playback-state,user-read-currently-playing, user-read-playback-state'
 # spotify_redirect_uri = 'http://localhost:8000/callback'
 spotify_redirect_uri = 'https://example.com/callback/'
+spotify_cache_path = None
+spotify_cache_handler = None
 
 # Create a lock
 spotify_lock = threading.Lock()
@@ -276,47 +277,37 @@ def restart_script():
         print("Retry_main is now: ", retry_main)
 
 # acquires an authenticated spotify token
-def getSpotifyAuthToken():
-    global sp, spotify_username, client_id, client_secret, spotify_redirect_uri, spotify_scope, spToken
+def getSpotifyObject():
+    global sp, spotify_username, client_id, client_secret, spotify_redirect_uri, spotify_scope, spotify_cache_path, spotify_cache_handler
 
-    print("Acquiring a Spotify Token..")
+    print("Acquiring a Spotify Object..")
 
-    # spToken = util.prompt_for_user_token(username=spotify_username, scope=spotify_scope, client_id = client_id, client_secret = client_secret, redirect_uri = spotify_redirect_uri)
-    # sp = spotipy.Spotify(auth=spToken)
     retry_auth = 0
     while retry_auth < RETRY_MAX:
         try:
-            sp = spotify.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, open_browser=False))
-            time.sleep(sleepTimeOnError)
+            auth_manager = SpotifyOAuth(
+                scope = spotify_scope,
+                username = spotify_username,
+                redirect_uri = spotify_redirect_uri,
+                client_id = client_id,
+                client_secret = client_secret,
+                open_browser = False,
+                cache_handler = spotify_cache_handler
+            )
+
+            with spotify_lock:
+                sp = spotipy.Spotify(auth_manager = auth_manager)
+
         except Exception as e:
             print(f"  !! An error occurred while [setting up the Spotify Object]: {str(e)}")
+            print("    Try getting a new Spotify object..")
             retry_auth += 1
-            print("    Try acquiring a Spotify token again..")
+            time.sleep(sleepTimeOnError)
 
-        if sp is not None:
-            break
 
     if (retry_auth >= RETRY_MAX):
-        retry_auth = 0
+        print(f"  !! Retry on getting a Spotify Object hit RETRY_MAX. Calling restart_script().")
         restart_script()
-
-# returns a fresh token
-def refreshSpotifyAuthToken():
-    global sp, spotify_username, client_id, client_secret, spotify_redirect_uri, spotify_scope, spToken
-
-    print("Refreshing a Spotify Token..")
-    try:
-        cache_path = ".cache-" + spotify_username
-        sp_oauth = oauth2.SpotifyOAuth(client_id, client_secret, spotify_redirect_uri, scope=spotify_scope, cache_path=cache_path)
-        token_info = sp_oauth.get_cached_token()
-        spToken = token_info['access_token']
-        sp = spotipy.Spotify(auth=spToken)
-    except Exception as e:
-        print(f"  !! An error occurred in [refresh Spotify Token]: {str(e)}")
-        time.sleep(sleepTimeOnError)
-        print("    Try acquiring a new Spotify Token..")
-        getSpotifyAuthToken()
-
 
 # Handle spotify exceptions
 #   - First, it refreshes the Spotify token and retry
@@ -338,16 +329,14 @@ def handleSpotifyException(e, methodNameStr):
     try:
         print("  !! We're on {} out of {} tries.".format(retry_DNF, RETRY_MAX))
         if (retry_DNF < RETRY_MAX):
-            print("  !! Case 1: Try refreshing the Spotify Token..")
-            # refreshSpotifyAuthToken()
-            getSpotifyAuthToken()
+            print("  !! Case 1: Try getting a new Spotify object..")
+            getSpotifyObject()
 
         else:
             print("  !! Case 2: Max DeviceNotFound tries reached. Try restarting Spotifyd..")
-            # ### restart spotifyd
+            # restart spotifyd
             subprocess.run(["sudo", "pkill", "spotifyd"]) # Kill existing spotifyd processes
             subprocess.run(["/home/pi/spotifyd", "--config-path", "/home/pi/.config/spotifyd/spotifyd.conf"]) # Restart spotifyd (check if this is the correct path)
-            # subprocess.run(["sudo", "systemctl", "restart", "/etc/systemd/user/spotifyd.service"], check=True)
             resetRetryDNF = True
 
         time.sleep(sleepTimeOnError)
@@ -558,8 +547,7 @@ def potController():
         except requests.exceptions.ReadTimeout:
             print("  !! Read timeout in [PotController].")
             print("  !! Try refreshing Spotify token.")
-            # refreshSpotifyAuthToken()
-            getSpotifyAuthToken()
+            getSpotifyObject()
             time.sleep(sleepTimeOnError)
             requestQPInfo()
 
@@ -730,8 +718,7 @@ def fadeInVolume(doFadeOut = False):
             except requests.exceptions.ReadTimeout:
                 print("  !! Read timeout while [fading out volume].")
                 print("  !! Try refreshing Spotify token.")
-                # refreshSpotifyAuthToken()
-                getSpotifyAuthToken()
+                getSpotifyObject()
                 time.sleep(sleepTimeOnError)
                 ## Do not add requestQPInfo() here -- should finish fadeout
 
@@ -784,8 +771,7 @@ def fadeInVolume(doFadeOut = False):
         except requests.exceptions.ReadTimeout:
             print("  !! Read timeout while [fading in volume].")
             print("  !! Try refreshing Spotify token.")
-            # refreshSpotifyAuthToken()
-            getSpotifyAuthToken()
+            getSpotifyObject()
             time.sleep(sleepTimeOnError)
             ## Do not add requestQPInfo() here -- should finish fadein
 
@@ -1287,8 +1273,7 @@ def playSongController():
         except requests.exceptions.ReadTimeout:
             print("  !! Read timeout in [PlaySongController].")
             print("  !! Try refreshing Spotify token.")
-            # refreshSpotifyAuthToken()
-            getSpotifyAuthToken()
+            getSpotifyObject()
             time.sleep(sleepTimeOnError)
             requestQPInfo()
 
@@ -1303,8 +1288,9 @@ def playSongController():
 # Section 6: QueuePlayer Client Main
 
 def on_connect():
-    global serverConnCheck, clientID, clientColor, sp, spToken
+    global serverConnCheck, clientID, clientColor, sp
     global client_id, client_secret, spotify_username, device_id, spotify_scope, spotify_redirect_uri
+    global spotify_cache_path, spotify_cache_handler
 
     serverConnCheck = True
     print('Connected to server')
@@ -1342,24 +1328,10 @@ def on_connect():
         #device_id = '217a37cc1f6f9c7937afbfa6f50424b7d937620f'
         device_id = '3946ec2b810ec4e30489b4704e9a695b1a64da26'
 
-    # sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, username=spotify_username, requests_session=True, requests_timeout=None, open_browser=False))
-
-    ### SPOTIFY AUTH
-    getSpotifyAuthToken()
-
-    # while sp is None:
-    #     try:
-    #         if (spToken is None):
-    #             getSpotifyAuthToken()
-    #         else:
-    #             refreshSpotifyAuthToken()
-    #     except Exception as e:
-    #         print(f"  !! An error occurred while [initializing the Spotify Object]: {str(e)}")
-    #         time.sleep(sleepTimeOnError)
-    #         retry_auth += 1
-    #         if retry_auth > RETRY_MAX:
-    #             retry_auth = 0
-    #             restart_script()
+    spotify_cache_path = ".cache-" + spotify_username
+    spotify_cache_handler = CacheFileHandler(cache_path=cache_path, username=spotify_username)
+    # Get authenticated Spotify Object
+    getSpotifyObject()
 
 
 def on_disconnect():
@@ -1388,7 +1360,7 @@ def on_state_change(data):
 
 
 def on_broadcast(data):
-    global sp, spToken, clientStates, retry_connection
+    global sp, clientStates, retry_connection
     global isMusicPlaying, isActive, lightInfo, currTrackInfo, updateQueueLight
     global currBPM, currTrackID, currCluster, ringLightColor, isBPMChanged
     global elapsedTrackTime, totalTrackTime, startTrackTimestamp, isEarlyTransition, nextTrackRequested, currQueuedTrackIDs
@@ -1479,8 +1451,7 @@ def on_broadcast(data):
                     time.sleep(sleepTimeOnError)
 
                     if (retry_connection >= RETRY_MAX):
-                        # refreshSpotifyAuthToken()
-                        getSpotifyAuthToken()
+                        getSpotifyObject()
                         retryServerConnection()
 
                     requestQPInfo()
