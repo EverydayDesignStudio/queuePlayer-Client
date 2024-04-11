@@ -304,6 +304,9 @@ def getSpotifyObject():
             retry_auth += 1
             time.sleep(sleepTimeOnError)
 
+        if sp is not None:
+            retry_auth = 0
+            break
 
     if (retry_auth >= RETRY_MAX):
         print(f"  !! Retry on getting a Spotify Object hit RETRY_MAX. Calling restart_script().")
