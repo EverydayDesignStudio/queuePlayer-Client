@@ -1329,7 +1329,7 @@ def on_connect():
         device_id = '3946ec2b810ec4e30489b4704e9a695b1a64da26'
 
     spotify_cache_path = ".cache-" + spotify_username
-    spotify_cache_handler = CacheFileHandler(cache_path=cache_path, username=spotify_username)
+    spotify_cache_handler = CacheFileHandler(cache_path=spotify_cache_path, username=spotify_username)
     # Get authenticated Spotify Object
     getSpotifyObject()
 
