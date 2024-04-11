@@ -284,18 +284,21 @@ def getSpotifyAuthToken():
     # spToken = util.prompt_for_user_token(username=spotify_username, scope=spotify_scope, client_id = client_id, client_secret = client_secret, redirect_uri = spotify_redirect_uri)
     # sp = spotipy.Spotify(auth=spToken)
     retry_auth = 0
-    while sp is None:
+    while retry_auth < RETRY_MAX:
         try:
             sp = spotify.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=spotify_redirect_uri, scope=spotify_scope, open_browser=False))
+            time.sleep(sleepTimeOnError)
         except Exception as e:
             print(f"  !! An error occurred while [setting up the Spotify Object]: {str(e)}")
-            time.sleep(sleepTimeOnError)
-            if (retry_auth > RETRY_MAX):
-                retry_auth = 0
-                restart_script()
-            else:
-                retry_auth += 1
-                print("    Try acquiring a Spotify token again..")
+            retry_auth += 1
+            print("    Try acquiring a Spotify token again..")
+
+        if sp is not None:
+            break
+
+    if (retry_auth >= RETRY_MAX):
+        retry_auth = 0
+        restart_script()
 
 # returns a fresh token
 def refreshSpotifyAuthToken():
