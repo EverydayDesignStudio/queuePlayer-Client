@@ -1322,11 +1322,11 @@ def on_connect():
         spotify_username='qjczeruw4padtyh69nxeqzohi'
         device_id = '6b5d83a142591f256666bc28a3eccb56258c5dc7'
     elif (clientID == 4):
-        ### OLO6
+        ### queueplayer4
         clientColor = ORANGE
-        client_id='9859689fa3d5462fbf409443aee55cb4'
-        client_secret='2dbdf90173824f31a7d1cd017bbf9c03'
-        spotify_username='qga7yltmk65ajoxscbfif5m8z'
+        client_id='3bd0a7e5f68648edb437a12882e53413'
+        client_secret='699de043c59d401a8c4ff895742f0b36'
+        spotify_username='31zpunev75bgokztues2vlsdrvni'
         #device_id='651d47833f4c935fadd4a03e43cd5a4c3ec0d170'
         #device_id = '217a37cc1f6f9c7937afbfa6f50424b7d937620f'
         device_id = '3946ec2b810ec4e30489b4704e9a695b1a64da26'
