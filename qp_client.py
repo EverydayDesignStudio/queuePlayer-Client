@@ -151,6 +151,7 @@ playback=None
 
 #fail-safe recovery
 qpThreads = []
+stopQPThreads = False
 retry_main = 0              # retry count before restarting the entire script
 retry_connection = 0        # retry count for server connection timeout
 retry_DNF = 0               # retry count for Device Not Found error
@@ -241,36 +242,14 @@ def retryServerConnection():
         restart_script()
 
 def restart_script():
-    global retry_main, qpThreads
+    global retry_main, stopQPThreads
 
     print(" ## Restart Script Called.")
 
     if (retry_main >= RETRY_MAX):
         print(" ## Retry_main count (", retry_main ,") reached RETRY_MAX of ", RETRY_MAX)
-        print(" ## Restarting the qp_client.py..")
-        retry_main = 0
-
-        # Stop and join threads
-        print(" ## Stopping all threads..")
-        for thread in qpThreads:
-            if thread is not None and thread.is_alive():
-                thread.join()
-
-        print(" ## All threads are safely terminated.")
-
-        print(" ## Disconnecting from the server..")
-        # Add any cleanup or state reset logic here
-        sio.disconnect()
-        time.sleep(sleepTimeOnError)  # Optional delay before restarting to avoid immediate restart loop
-        print("Restarting the script...")
-        python = sys.executable
-        os.execl(python, python, *sys.argv)
-
-        ### Option 2:
-        # python_executable = sys.executable
-        # script_file = __file__
-        # subprocess.call([python_executable, script_file])
-        # sys.exit()
+        print(" ## Stopping all treahds..")
+        stopQPThreads = True
 
     else:
         retry_main += 1
@@ -378,6 +357,7 @@ def potController():
     global sp, serverConnCheck, device_id, clientStates, retry_connection
     global isQPON, isActive, isMusicPlaying, isFadingToBlack
     global prevVolume, currVolume, fadingVolumeFlag, currTrackID, currTrackInfos
+    global stopQPThreads
 
     #Voltage variables
     window_size = 3
@@ -386,7 +366,7 @@ def potController():
     if (isVerboseFlagSet(FLAG_PotController)):
         print("  $$ PotController Initialized.")
 
-    while True:
+    while not stopQPThreads:
     # Inside your main loop where you read the potentiometer voltage
         try:
             # Read potentiometer voltage
@@ -601,12 +581,17 @@ def TapBPM():
 
 # There is a new BPM that just came in, so notify the server to either play a song or add a song to the queue
 def tapController():
-    global isActive, bpmAdded, msLastTap, tapCount, tapInterval
+    global isActive, bpmAdded, msLastTap, tapCount, tapInterval, stopQPThreads
 
     if (isVerboseFlagSet(FLAG_TapController)):
         print("  $$ TapController initialized.")
 
-    while True:
+    # initialize the variables
+    bpmAdded = 0
+    msLastTap = 0
+    tapCount = 0
+
+    while not stopQPThreads:
         try:
             msCurr = int(time.time()*1000)
 
@@ -923,12 +908,12 @@ def fadeToBlack():
 
 
 def queueLightController():
-    global lightInfo, updateQueueLight, isActive
+    global lightInfo, updateQueueLight, isActive, stopQPThreads
 
     if (isVerboseFlagSet(FLAG_QueueLightController)):
         print("  $$ QueueLightController initialized.")
 
-    while True:
+    while not stopQPThreads:
         try:
             if isActive and updateQueueLight:
                     if (isVerboseFlagSet(FLAG_QueueLightController)):
@@ -947,7 +932,7 @@ def queueLightController():
 
 # the ring light indicates the last client tapped
 def ringLightController():
-    global lightInfo, pixels, ringLightColor, isActive, isBPMChanged, currBPM, currTrackID
+    global lightInfo, pixels, ringLightColor, isActive, isBPMChanged, currBPM, currTrackID, stopQPThreads
 
     if (isVerboseFlagSet(FLAG_RingLightController)):
         print("  $$ RingLightController initialized.")
@@ -955,7 +940,7 @@ def ringLightController():
     interval = 0
     beat_interval = 0
 
-    while True:
+    while not stopQPThreads:
         # flash the ring light when the QP is active
         if(isActive and currTrackID != ''):
 
@@ -995,12 +980,12 @@ def ringLightController():
 
 
 def indicatorLightController():
-    global clientID, clientStates
+    global clientID, clientStates, stopQPThreads
 
     if (isVerboseFlagSet(FLAG_IndicatorLightController)):
         print("  $$ IndicatorLightController initialized.")
 
-    while True:
+    while not stopQPThreads:
         try:
             # Client 1 - Green, Violet, Orange
             if(clientID == 1):
@@ -1076,12 +1061,12 @@ def indicatorLightController():
             restart_script()
 
 def fadeoutController():
-    global isFadingToBlack
+    global isFadingToBlack, stopQPThreads
 
     if (isVerboseFlagSet(FLAG_FadeOutController)):
         print("  $$ FadeOutController initialized.")
 
-    while True:
+    while not stopQPThreads:
         try:
             if(isFadingToBlack):
                 print("FadeoutController -- Fading to black..")
@@ -1140,14 +1125,14 @@ def requestQPInfo():
 #      If so, start the fade-out and the song ends
 #      Then, request the server for the next song —> trackFinished
 def playSongController():
-    global sp, device_id, retry_connection
+    global sp, device_id, retry_connection, stopQPThreads
     global currTrackInfo, currTrackID, prevVolume, currVolume, isMusicPlaying, isActive, fadingVolumeFlag, nextTrackRequested
     global startTrackTimestamp, totalTrackTime, elapsedTrackTime, isEarlyTransition
 
     if (isVerboseFlagSet(FLAG_PlaySongController)):
         print("  $$ PlaySongController is initialized.")
 
-    while True:
+    while not stopQPThreads:
         try:
             # QP is INACTIVE
             if not isActive:
@@ -1512,7 +1497,7 @@ def on_broadcast(data):
 
 
 def main():
-    global retry_main, qpThreads
+    global retry_main, qpThreads, stopQPThreads
 
     retry_main = 0
     qpThreads = []
@@ -1528,7 +1513,7 @@ def main():
     thread_IndicatorLight = None
     thread_Fadeout = None
 
-    while (retry_connection < RETRY_MAX):
+    while not stopQPThreads:
         try:
             # TapSensor
             if (thread_TapSensor is None):
@@ -1598,8 +1583,32 @@ def main():
             requestQPInfo()
 
     # If max retries exceeded, restart the script
-    print("Maximum retry count exceeded in [Main]. Attempt to restarting the script.")
-    restart_script()
+    print(" *********************")
+    print(" !! Maximum retry count exceeded in [Main]. Attempt to restarting the script.")
+    print(" !! Restarting the qp_client.py..")
+    retry_main = 0
+
+    # Stop and join threads
+    print(" !! Stopping all threads..")
+    for thread in qpThreads:
+        if thread is not None and thread.is_alive():
+            thread.join()
+
+    print(" !! All threads are safely terminated.")
+
+    print(" !! Disconnecting from the server..")
+    # Add any cleanup or state reset logic here
+    sio.disconnect()
+    time.sleep(sleepTimeOnError)  # Optional delay before restarting to avoid immediate restart loop
+    print("  !! Restarting the script...")
+    python = sys.executable
+    os.execl(python, python, *sys.argv)
+
+    ### Option 2:
+    # python_executable = sys.executable
+    # script_file = __file__
+    # subprocess.call([python_executable, script_file])
+    # sys.exit()
     # ----------------------------------------------------------
 
 # Check if the script is being run directly
