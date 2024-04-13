@@ -586,6 +586,11 @@ def tapController():
     if (isVerboseFlagSet(FLAG_TapController)):
         print("  $$ TapController initialized.")
 
+    # initialize the variables
+    bpmAdded = 0
+    msLastTap = 0
+    tapCount = 0
+
     while not stopQPThreads:
         try:
             msCurr = int(time.time()*1000)
