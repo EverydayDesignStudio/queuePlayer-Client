@@ -63,9 +63,9 @@ GPIO.setup(25,GPIO.OUT)
 
 
 #Tap Sensor Setup
-channel = 17
+TapChannel = 17
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(channel, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+GPIO.setup(TapChannel, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
 
 # ----------------------------------------------------------
 
@@ -653,11 +653,6 @@ def tapSensor(channel):
         else:
             if (isVerboseFlagSet(FLAG_TapController)):
                 print("  $$ Inactive Tap.")
-
-# Add event detection for falling edge with debounce time of 50 ms
-GPIO.add_event_detect(channel, GPIO.BOTH, bouncetime=50)
-# Assign function to GPIO PIN, Run function on change
-GPIO.add_event_callback(channel, tapSensor)
 
 
 def map_to_volume(input_value):
@@ -1526,7 +1521,7 @@ def on_broadcast(data):
 
 
 def main():
-    global retry_main, qpThreads, stopQPThreads
+    global retry_main, qpThreads, stopQPThreads, TapChannel
 
     retry_main = 0
     qpThreads = []
@@ -1536,9 +1531,13 @@ def main():
 
     try:
         ### Initialize Threads
+
         # TapSensor
-        thread_TapSensor = threading.Thread(target=tapSensor(channel))
-        qpThreads.append(thread_TapSensor)
+        # Add event detection for falling edge with debounce time of 50 ms
+        GPIO.add_event_detect(TapChannel, GPIO.BOTH, bouncetime=50)
+        # Assign function to GPIO PIN, Run function on change
+        GPIO.add_event_callback(TapChannel, tapSensor)
+
         # PlaySong
         thread_PlaySong = threading.Thread(target=playSongController)
         qpThreads.append(thread_PlaySong)
@@ -1597,6 +1596,9 @@ def main():
 
     # Stop and join threads
     print(" !! Stopping all threads..")
+    # Remove event detection for TapSensor and callback
+    GPIO.remove_event_detect(TapChannel)
+    # Terminate the rest of QP threads
     for thread in qpThreads:
         if thread is not None and thread.is_alive():
             thread.join()
