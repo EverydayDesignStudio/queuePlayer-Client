@@ -281,7 +281,7 @@ def getSpotifyObject():
             print(f"  !! An error occurred while [setting up the Spotify Object]: {str(e)}")
             print("    Try getting a new Spotify object..")
             retry_auth += 1
-            
+
             if (retry_auth == 3):
                 try:
                     print("    Try clearing the Spotify cache..")
@@ -1291,14 +1291,10 @@ def playSongController():
 # ----------------------------------------------------------
 # Section 6: QueuePlayer Client Main
 
-def on_connect():
-    global serverConnCheck, clientID, clientColor, sp
-    global client_id, client_secret, spotify_username, device_id, spotify_scope, spotify_redirect_uri
+def initSpotify():
+    global sp, clientID, client_id, client_secret, clientColor
+    global spotify_username, device_id, spotify_scope, spotify_redirect_uri
     global spotify_cache_path, spotify_cache_handler
-
-    serverConnCheck = True
-    print('Connected to server')
-    sio.emit('connect_user', { "clientID": clientID } )
 
     if (clientID == 1):
         ### OLO5
@@ -1336,6 +1332,14 @@ def on_connect():
     spotify_cache_handler = CacheFileHandler(cache_path=spotify_cache_path, username=spotify_username)
     # Get authenticated Spotify Object
     getSpotifyObject()
+
+
+def on_connect():
+    global serverConnCheck, clientID
+
+    serverConnCheck = True
+    print('Connected to server')
+    sio.emit('connect_user', { "clientID": clientID } )
 
 
 def on_disconnect():
@@ -1522,80 +1526,63 @@ def main():
 
     retry_main = 0
     qpThreads = []
+    stopQPThreads = False
 
     print("[Main] Start of script.")
 
-    thread_TapSensor = None
-    thread_PlaySong = None
-    thread_Potentiometer = None
-    thread_TapController = None
-    thread_QueueLight = None
-    thread_RingLight = None
-    thread_IndicatorLight = None
-    thread_Fadeout = None
+    try:
+        ### Initialize Threads
+        # TapSensor
+        thread_TapSensor = threading.Thread(target=tapSensor(channel))
+        qpThreads.append(thread_TapSensor)
+        # PlaySong
+        thread_PlaySong = threading.Thread(target=playSongController)
+        qpThreads.append(thread_PlaySong)
+        # Potentiometer
+        thread_Potentiometer = threading.Thread(target=potController)
+        qpThreads.append(thread_Potentiometer)
+        # TapController
+        thread_TapController = threading.Thread(target=tapController)
+        qpThreads.append(thread_TapController)
+        # Queue Light
+        thread_QueueLight = threading.Thread(target=queueLightController)
+        qpThreads.append(thread_QueueLight)
+        # Ring Light
+        thread_RingLight = threading.Thread(target=ringLightController)
+        qpThreads.append(thread_RingLight)
+        # Indicator Light
+        thread_IndicatorLight = threading.Thread(target=indicatorLightController)
+        qpThreads.append(thread_IndicatorLight)
+        # Fade-out to Black
+        thread_Fadeout = threading.Thread(target=fadeoutController)
+        qpThreads.append(thread_Fadeout)
+
+        ### Initialize Spotify Object
+        initSpotify()
+
+        #sio.connect('https://qp-master-server.herokuapp.com/')
+        socketConnection()
+        print("[Main] Socket connection established.")
+
+    except Exception as e:
+        print(f"  !! An unknown error occurred while [Initialization] in [QueuePlayerMain]: {str(e)}")
+        stopQPThreads = True
+        time.sleep(sleepTimeOnError)
 
     while not stopQPThreads:
         try:
-            # TapSensor
-            if (thread_TapSensor is None):
-                thread_TapSensor = threading.Thread(target=tapSensor(channel))
-            if not thread_TapSensor.is_alive():
-                thread_TapSensor.start()
-                qpThreads.append(thread_TapSensor)
+            # Start threads if they are not alive
+            for thread in qpThreads:
+                if not thread.is_alive():
+                    thread.start()
 
-            # PlaySong
-            if (thread_PlaySong is None):
-                thread_PlaySong = threading.Thread(target=playSongController)
-            if not thread_PlaySong.is_alive():
-                thread_PlaySong.start()
-                qpThreads.append(thread_PlaySong)
-
-            # Potentiometer
-            if (thread_Potentiometer is None):
-                thread_Potentiometer = threading.Thread(target=potController)
-            if not thread_Potentiometer.is_alive():
-                thread_Potentiometer.start()
-                qpThreads.append(thread_Potentiometer)
-
-            # TapController
-            if (thread_TapController is None):
-                thread_TapController = threading.Thread(target=tapController)
-            if not thread_TapController.is_alive():
-                thread_TapController.start()
-                qpThreads.append(thread_TapController)
-
-            # Queue Light
-            if (thread_QueueLight is None):
-                thread_QueueLight = threading.Thread(target=queueLightController)
-            if not thread_QueueLight.is_alive():
-                thread_QueueLight.start()
-                qpThreads.append(thread_QueueLight)
-
-            # Ring Light
-            if (thread_RingLight is None):
-                thread_RingLight = threading.Thread(target=ringLightController)
-            if not thread_RingLight.is_alive():
-                thread_RingLight.start()
-                qpThreads.append(thread_RingLight)
-
-            # Indicator Light
-            if (thread_IndicatorLight is None):
-                thread_IndicatorLight = threading.Thread(target=indicatorLightController)
-            if not thread_IndicatorLight.is_alive():
-                thread_IndicatorLight.start()
-                qpThreads.append(thread_IndicatorLight)
-
-            # Fade-out to Black
-            if (thread_Fadeout is None):
-                thread_Fadeout = threading.Thread(target=fadeoutController)
-            if not thread_Fadeout.is_alive():
-                thread_Fadeout.start()
-                qpThreads.append(thread_Fadeout)
-
-            #sio.connect('https://qp-master-server.herokuapp.com/')
-            socketConnection()
-            print("[Main] Socket connection established.")
+            # Wait for the server events
             sio.wait()
+
+            if (stopQPThreads):
+                print(" !! Maximum retries reached. Disconnecting from the server..")
+                sio.disconnect()
+                break
 
         except Exception as e:
             print(f"  !! An unknown error occurred in [QueuePlayerMain]: {str(e)}")
@@ -1614,12 +1601,8 @@ def main():
     for thread in qpThreads:
         if thread is not None and thread.is_alive():
             thread.join()
-
     print(" !! All threads are safely terminated.")
 
-    print(" !! Disconnecting from the server..")
-    # Add any cleanup or state reset logic here
-    sio.disconnect()
     time.sleep(sleepTimeOnError)  # Optional delay before restarting to avoid immediate restart loop
     print("  !! Restarting the script...")
     python = sys.executable
