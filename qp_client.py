@@ -532,12 +532,15 @@ def potController():
             print("  !! Try refreshing Spotify token.")
             getSpotifyObject()
             time.sleep(sleepTimeOnError)
-            requestQPInfo()
 
         except Exception as e:
-            print(f"  !! An error occurred in [PotController]: {str(e)}")
-            time.sleep(sleepTimeOnError)
-            requestQPInfo()
+            print(f"  !! An unknown error occurred in [PotController]: {str(e)}")
+            if sp is None:
+                print("** Waiting for the Spotify Object to be initialized...")
+                getSpotifyObject()
+                time.sleep(sleepTimeOnError)
+            else:
+                restart_script()
 
 # ----------------------------------------------------------
 
@@ -1267,10 +1270,12 @@ def playSongController():
 
         except Exception as e:
             print(f"  !! An unknown error occurred in [PlaySongController]: {str(e)}")
-            time.sleep(sleepTimeOnError)
-            restart_script()
-            requestQPInfo()
-
+            if sp is None:
+                print("** Waiting for the Spotify Object to be initialized...")
+                getSpotifyObject()
+                time.sleep(sleepTimeOnError)
+            else:
+                restart_script()
 
 # ----------------------------------------------------------
 # Section 6: QueuePlayer Client Main
@@ -1456,8 +1461,13 @@ def on_broadcast(data):
 
                 except Exception as e:
                     print(f"  !! An error occurred in [broadcast]: {str(e)}")
-                    time.sleep(sleepTimeOnError)
-                    restart_script()
+                    if sp is None:
+                        print("** Waiting for the Spotify Object to be initialized...")
+                        getSpotifyObject()
+                        time.sleep(sleepTimeOnError)
+                    else:
+                        time.sleep(sleepTimeOnError)
+                        restart_script()
                     requestQPInfo()
 
             currTrackInfo = newTrackInfo
