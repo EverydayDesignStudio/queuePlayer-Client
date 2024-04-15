@@ -281,7 +281,18 @@ def getSpotifyObject():
             print(f"  !! An error occurred while [setting up the Spotify Object]: {str(e)}")
             print("    Try getting a new Spotify object..")
             retry_auth += 1
-            time.sleep(sleepTimeOnError)
+            
+            if (retry_auth == 3):
+                try:
+                    print("    Try clearing the Spotify cache..")
+                    os.remove(spotify_cache_path)
+                    print(f"Spotify cache file: '{spotify_cache_path}' deleted successfully.")
+                except FileNotFoundError:
+                    print(f"Spotify cache file: '{spotify_cache_path}' not found.")
+                except Exception as e:
+                    print(f"An error occurred while deleting the Spotify cache: {e}")
+
+                    time.sleep(sleepTimeOnError)
 
         if sp is not None:
             retry_auth = 0
