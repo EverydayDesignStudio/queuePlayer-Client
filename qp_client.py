@@ -248,8 +248,12 @@ def restart_script():
 
     if (retry_main >= RETRY_MAX):
         print(" ## Retry_main count (", retry_main ,") reached RETRY_MAX of ", RETRY_MAX)
-        print(" ## Stopping all treahds..")
+        print(" ## Maximum retries reached. ")
+        print(" ## Stopping all threads..")
         stopQPThreads = True
+
+        print(" ## Disconnecting from the server..")
+        sio.disconnect()
 
     else:
         retry_main += 1
@@ -1578,11 +1582,6 @@ def main():
 
             # Wait for the server events
             sio.wait()
-
-            if (stopQPThreads):
-                print(" !! Maximum retries reached. Disconnecting from the server..")
-                sio.disconnect()
-                break
 
         except Exception as e:
             print(f"  !! An unknown error occurred in [QueuePlayerMain]: {str(e)}")
